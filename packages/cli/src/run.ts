@@ -2,12 +2,14 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { processSuite } from './core/index.js';
 import { assertViewerBuilt, createHandler, defaultCachePolicy, serve, type CachePolicy } from './server.js';
+import { watchResults, type ResultsWatcher } from './watch.js';
 
 export interface RunArgs {
   root: string;
   port?: number;
   host: string;
   process: boolean;
+  watch?: boolean;
   concurrency?: number;
   maxAge?: number;
   staleWhileRevalidate?: number;
@@ -17,21 +19,37 @@ export interface RunArgs {
 export async function run(argv: RunArgs, dev: boolean) {
   assertViewerBuilt();
   const root = resolve(argv.root);
-  if (argv.process) {
+  const watching = dev && argv.watch;
+  if (argv.process && !watching) {
     const r = await processSuite(root, { concurrency: argv.concurrency });
     console.log(`${r.computed} computed, ${r.skipped} up to date, ${r.failed.length} failed`);
     if (r.failed.length)
       throw new Error(
         `Failed to compare ${r.failed.length} image pair(s): ${r.failed.map((f) => `${f.file}: ${f.error}`).join('; ')}`,
       );
-  } else if (!existsSync(`${root}/index.json`)) {
+  } else if (!argv.process && !existsSync(`${root}/index.json`)) {
     throw new Error(`No index.json in ${root}; run \`fidelity-kit process\` or drop --no-process.`);
   }
   const cache: CachePolicy = {
     maxAge: argv.maxAge ?? defaultCachePolicy.maxAge,
     staleWhileRevalidate: argv.staleWhileRevalidate ?? defaultCachePolicy.staleWhileRevalidate,
   };
-  const server = await serve(createHandler(root, { cache, dev }), argv.port, argv.host);
+  let watcher: ResultsWatcher | undefined;
+  if (watching) {
+    watcher = await watchResults(
+      root,
+      (update) => {
+        if (update.computed || update.failed.length)
+          console.log(`${update.computed} computed, ${update.failed.length} failed`);
+        for (const f of update.failed) console.error(`FAILED ${f.file}: ${f.error}`);
+      },
+      { concurrency: argv.concurrency, process: argv.process },
+    );
+  }
+  const server = await serve(createHandler(root, { cache, dev }), argv.port, argv.host).catch(async (error) => {
+    await watcher?.close();
+    throw error;
+  });
   const address = server.address();
   if (!address || typeof address === 'string') throw new Error('Could not determine the viewer port');
   const host = argv.host === '0.0.0.0' ? 'localhost' : argv.host === '::' ? '::1' : argv.host;

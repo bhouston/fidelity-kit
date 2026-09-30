@@ -89,15 +89,19 @@ export function compareRgb(reference: RawImage, test: RawImage): { metrics: Imag
   };
 }
 
-/** Compares two encoded images (paths or buffers); returns metrics and the delta encoded like the renders. */
+/** Compares two encoded images (paths or buffers); returns metrics and the delta encoded like the renders (an empty buffer when disabled). */
 export async function compareImages(
   reference: string | Buffer,
   test: string | Buffer,
+  options: { delta?: boolean } = {},
 ): Promise<{ metrics: ImageMetrics; width: number; height: number; deltaImage: Buffer }> {
   const [ref, tst] = await Promise.all([readRgb(reference), readRgb(test)]);
   const { metrics, delta } = compareRgb(ref, tst);
-  const deltaImage = await sharp(delta.data, { raw: { width: delta.width, height: delta.height, channels: 3 } })
-    .avif(RESULT_AVIF)
-    .toBuffer();
+  const deltaImage =
+    options.delta === false
+      ? Buffer.alloc(0)
+      : await sharp(delta.data, { raw: { width: delta.width, height: delta.height, channels: 3 } })
+          .avif(RESULT_AVIF)
+          .toBuffer();
   return { metrics, width: ref.width, height: ref.height, deltaImage };
 }

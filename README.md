@@ -18,7 +18,7 @@ If you already have a results folder in the format below:
 npx fidelity-kit dev results
 ```
 
-Open <http://localhost:3000>. `dev` processes new or changed images before starting and serves files without browser caching, so a reload shows your latest render. See the [working example](https://github.com/bhouston/fidelity-kit/tree/main/examples/demo) for a complete suite.
+Open the URL printed by the command (usually <http://localhost:3000>). `dev` processes stale images at startup, then watches for new or changed renders and updates their metrics, deltas, and viewer index. Reload the page to see changes. Files are served without browser caching. See the [working example](https://github.com/bhouston/fidelity-kit/tree/main/examples/demo) for a complete suite.
 
 ## Adopt it in your suite
 
@@ -75,14 +75,18 @@ pnpm exec fidelity-kit dev results
 
 The CLI supports this workflow:
 
-| Command                                  | Use                                                                                                                                             |
-| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `fidelity-kit process results`           | Generate comparison metrics, optional delta images, and the viewer index. Reruns update only stale comparisons; add `--force` to recompute all. |
-| `fidelity-kit dev results`               | Process stale comparisons, then open a local viewer with caching disabled.                                                                      |
-| `fidelity-kit serve results`             | Process stale comparisons, then serve the viewer with browser and CDN caching.                                                                  |
-| `fidelity-kit build results --out site/` | Process stale comparisons and export a site for static hosting.                                                                                 |
+| Command                                  | Use                                                                                                                                                                           |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `fidelity-kit process results`           | Generate comparison metrics, optional delta images, and the viewer index. Reruns update only stale comparisons; add `--force` to recompute all or `--watch` to keep updating. |
+| `fidelity-kit dev results`               | Process stale comparisons, watch new and changed renders, and open a local viewer with caching disabled. Add `--no-watch` to disable watching.                                |
+| `fidelity-kit serve results`             | Process stale comparisons, then serve the viewer with browser and CDN caching.                                                                                                |
+| `fidelity-kit build results --out site/` | Process stale comparisons and export a site for static hosting.                                                                                                               |
 
 `process` computes PSNR, RMSE, MAE, and maximum error for each available comparison. Reference and renderer images in a pair must have the same dimensions. Both `dev` and `serve` start at `localhost:3000` and try higher ports if one is occupied; use `--port` to require a specific port and `--host` to change the bind address. The actual viewer URL is printed at startup. Comparisons run in parallel (default: one per CPU); set `--concurrency <n>` on `process`, `dev`, `serve`, or `build` to change it, or `--concurrency 1` for sequential. To serve results already processed during a build, pass `--no-process`.
+
+Static processing starts comparisons as scenes are discovered. Watch mode retains per-scene dependencies and batches changes through the same concurrency limit. It supports adding/removing scenes and reference or renderer images, and editing scene metadata. Renderer IDs, output/pass IDs, and other `fidelity.json` settings remain fixed until restart; the watcher reports configuration changes that require a restart. Generated metrics, delta images, the index, and temporary files are ignored, so processing cannot trigger a watch loop.
+
+Freshness uses each input image's modification time and byte size, recorded in its metrics file after a successful comparison. Replacing an image with an older-dated file is detected. Files whose timestamp and size both remain unchanged are assumed unchanged; use `--force` to bypass that cache. Existing metrics without input signatures are regenerated once. Removed comparisons disappear from the index; their generated files may remain on disk and are validated before any later reuse.
 
 For example, add scripts to your suite's `package.json`:
 
