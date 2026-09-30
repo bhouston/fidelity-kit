@@ -6,6 +6,7 @@ import { expect, test, vi } from 'vitest';
 import * as comparison from './core/compare.js';
 import { processChanges, processSuite } from './core/process.js';
 import { watchResults } from './watch.js';
+import type { ProgressUpdate } from './core/progress.js';
 
 const image = (value: number) =>
   sharp({ create: { width: 8, height: 8, channels: 3, background: { r: value, g: value, b: value } } })
@@ -33,7 +34,13 @@ test('a changed renderer recomputes only its pair and updates the index; new sce
   await writeFile(changed, await image(140));
   const future = new Date(Date.now() + 2000);
   await utimes(changed, future, future);
-  expect(await processChanges(root, ['one/beauty/a.avif'])).toMatchObject({ computed: 1, failed: [] });
+  const progress: ProgressUpdate[] = [];
+  expect(await processChanges(root, ['one/beauty/a.avif'], (update) => progress.push(update))).toMatchObject({
+    computed: 1,
+    failed: [],
+  });
+  expect(progress.at(-1)).toEqual({ phase: 'Writing index', completed: 1, total: 1, unit: 'files' });
+  expect(progress.find((update) => update.phase === 'Comparing' && update.completed === 1)).toBeDefined();
   const after = await index(root);
   expect(after.metrics['one/beauty/a.vs-ref.metrics.json'].maxError).toBeGreaterThan(0);
   expect(after.metrics['one/beauty/b.vs-ref.metrics.json']).toEqual(before.metrics['one/beauty/b.vs-ref.metrics.json']);

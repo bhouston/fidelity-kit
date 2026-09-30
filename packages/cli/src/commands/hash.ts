@@ -1,6 +1,7 @@
 import { availableParallelism } from 'node:os';
 import { defineCommand } from 'yargs-file-commands';
 import { hashSuite } from '../core/index.js';
+import { createProgress } from '../progress.js';
 
 export const command = defineCommand({
   command: 'hash <root>',
@@ -16,9 +17,13 @@ export const command = defineCommand({
         type: 'number',
         default: availableParallelism(),
         describe: 'Files hashed in parallel (default: os.availableParallelism())',
-      }),
+      })
+      .option('quiet', { type: 'boolean', default: false, describe: 'Suppress progress and summary output' }),
   handler: async (argv) => {
-    const r = await hashSuite(argv.root, { concurrency: argv.concurrency });
-    console.log(`${r.hashed} hashed, ${r.reused} reused, ${r.total} total`);
+    const progress = createProgress('hash', argv.quiet);
+    const r = await hashSuite(argv.root, { concurrency: argv.concurrency, onProgress: progress.update }).finally(
+      progress.finish,
+    );
+    if (!argv.quiet) console.log(`${r.hashed} hashed, ${r.reused} reused, ${r.total} total`);
   },
 });

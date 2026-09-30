@@ -7,6 +7,7 @@ import { compareImages, type ImageMetrics } from './compare.js';
 import { readConfig, scanScene, scanSuite, type GroupNode, type SceneNode, type Suite } from './scan.js';
 import { deltaFile, imageFile, metricsFile } from './paths.js';
 import type { FidelityConfig } from './schema.js';
+import type { ProgressCallback } from './progress.js';
 
 export interface MetricsRecord extends ImageMetrics {
   width: number;
@@ -23,6 +24,7 @@ export interface ProcessOptions {
   force?: boolean;
   concurrency?: number;
   onCompute?: (file: string) => void;
+  onProgress?: ProgressCallback;
 }
 interface Signature {
   mtimeMs: number;
@@ -100,6 +102,17 @@ export class SuiteProcessor {
   private flushing?: Promise<ProcessResult>;
   private force: boolean;
   private indexDirty = false;
+  private progressCompleted = 0;
+  private progressTotal = 0;
+
+  private reportComparing() {
+    this.opts.onProgress?.({
+      phase: 'Comparing',
+      completed: this.progressCompleted,
+      total: this.progressTotal,
+      unit: 'pairs',
+    });
+  }
 
   private constructor(
     readonly root: string,
@@ -171,6 +184,7 @@ export class SuiteProcessor {
     try {
       this.suite = await scanSuite(this.root, {
         config: this.config,
+        onProgress: this.opts.onProgress,
         onScene: async (scene) => {
           await this.reconcile(scene.path, scene, process);
         },
@@ -233,7 +247,13 @@ export class SuiteProcessor {
               delete this.metrics[key];
             }
             pairs.set(key, pair);
-            if (process && pair.attempted !== signatureKey(inputs)) this.dirty.add(pair);
+            if (process && pair.attempted !== signatureKey(inputs)) {
+              if (!this.dirty.has(pair) && !pair.running) {
+                this.progressTotal++;
+                this.reportComparing();
+              }
+              this.dirty.add(pair);
+            }
           }
         }
       }
@@ -265,6 +285,8 @@ export class SuiteProcessor {
       if (pair.attempted === signatureKey(pair.inputs)) continue;
       pair.running = true;
       const task = this.limit(() => this.processPair(pair)).finally(() => {
+        this.progressCompleted++;
+        this.reportComparing();
         pair.running = false;
         this.active.delete(task);
         this.pump();
@@ -373,6 +395,15 @@ export class SuiteProcessor {
       while (this.pending.size || this.dirty.size || this.active.size) {
         const pending = [...this.pending];
         this.pending.clear();
+        let scanned = 0;
+        const reportScanning = () =>
+          this.opts.onProgress?.({
+            phase: 'Scanning changes',
+            completed: scanned,
+            total: pending.length,
+            unit: 'scenes',
+          });
+        if (pending.length) reportScanning();
         for (const rel of pending) {
           try {
             if (!rel) {
@@ -397,12 +428,15 @@ export class SuiteProcessor {
               error: error instanceof Error ? error.message : String(error),
             });
           }
+          scanned++;
+          reportScanning();
         }
         this.pump();
         if (this.active.size) await Promise.race(this.active);
         else if (!this.pending.size) break; // Remaining dirty nodes belong to an unsettled watcher batch.
       }
       if (this.indexDirty) {
+        this.opts.onProgress?.({ phase: 'Writing index', completed: 0, total: 1, unit: 'files' });
         const index: SuiteIndex = {
           ...this.suite,
           metrics: Object.fromEntries(Object.entries(this.metrics).toSorted(([a], [b]) => a.localeCompare(b))),
@@ -410,9 +444,12 @@ export class SuiteProcessor {
         await mkdir(this.root, { recursive: true });
         await atomicWrite(join(this.root, 'index.json'), JSON.stringify(index, null, 2) + '\n');
         this.indexDirty = false;
+        this.opts.onProgress?.({ phase: 'Writing index', completed: 1, total: 1, unit: 'files' });
       }
     } while (this.pending.size);
     this.force = false;
+    this.progressCompleted = 0;
+    this.progressTotal = 0;
     const result = this.result;
     this.result = emptyResult();
     result.failed.sort((a, b) => a.file.localeCompare(b.file));
@@ -426,12 +463,16 @@ export async function processSuite(root: string, opts: ProcessOptions = {}): Pro
 }
 
 /** One-shot compatibility helper. Watch mode retains its SuiteProcessor instead. */
-export async function processChanges(root: string, paths: Iterable<string>): Promise<ProcessResult> {
-  const processor = await SuiteProcessor.create(root);
+export async function processChanges(
+  root: string,
+  paths: Iterable<string>,
+  onProgress?: ProgressCallback,
+): Promise<ProcessResult> {
+  const processor = await SuiteProcessor.create(root, { onProgress });
   try {
     await processor.initialize(false);
   } catch {
-    return processSuite(root);
+    return processSuite(root, { onProgress });
   }
   processor.notify(paths);
   return processor.flush();

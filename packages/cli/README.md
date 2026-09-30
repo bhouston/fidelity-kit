@@ -84,6 +84,8 @@ The CLI supports this workflow:
 
 `process` computes PSNR, RMSE, MAE, and maximum error for each available comparison. Reference and renderer images in a pair must have the same dimensions. Both `dev` and `serve` start at `localhost:3000` and try higher ports if one is occupied; use `--port` to require a specific port and `--host` to change the bind address. The actual viewer URL is printed at startup. To serve results already processed during a build, pass `--no-process`.
 
+`process`, `dev`, and `hash` show scanning and processing progress on one updating terminal line, including the remaining count and an approximate ETA. Use `--quiet` to suppress progress and summary output; errors are still reported.
+
 For example, add scripts to your suite's `package.json`:
 
 ```json
