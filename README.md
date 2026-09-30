@@ -10,6 +10,10 @@
 
 Your renderer writes images; fidelity-kit handles the comparisons and viewer. Run the viewer locally while developing, serve the results from a container, or export a static site.
 
+## Used by
+
+- [Material Fidelity](https://material-fidelity.ben3d.ca) — a website using fidelity-kit to compare renderer output.
+
 ## Quick start
 
 If you already have a results folder in the format below:
