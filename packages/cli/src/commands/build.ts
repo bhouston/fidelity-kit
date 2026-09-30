@@ -21,7 +21,13 @@ export const command = defineCommand({
     assertViewerBuilt();
     const root = resolve(argv.root);
     const out = resolve(argv.out);
-    if (argv.process) await processSuite(root);
+    if (argv.process) {
+      const result = await processSuite(root);
+      if (result.failed.length)
+        throw new Error(
+          `Failed to compare ${result.failed.length} image pair(s): ${result.failed.map((f) => `${f.file}: ${f.error}`).join('; ')}`,
+        );
+    }
     await cp(viewerDir, out, { recursive: true });
     await cp(root, `${out}/data`, {
       recursive: true,

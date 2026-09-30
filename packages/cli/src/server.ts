@@ -4,6 +4,7 @@ import { pipeline } from 'node:stream/promises';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { relative, resolve as resolvePath, sep } from 'node:path';
+import { realpath } from 'node:fs/promises';
 import {
   fileResponse,
   freshFileResponse,
@@ -59,6 +60,7 @@ export function createHandler(
   const store = new HashStore();
   const bootId = Date.now().toString(36); // keeps ETags of the hash listing from colliding across restarts
   const base = resolvePath(root);
+  const realBase = realpath(base);
   const loaded = dev
     ? undefined
     : readHashFile(root).then((files) => {
@@ -96,6 +98,8 @@ export function createHandler(
           : hashListing(req);
       const full = isDataFile(rel) ? resolveInside(root, rel) : null;
       if (!full) return notFound;
+      const [realRoot, realFile] = await Promise.all([realBase, realpath(full).catch(() => null)]);
+      if (!realFile || (!realFile.startsWith(realRoot + sep) && realFile !== realRoot)) return notFound;
       await loaded;
       const isImage = rel.endsWith('.avif');
       return send(req, full, isImage ? imageCache : undefined, isImage ? new URL(req.url).searchParams.get('v') : null);

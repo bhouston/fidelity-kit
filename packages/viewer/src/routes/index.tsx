@@ -126,7 +126,7 @@ function SceneRow({
   search: ViewSearch;
   view: View;
 }) {
-  const compared = view.compared.filter((r) => scene.images[view.output]?.includes(r));
+  const compared = view.compared;
   const size = sceneSize(index, scene, view);
   return (
     // content-visibility: off-screen rows are neither rendered nor (with reserved image sizes) requested

@@ -19,6 +19,10 @@ export async function run(argv: RunArgs, dev: boolean) {
   if (argv.process) {
     const r = await processSuite(root);
     console.log(`${r.computed} computed, ${r.skipped} up to date, ${r.failed.length} failed`);
+    if (r.failed.length)
+      throw new Error(
+        `Failed to compare ${r.failed.length} image pair(s): ${r.failed.map((f) => `${f.file}: ${f.error}`).join('; ')}`,
+      );
   } else if (!existsSync(`${root}/index.json`)) {
     throw new Error(`No index.json in ${root}; run \`fidelity-kit process\` or drop --no-process.`);
   }

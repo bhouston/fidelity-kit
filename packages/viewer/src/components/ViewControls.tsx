@@ -15,8 +15,46 @@ export function ViewControls({
   onChange: (patch: Partial<ViewSearch>) => void;
 }) {
   const { outputs, delta } = index.config;
+  const selectable = index.config.renderers.filter((r) => r.id !== view.ref);
+  const selected = new Set(view.compared);
+  const toggleRenderer = (id: string) => {
+    const next = new Set(selected);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    onChange({
+      renderers:
+        next.size === selectable.length
+          ? undefined
+          : selectable
+              .filter((r) => next.has(r.id))
+              .map((r) => r.id)
+              .join(',') || '-',
+    });
+  };
   return (
     <>
+      {selectable.length > 0 ? (
+        <details className="relative shrink-0 text-sm">
+          <summary className="cursor-pointer rounded-md border border-input px-3 py-2">
+            Renderers ({selected.size}/{selectable.length})
+          </summary>
+          <div className="absolute right-0 z-50 mt-1 min-w-48 space-y-1 rounded-md border border-border bg-card p-2 shadow-lg">
+            <button
+              className="block w-full px-2 py-1 text-left hover:bg-muted"
+              onClick={() => onChange({ renderers: undefined })}
+              type="button"
+            >
+              All renderers
+            </button>
+            {selectable.map((r) => (
+              <label className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 hover:bg-muted" key={r.id}>
+                <input checked={selected.has(r.id)} onChange={() => toggleRenderer(r.id)} type="checkbox" />
+                {r.label ?? r.id}
+              </label>
+            ))}
+          </div>
+        </details>
+      ) : null}
       {outputs.length > 1 ? (
         <Pick
           label="Output"

@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, stat, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
@@ -57,6 +57,19 @@ test('serves only allowlisted suite files and the viewer', async () => {
   expect(await revalidate({ 'if-none-match': '"other"' })).toBe(200);
   expect(await revalidate({ 'if-modified-since': img.headers.get('last-modified')! })).toBe(304);
   expect(await revalidate({ 'if-modified-since': new Date(0).toUTCString() })).toBe(200);
+});
+
+test('does not serve allowlisted paths through symlinks outside the suite', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'fk-link-'));
+  const root = join(dir, 'root');
+  const assets = join(dir, 'assets');
+  await mkdir(root);
+  await mkdir(assets);
+  await writeFile(join(assets, 'index.html'), '<html>');
+  await writeFile(join(dir, 'secret.txt'), 'secret');
+  await symlink(join(dir, 'secret.txt'), join(root, 'README.md'));
+  const handler = createHandler(root, { assets });
+  expect((await handler(new Request('http://x/data/README.md'))).status).toBe(404);
 });
 
 test('dev mode serves everything fresh: no validators, no caching, conditionals ignored', async () => {
