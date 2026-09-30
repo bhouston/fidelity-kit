@@ -1,5 +1,7 @@
 import { mkdir, readFile, rename, stat, writeFile } from 'node:fs/promises';
+import { availableParallelism } from 'node:os';
 import { dirname, join } from 'node:path';
+import pLimit from 'p-limit';
 import { compareImages, type ImageMetrics } from './compare.js';
 import { allScenes, scanScene, scanSuite, type GroupNode, type SceneNode, type Suite } from './scan.js';
 import { deltaFile, imageFile, metricsFile } from './paths.js';
@@ -33,6 +35,7 @@ async function processPair(
   delta: boolean,
   result: ProcessResult,
   force = false,
+  onCompute?: (file: string) => void,
 ) {
   const dir = join(root, scene.path, output);
   const [refPath, testPath] = [join(dir, imageFile(ref)), join(dir, imageFile(renderer))];
@@ -56,6 +59,7 @@ async function processPair(
     await writeFile(metricsPath, JSON.stringify(rec, null, 2) + '\n');
     if (delta) await writeFile(deltaPath, deltaImage);
     result.computed++;
+    onCompute?.(metricsPath);
     return rec;
   } catch (e) {
     result.failed.push({ file: testPath, error: e instanceof Error ? e.message : String(e) });
@@ -66,29 +70,36 @@ async function processPair(
 /** Writes metrics + delta for every (scene, output, reference, renderer) pair whose outputs are older than either input, then `index.json`. */
 export async function processSuite(
   root: string,
-  opts: { force?: boolean; onCompute?: (file: string) => void } = {},
+  opts: { force?: boolean; concurrency?: number; onCompute?: (file: string) => void } = {},
 ): Promise<ProcessResult> {
   const suite = await scanSuite(root);
   const refs = suite.config.renderers.filter((r) => r.reference).map((r) => r.id);
   const result: ProcessResult = { computed: 0, skipped: 0, failed: [] };
   const validMetrics = new Set<string>();
+  const limit = pLimit(Math.max(1, opts.concurrency ?? availableParallelism()));
+  const tasks: Promise<void>[] = [];
 
   for (const scene of allScenes(suite.root)) {
     for (const [output, renderers] of Object.entries(scene.images)) {
-      const dir = join(root, scene.path, output);
       for (const ref of refs.filter((r) => renderers.includes(r))) {
         for (const r of renderers.filter((x) => x !== ref)) {
-          const metricsRel = `${scene.path}/${output}/${metricsFile(r, ref)}`;
-          const before = result.computed;
-          if (await processPair(root, scene, output, r, ref, suite.config.delta, result, opts.force)) {
-            validMetrics.add(metricsRel);
-            if (result.computed > before) opts.onCompute?.(join(dir, metricsFile(r, ref)));
-          }
+          tasks.push(
+            limit(async () => {
+              const metricsRel = `${scene.path}/${output}/${metricsFile(r, ref)}`;
+              if (
+                await processPair(root, scene, output, r, ref, suite.config.delta, result, opts.force, opts.onCompute)
+              ) {
+                validMetrics.add(metricsRel);
+              }
+            }),
+          );
         }
       }
     }
   }
 
+  await Promise.all(tasks);
+  result.failed.sort((a, b) => a.file.localeCompare(b.file)); // deterministic regardless of completion order
   await writeIndex(root, await scanSuite(root), validMetrics);
   return result;
 }

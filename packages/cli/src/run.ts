@@ -10,6 +10,7 @@ export interface RunArgs {
   host: string;
   process: boolean;
   watch?: boolean;
+  concurrency?: number;
   maxAge?: number;
   staleWhileRevalidate?: number;
 }
@@ -19,7 +20,7 @@ export async function run(argv: RunArgs, dev: boolean) {
   assertViewerBuilt();
   const root = resolve(argv.root);
   if (argv.process) {
-    const r = await processSuite(root);
+    const r = await processSuite(root, { concurrency: argv.concurrency });
     console.log(`${r.computed} computed, ${r.skipped} up to date, ${r.failed.length} failed`);
     if (r.failed.length)
       throw new Error(
