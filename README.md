@@ -1,5 +1,9 @@
 # fidelity-kit
 
+[![NPM Package][npm]][npm-url]
+[![NPM Downloads][npm-downloads]][npmtrends-url]
+[![Tests][tests-badge]][tests-url]
+
 **Compare renderer output without building a comparison site.** fidelity-kit turns a folder of AVIF renders into image quality metrics, visual difference images, and a browsable website. Use it for rendering fidelity suites, visual regression reviews, and side-by-side comparisons of a renderer against one or more references.
 
 Your renderer writes images; fidelity-kit handles the comparisons and viewer. Run the viewer locally while developing, serve the results from a container, or export a static site.
@@ -116,3 +120,10 @@ Open <http://localhost:8080>. `hash` prepares versioned image URLs so repeat vis
 ## Author and sponsor
 
 Created by [Ben Houston](https://github.com/bhouston) and sponsored by [Land of Assets](https://landofassets.com).
+
+[npm]: https://img.shields.io/npm/v/fidelity-kit
+[npm-url]: https://www.npmjs.com/package/fidelity-kit
+[npm-downloads]: https://img.shields.io/npm/dw/fidelity-kit
+[npmtrends-url]: https://www.npmtrends.com/fidelity-kit
+[tests-badge]: https://github.com/bhouston/fidelity-kit/actions/workflows/ci.yml/badge.svg
+[tests-url]: https://github.com/bhouston/fidelity-kit/actions/workflows/ci.yml
