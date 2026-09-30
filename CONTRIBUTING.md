@@ -35,7 +35,7 @@ The Husky pre-commit hook formats and lints staged files (`oxfmt`, `oxlint --fix
 
 ## Releases
 
-Merging to `main` runs CI. Nothing is deployed automatically; publishing `fidelity-kit` to npm is a manual maintainer step.
+Merging to `main` runs CI. Nothing is deployed automatically. A maintainer publishes `fidelity-kit` to npm by dispatching the `release` workflow; see [RELEASING.md](RELEASING.md).
 
 ## Security
 

@@ -8,3 +8,4 @@ coverage
 *.log
 .DS_Store
 packages/cli/viewer
+release-artifacts
