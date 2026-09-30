@@ -4,7 +4,7 @@ Reusable toolkit for renderer fidelity suites: point it at a results folder and 
 
 - **Folder contract:** hierarchy of groups and scenes, tags, several references, several outputs (beauty, AO, ...), markdown for the home page and per scene.
 - **CLI** (`fidelity-kit process <root>`): PSNR / RMSE / MAE / max error and delta heat-maps for stale pairs only, plus `index.json`. `fidelity-kit docgen` emits clidoc/OpenCLI docs.
-- **Viewer** (static SPA: Vite, TanStack Router, Tailwind, shadcn): filter, tag chips, sort, output and reference pickers, optional delta images, swipe comparison. `fidelity-kit serve <root>` serves it (with ETag/304 images) from any results folder; `fidelity-kit build <root> --out site/` exports a static site.
+- **Viewer** (static SPA: Vite, TanStack Router, Tailwind, shadcn): filter, tag chips, sort, output and reference pickers, optional delta images, swipe comparison. `fidelity-kit dev <root>` serves it uncached while you work and `fidelity-kit serve <root>` serves it with ETag/304 and shared-cache headers, from any results folder; `fidelity-kit build <root> --out site/` exports a static site.
 
 See [docs/ADOPTING.md](docs/ADOPTING.md) for the contract, running it and adopting it as a submodule, and [examples/demo](examples/demo) for a working suite.
 

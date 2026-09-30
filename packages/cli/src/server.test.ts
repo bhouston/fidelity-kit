@@ -21,7 +21,7 @@ test('serves only allowlisted suite files and the viewer', async () => {
   ] as const) {
     await writeFile(join(dir, f), c);
   }
-  const get = async (p: string) => createHandler(root, assets)(new Request(`http://x${p}`));
+  const get = async (p: string) => createHandler(root, { assets })(new Request(`http://x${p}`));
   const status = async (p: string) => (await get(p)).status;
 
   expect(await status('/')).toBe(200);
@@ -52,9 +52,39 @@ test('serves only allowlisted suite files and the viewer', async () => {
 
   // validators: If-None-Match, and If-Modified-Since when there is no ETag
   const revalidate = async (h: Record<string, string>) =>
-    (await createHandler(root, assets)(new Request('http://x/data/s/beauty/a.avif', { headers: h }))).status;
+    (await createHandler(root, { assets })(new Request('http://x/data/s/beauty/a.avif', { headers: h }))).status;
   expect(await revalidate({ 'if-none-match': img.headers.get('etag')! })).toBe(304);
   expect(await revalidate({ 'if-none-match': '"other"' })).toBe(200);
   expect(await revalidate({ 'if-modified-since': img.headers.get('last-modified')! })).toBe(304);
   expect(await revalidate({ 'if-modified-since': new Date(0).toUTCString() })).toBe(200);
+});
+
+test('dev mode serves everything fresh: no validators, no caching, conditionals ignored', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'fk-dev-'));
+  const [root, assets] = [join(dir, 'root'), join(dir, 'assets')];
+  await mkdir(join(root, 's', 'beauty'), { recursive: true });
+  await mkdir(assets, { recursive: true });
+  await writeFile(join(assets, 'index.html'), '<html>');
+  await writeFile(join(root, 'index.json'), '{}');
+  const image = join(root, 's', 'beauty', 'a.avif');
+  await writeFile(image, 'one');
+  const dev = createHandler(root, { assets, dev: true });
+  const get = (p: string, headers: Record<string, string> = {}) => dev(new Request(`http://x${p}`, { headers }));
+
+  for (const p of ['/', '/data/index.json', '/data/s/beauty/a.avif']) {
+    const res = await get(p);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('cache-control')).toBe('no-store');
+    expect(res.headers.get('etag')).toBeNull();
+    expect(res.headers.get('last-modified')).toBeNull();
+  }
+  const future = new Date(Date.now() + 60_000).toUTCString();
+  expect((await get('/data/s/beauty/a.avif', { 'if-none-match': '*', 'if-modified-since': future })).status).toBe(200);
+  expect((await get('/data/nope.avif')).status).toBe(404);
+
+  // a modified image is visible on the very next request, with a new size
+  await writeFile(image, 'changed!');
+  const after = await get('/data/s/beauty/a.avif');
+  expect(await after.text()).toBe('changed!');
+  expect(after.headers.get('content-length')).toBe('8');
 });

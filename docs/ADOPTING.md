@@ -60,11 +60,18 @@ Image sizes of a reference and a test must match; mismatches are reported as fai
 
 ## 3. View it
 
+Two modes, same options (`--port 3000`, `--host localhost`, `--no-process`):
+
 ```sh
-npx fidelity-kit serve <root> [--port 3000] [--host localhost] [--no-process]
+npx fidelity-kit dev <root>     # while working on a suite: nothing is cached
+npx fidelity-kit serve <root>   # to share or deploy: lazy ETags + shared-cache headers
 ```
 
-`serve` refreshes stale metrics first (skip with `--no-process`), then serves the viewer and the suite from one small Node server. There is nothing to configure or deploy beyond that directory.
+**`dev`** serves every file fresh on every request: `Cache-Control: no-store`, no `ETag`, no `Last-Modified`, conditional headers ignored (always `200`). Re-render an image, reload, and you see it; there is no hash cache to go stale.
+
+**`serve`** is the cached mode described in "Caching and CDNs" below.
+
+Both commands refresh stale metrics first (skip with `--no-process`), then serves the viewer and the suite from one small Node server. There is nothing to configure or deploy beyond that directory.
 
 The viewer is a static single-page app (Vite, TanStack Router, Tailwind 4, shadcn) using hash routing, so deep links work anywhere. It fetches `/data/index.json`, `/data/**/README.md` and `/data/**/*.avif`; nothing else in the root is readable. Images carry strong ETags (lazy CRC32, re-hashed only when mtime or size changes) and revalidate with `304`.
 
