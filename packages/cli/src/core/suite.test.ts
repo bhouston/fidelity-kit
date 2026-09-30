@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import sharp from 'sharp';
 import { expect, test } from 'vitest';
 import { fileResponse, processSuite, readConfig, scanSuite } from './index.js';
+import type { ProgressUpdate } from './progress.js';
 
 const png = (v: number) =>
   sharp({ create: { width: 8, height: 8, channels: 3, background: { r: v, g: v, b: v } } })
@@ -30,7 +31,15 @@ test('scan, process, staleness, etag', async () => {
     images: { beauty: ['ref', 'a', 'b'] },
   });
 
-  expect(await processSuite(root)).toMatchObject({ computed: 2, skipped: 0, failed: [] });
+  const progress: ProgressUpdate[] = [];
+  expect(await processSuite(root, { onProgress: (update) => progress.push(update) })).toMatchObject({
+    computed: 2,
+    skipped: 0,
+    failed: [],
+  });
+  expect(progress.filter((update) => update.completed === update.total).map((update) => update.phase)).toEqual(
+    expect.arrayContaining(['Scanning', 'Comparing', 'Scanning for index', 'Writing index']),
+  );
   const a = JSON.parse(await readFile(join(dir, 'a.vs-ref.metrics.json'), 'utf8'));
   const b = JSON.parse(await readFile(join(dir, 'b.vs-ref.metrics.json'), 'utf8'));
   expect(a.psnr).toBeNull();

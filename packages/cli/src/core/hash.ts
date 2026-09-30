@@ -6,6 +6,7 @@ import { crc32 } from 'node:zlib';
 import pLimit from 'p-limit';
 import { z } from 'zod';
 import { isDataFile } from './paths.js';
+import type { ProgressCallback } from './progress.js';
 
 export const HASHES_FILE = 'image-hashes.json';
 
@@ -48,6 +49,7 @@ export interface HashSuiteOptions {
   concurrency?: number;
   /** Injectable for tests. */
   hash?: (path: string) => Promise<string>;
+  onProgress?: ProgressCallback;
 }
 export interface HashSuiteResult {
   hashed: number;
@@ -64,27 +66,51 @@ export async function hashSuite(root: string, opts: HashSuiteOptions = {}): Prom
   const { concurrency = availableParallelism(), hash = hashFile } = opts;
   const limit = pLimit(Math.max(1, Math.floor(concurrency)));
   const previous = await readHashFile(root);
-  const rels = (await readdir(root, { recursive: true }))
-    .map((p) => p.split('\\').join('/'))
-    .filter((rel) => rel.endsWith('.avif') && isDataFile(rel))
-    .toSorted();
+  const rels: string[] = [];
+  const pending = [''];
+  let scanned = 0;
+  const scanProgress = () =>
+    opts.onProgress?.({ phase: 'Scanning', completed: scanned, total: scanned + pending.length, unit: 'directories' });
+  scanProgress();
+  while (pending.length) {
+    const dir = pending.pop()!;
+    for (const entry of await readdir(join(root, dir), { withFileTypes: true })) {
+      const rel = dir ? `${dir}/${entry.name}` : entry.name;
+      if (entry.name.startsWith('.')) continue;
+      if (entry.isDirectory()) pending.push(rel);
+      else if (entry.isFile() && rel.endsWith('.avif') && isDataFile(rel)) rels.push(rel);
+    }
+    scanned++;
+    scanProgress();
+  }
+  rels.sort();
   let reused = 0;
+  let completed = 0;
+  const hashProgress = () => opts.onProgress?.({ phase: 'Hashing', completed, total: rels.length, unit: 'images' });
+  hashProgress();
   const entries = await Promise.all(
     rels.map((rel) =>
       limit(async (): Promise<[string, HashEntry]> => {
-        const s = await stat(join(root, rel));
-        const old = previous[rel];
-        if (old && old.size === s.size && old.mtimeMs === s.mtimeMs) {
-          reused++;
-          return [rel, old];
+        try {
+          const s = await stat(join(root, rel));
+          const old = previous[rel];
+          if (old && old.size === s.size && old.mtimeMs === s.mtimeMs) {
+            reused++;
+            return [rel, old];
+          }
+          return [rel, { hash: await hash(join(root, rel)), size: s.size, mtimeMs: s.mtimeMs }];
+        } finally {
+          completed++;
+          hashProgress();
         }
-        return [rel, { hash: await hash(join(root, rel)), size: s.size, mtimeMs: s.mtimeMs }];
       }),
     ),
   );
   const out = join(root, HASHES_FILE);
+  opts.onProgress?.({ phase: 'Writing hashes', completed: 0, total: 1, unit: 'files' });
   const tmp = `${out}.${process.pid}.tmp`;
   await writeFile(tmp, `${JSON.stringify({ version: 1, files: Object.fromEntries(entries) }, null, 2)}\n`);
   await rename(tmp, out);
+  opts.onProgress?.({ phase: 'Writing hashes', completed: 1, total: 1, unit: 'files' });
   return { hashed: entries.length - reused, reused, total: entries.length };
 }

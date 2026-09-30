@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { processSuite } from './core/index.js';
+import { createProgress } from './progress.js';
 import { assertViewerBuilt, createHandler, defaultCachePolicy, serve, type CachePolicy } from './server.js';
 
 export interface RunArgs {
@@ -9,6 +10,7 @@ export interface RunArgs {
   host: string;
   process: boolean;
   concurrency?: number;
+  quiet?: boolean;
   maxAge?: number;
   staleWhileRevalidate?: number;
 }
@@ -18,8 +20,11 @@ export async function run(argv: RunArgs, dev: boolean) {
   assertViewerBuilt();
   const root = resolve(argv.root);
   if (argv.process) {
-    const r = await processSuite(root, { concurrency: argv.concurrency });
-    console.log(`${r.computed} computed, ${r.skipped} up to date, ${r.failed.length} failed`);
+    const progress = createProgress(dev ? 'dev' : 'serve', argv.quiet || !dev);
+    const r = await processSuite(root, { concurrency: argv.concurrency, onProgress: progress.update }).finally(
+      progress.finish,
+    );
+    if (!argv.quiet) console.log(`${r.computed} computed, ${r.skipped} up to date, ${r.failed.length} failed`);
     if (r.failed.length)
       throw new Error(
         `Failed to compare ${r.failed.length} image pair(s): ${r.failed.map((f) => `${f.file}: ${f.error}`).join('; ')}`,
@@ -32,5 +37,6 @@ export async function run(argv: RunArgs, dev: boolean) {
     staleWhileRevalidate: argv.staleWhileRevalidate ?? defaultCachePolicy.staleWhileRevalidate,
   };
   await serve(createHandler(root, { cache, dev }), argv.port, argv.host);
-  console.log(`Serving ${root} at http://${argv.host}:${argv.port}${dev ? ' (dev: nothing cached)' : ''}`);
+  if (!argv.quiet)
+    console.log(`Serving ${root} at http://${argv.host}:${argv.port}${dev ? ' (dev: nothing cached)' : ''}`);
 }
