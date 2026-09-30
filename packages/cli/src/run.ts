@@ -5,7 +5,7 @@ import { assertViewerBuilt, createHandler, defaultCachePolicy, serve, type Cache
 
 export interface RunArgs {
   root: string;
-  port: number;
+  port?: number;
   host: string;
   process: boolean;
   concurrency?: number;
@@ -31,6 +31,11 @@ export async function run(argv: RunArgs, dev: boolean) {
     maxAge: argv.maxAge ?? defaultCachePolicy.maxAge,
     staleWhileRevalidate: argv.staleWhileRevalidate ?? defaultCachePolicy.staleWhileRevalidate,
   };
-  await serve(createHandler(root, { cache, dev }), argv.port, argv.host);
-  console.log(`Serving ${root} at http://${argv.host}:${argv.port}${dev ? ' (dev: nothing cached)' : ''}`);
+  const server = await serve(createHandler(root, { cache, dev }), argv.port, argv.host);
+  const address = server.address();
+  if (!address || typeof address === 'string') throw new Error('Could not determine the viewer port');
+  const host = argv.host === '0.0.0.0' ? 'localhost' : argv.host === '::' ? '::1' : argv.host;
+  const urlHost = host.includes(':') ? `[${host}]` : host;
+  console.log(`Serving ${root}${dev ? ' (dev: nothing cached)' : ''}`);
+  console.log(`  Local: http://${urlHost}:${address.port}/`);
 }

@@ -1,8 +1,48 @@
 import { mkdir, mkdtemp, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { createServer, type Server } from 'node:http';
 import { expect, test } from 'vitest';
-import { createHandler } from './server.js';
+import { createHandler, serve } from './server.js';
+
+const close = (server: Server) => new Promise<void>((resolve) => server.close(() => resolve()));
+
+test('uses the next open port when the default is occupied', async () => {
+  const blocker = createServer();
+  const blocked = await new Promise<boolean>((resolve, reject) => {
+    blocker.once('error', (error: NodeJS.ErrnoException) =>
+      error.code === 'EADDRINUSE' ? resolve(false) : reject(error),
+    );
+    blocker.listen(3000, '127.0.0.1', () => resolve(true));
+  });
+  try {
+    const server = await serve(async () => new Response('viewer'), undefined, '127.0.0.1');
+    try {
+      const address = server.address();
+      if (!address || typeof address === 'string') throw new Error('Expected a TCP address');
+      expect(address.port).toBeGreaterThan(3000);
+      expect(await (await fetch(`http://127.0.0.1:${address.port}/`)).text()).toBe('viewer');
+    } finally {
+      await close(server);
+    }
+  } finally {
+    if (blocked) await close(blocker);
+  }
+});
+
+test('does not change an explicitly requested occupied port', async () => {
+  const blocker = createServer();
+  await new Promise<void>((resolve) => blocker.listen(0, '127.0.0.1', resolve));
+  try {
+    const address = blocker.address();
+    if (!address || typeof address === 'string') throw new Error('Expected a TCP address');
+    await expect(serve(async () => new Response('viewer'), address.port, '127.0.0.1')).rejects.toMatchObject({
+      code: 'EADDRINUSE',
+    });
+  } finally {
+    await close(blocker);
+  }
+});
 
 test('serves only allowlisted suite files and the viewer', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'fk-srv-'));

@@ -110,7 +110,22 @@ export function createHandler(
   };
 }
 
-export function serve(handler: (req: Request) => Promise<Response>, port: number, host: string): Promise<Server> {
+export async function serve(
+  handler: (req: Request) => Promise<Response>,
+  port: number | undefined,
+  host: string,
+): Promise<Server> {
+  for (let candidate = port ?? 3000; candidate <= 65535; candidate++) {
+    try {
+      return await listen(handler, candidate, host);
+    } catch (error) {
+      if (port !== undefined || (error as NodeJS.ErrnoException).code !== 'EADDRINUSE') throw error;
+    }
+  }
+  throw new Error('No open port available from 3000 to 65535');
+}
+
+function listen(handler: (req: Request) => Promise<Response>, port: number, host: string): Promise<Server> {
   const server = createServer(async (nreq, nres) => {
     const headers = new Headers();
     for (const [k, v] of Object.entries(nreq.headers)) if (typeof v === 'string') headers.set(k, v);
@@ -125,5 +140,11 @@ export function serve(handler: (req: Request) => Promise<Response>, port: number
     // Stream with backpressure; a client that navigates away just aborts its transfer.
     await pipeline(Readable.fromWeb(res.body as never), nres).catch(() => {});
   });
-  return new Promise((resolve) => server.listen(port, host, 1024, () => resolve(server)));
+  return new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(port, host, 1024, () => {
+      server.off('error', reject);
+      resolve(server);
+    });
+  });
 }
