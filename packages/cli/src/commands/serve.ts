@@ -12,7 +12,7 @@ export const command = defineCommand({
         demandOption: true,
         describe: 'Suite results directory (contains fidelity.json)',
       })
-      .option('port', { type: 'number', default: 3000, describe: 'Port to listen on' })
+      .option('port', { type: 'number', describe: 'Port to listen on (default: first open port from 3000)' })
       .option('host', { type: 'string', default: 'localhost', describe: 'Interface to bind (0.0.0.0 for all)' })
       .option('max-age', {
         type: 'number',

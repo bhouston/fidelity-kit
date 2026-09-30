@@ -7,7 +7,7 @@ import { watchResults, type ResultsWatcher } from './watch.js';
 
 export interface RunArgs {
   root: string;
-  port: number;
+  port?: number;
   host: string;
   process: boolean;
   watch?: boolean;
@@ -52,12 +52,16 @@ export async function run(argv: RunArgs, dev: boolean) {
       { concurrency: argv.concurrency, process: argv.process, onProgress: progress.update },
     );
   }
-  try {
-    await serve(createHandler(root, { cache, dev }), argv.port, argv.host);
-  } catch (error) {
+  const server = await serve(createHandler(root, { cache, dev }), argv.port, argv.host).catch(async (error) => {
     await watcher?.close();
     throw error;
+  });
+  const address = server.address();
+  if (!address || typeof address === 'string') throw new Error('Could not determine the viewer port');
+  const host = argv.host === '0.0.0.0' ? 'localhost' : argv.host === '::' ? '::1' : argv.host;
+  const urlHost = host.includes(':') ? `[${host}]` : host;
+  if (!argv.quiet) {
+    console.log(`Serving ${root}${dev ? ' (dev: nothing cached)' : ''}`);
+    console.log(`  Local: http://${urlHost}:${address.port}/`);
   }
-  if (!argv.quiet)
-    console.log(`Serving ${root} at http://${argv.host}:${argv.port}${dev ? ' (dev: nothing cached)' : ''}`);
 }

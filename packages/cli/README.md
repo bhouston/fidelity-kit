@@ -18,7 +18,7 @@ If you already have a results folder in the format below:
 npx fidelity-kit dev results
 ```
 
-Open <http://localhost:3000>. `dev` processes new or changed images before starting and serves files without browser caching, so a reload shows your latest render. See the [working example](https://github.com/bhouston/fidelity-kit/tree/main/examples/demo) for a complete suite.
+Open the URL printed by the command (usually <http://localhost:3000>). `dev` processes new or changed images before starting and serves files without browser caching, so a reload shows your latest render. See the [working example](https://github.com/bhouston/fidelity-kit/tree/main/examples/demo) for a complete suite.
 
 ## Adopt it in your suite
 
@@ -82,7 +82,7 @@ The CLI supports this workflow:
 | `fidelity-kit serve results`             | Process stale comparisons, then serve the viewer with browser and CDN caching.                                                                  |
 | `fidelity-kit build results --out site/` | Process stale comparisons and export a site for static hosting.                                                                                 |
 
-`process` computes PSNR, RMSE, MAE, and maximum error for each available comparison. Reference and renderer images in a pair must have the same dimensions. Both `dev` and `serve` listen on `localhost:3000` by default; use `--port` and `--host` to change that. To serve results already processed during a build, pass `--no-process`.
+`process` computes PSNR, RMSE, MAE, and maximum error for each available comparison. Reference and renderer images in a pair must have the same dimensions. Both `dev` and `serve` start at `localhost:3000` and try higher ports if one is occupied; use `--port` to require a specific port and `--host` to change the bind address. The actual viewer URL is printed at startup. To serve results already processed during a build, pass `--no-process`.
 
 `process`, `dev`, and `hash` show scanning and processing progress on one updating terminal line, including the remaining count and an approximate ETA. Use `--quiet` to suppress progress and summary output; errors are still reported.
 
