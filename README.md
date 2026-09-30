@@ -14,3 +14,7 @@ npx fidelity-kit serve <results-dir>
 pnpm install && pnpm build
 node packages/cli/dist/bin.js serve examples/demo
 ```
+
+## Author and sponsor
+
+Created by [Ben Houston](https://github.com/bhouston) and sponsored by Land of Assets.
