@@ -30,6 +30,5 @@
       "id": "ao",
       "label": "Ambient occlusion"
     }
-  ],
-  "delta": true
+  ]
 }

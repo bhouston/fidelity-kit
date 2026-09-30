@@ -92,19 +92,15 @@ export function compareRgb(reference: RawImage, test: RawImage): { metrics: Imag
   };
 }
 
-/** Compares two encoded images; returns metrics and a lossless WebP heatmap (empty when disabled). */
+/** Compares two encoded images (paths or buffers); returns metrics and a lossless WebP heatmap. */
 export async function compareImages(
   reference: string | Buffer,
   test: string | Buffer,
-  options: { delta?: boolean } = {},
 ): Promise<{ metrics: ImageMetrics; width: number; height: number; deltaImage: Buffer }> {
   const [ref, tst] = await Promise.all([readRgb(reference), readRgb(test)]);
   const { metrics, delta } = compareRgb(ref, tst);
-  const deltaImage =
-    options.delta === false
-      ? Buffer.alloc(0)
-      : await sharp(delta.data, { raw: { width: delta.width, height: delta.height, channels: 3 } })
-          .webp(DELTA_WEBP)
-          .toBuffer();
+  const deltaImage = await sharp(delta.data, { raw: { width: delta.width, height: delta.height, channels: 3 } })
+    .webp(DELTA_WEBP)
+    .toBuffer();
   return { metrics, width: ref.width, height: ref.height, deltaImage };
 }
