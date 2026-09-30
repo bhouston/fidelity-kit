@@ -3,7 +3,7 @@ import { useState } from 'react';
 import type { MetricsRecord } from 'fidelity-kit';
 import Header from '#/components/Header';
 import { Markdown } from '#/components/Markdown';
-import { ResultImage } from '#/components/ResultImage';
+import { ResultImage, type ImageSize } from '#/components/ResultImage';
 import { ViewControls } from '#/components/ViewControls';
 import { getReadme } from '#/lib/data';
 import {
@@ -13,6 +13,7 @@ import {
   psnrClassName,
   renderUrl,
   resolveView,
+  sceneSize,
   validateViewSearch,
 } from '#/lib/view';
 
@@ -34,6 +35,7 @@ function SceneDetail() {
   if (!scene) throw notFound();
   const view = resolveView(index, search);
   const compared = view.compared.filter((r) => scene.images[view.output]?.includes(r));
+  const size = sceneSize(index, scene, view);
 
   return (
     <>
@@ -50,7 +52,7 @@ function SceneDetail() {
         <section className="grid gap-4 md:grid-cols-4">
           {[view.ref, ...compared].map((r) => (
             <figure key={r}>
-              <ResultImage alt={r} src={renderUrl(scene, view, r)} />
+              <ResultImage alt={r} size={size} src={renderUrl(scene, view, r)} />
               <figcaption className="mt-1 text-center text-sm text-muted-foreground">
                 {view.label(r)}
                 {r === view.ref ? ' (reference)' : ''}
@@ -68,6 +70,7 @@ function SceneDetail() {
             reference={renderUrl(scene, view, view.ref)}
             refLabel={view.label(view.ref)}
             showDelta={view.showDeltas}
+            size={size}
           />
         ))}
       </div>
@@ -83,6 +86,7 @@ function Comparison({
   delta,
   showDelta,
   metrics,
+  size,
 }: {
   label: string;
   refLabel: string;
@@ -91,6 +95,7 @@ function Comparison({
   delta?: string;
   showDelta: boolean;
   metrics?: MetricsRecord;
+  size?: ImageSize;
 }) {
   const [split, setSplit] = useState(50);
   return (
@@ -113,8 +118,10 @@ function Comparison({
                 alt={refLabel}
                 className="absolute inset-0 block w-full border border-border"
                 decoding="async"
+                height={size?.height}
                 loading="lazy"
                 src={reference}
+                width={size?.width}
                 style={{ clipPath: `inset(0 ${100 - split}% 0 0)` }}
               />
               <div className="pointer-events-none absolute inset-y-0 w-px bg-white" style={{ left: `${split}%` }} />
@@ -129,7 +136,7 @@ function Comparison({
               />
             </div>
           ) : (
-            <ResultImage alt={`${label} comparison`} />
+            <ResultImage alt={`${label} comparison`} size={size} />
           )}
           <figcaption className="mt-1 text-center text-sm text-muted-foreground">
             {refLabel} (left) / {label} (right) — drag to swipe
@@ -137,7 +144,7 @@ function Comparison({
         </figure>
         {showDelta ? (
           <figure>
-            <ResultImage alt={`${label} delta`} src={delta} />
+            <ResultImage alt={`${label} delta`} size={size} src={delta} />
             <figcaption className="mt-1 text-center text-sm text-muted-foreground">{label} delta</figcaption>
           </figure>
         ) : null}

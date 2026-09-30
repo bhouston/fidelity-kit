@@ -1,4 +1,6 @@
 import { createServer, type Server } from 'node:http';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { fileResponse, resolveInside } from './core/etag.js';
@@ -43,7 +45,9 @@ export function serve(handler: (req: Request) => Promise<Response>, port: number
           )
         : new Response('Method not allowed', { status: 405 });
     nres.writeHead(res.status, Object.fromEntries(res.headers));
-    nres.end(nreq.method === 'HEAD' ? undefined : Buffer.from(await res.arrayBuffer()));
+    if (nreq.method === 'HEAD' || !res.body) return void nres.end();
+    // Stream with backpressure; a client that navigates away just aborts its transfer.
+    await pipeline(Readable.fromWeb(res.body as never), nres).catch(() => {});
   });
-  return new Promise((resolve) => server.listen(port, host, () => resolve(server)));
+  return new Promise((resolve) => server.listen(port, host, 1024, () => resolve(server)));
 }

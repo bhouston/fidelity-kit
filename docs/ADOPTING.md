@@ -68,6 +68,8 @@ npx fidelity-kit serve <root> [--port 3000] [--host localhost] [--no-process]
 
 The viewer is a static single-page app (Vite, TanStack Router, Tailwind 4, shadcn) using hash routing, so deep links work anywhere. It fetches `/data/index.json`, `/data/**/README.md` and `/data/**/*.avif`; nothing else in the root is readable. Images carry strong ETags (lazy CRC32, re-hashed only when mtime or size changes) and revalidate with `304`.
 
+Image-heavy pages are the main load, so: bodies are streamed from disk (never held in memory) with backpressure; the ETag is hashed once per file version, and concurrent first requests share that one pass; images are `loading="lazy"` with their aspect ratio reserved from the metrics' `width`/`height` (otherwise every image is 0px tall and the browser fetches the whole page at once), and off-screen scene rows use `content-visibility: auto`. Measured locally on an 80-scene, 520-image page: 26 image requests on first paint, the rest as you scroll; the server handled 100 in-flight requests at ~4.6k req/s cold and ~13k req/s warm, and ~28k req/s of `304`s.
+
 Home page: root `README.md`, tag chips, text filter, sort (name / PSNR), grouped scene rows with reference, renderers, optional delta row and metrics. Scene page: scene `README.md`, swipe comparison, delta image, full metrics. All view state (`q`, `tags`, `output`, `ref`, `deltas`, `sort`) lives in the URL hash.
 
 ### Static export

@@ -44,6 +44,7 @@ test('scan, process, staleness, etag', async () => {
   const url = 'http://x/';
   const first = await fileResponse(new Request(url), join(dir, 'a.avif'));
   const tag = first.headers.get('etag')!;
+  await first.body?.cancel();
   const second = await fileResponse(new Request(url, { headers: { 'if-none-match': tag } }), join(dir, 'a.avif'));
   expect(second.status).toBe(304);
 });

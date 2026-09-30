@@ -71,6 +71,15 @@ export const renderUrl = (scene: SceneNode, v: View, renderer: string) =>
 export const deltaUrl = (index: SuiteIndex, scene: SceneNode, v: View, renderer: string) =>
   metricsOf(index, scene, v, renderer) ? fileUrl(scene.path, v.output, deltaFile(renderer, v.ref)) : undefined;
 
+/** Pixel size of a scene's images in this view (a reference and its test always match), from any metrics record. */
+export function sceneSize(index: SuiteIndex, scene: SceneNode, v: View): { width: number; height: number } | undefined {
+  for (const r of v.compared) {
+    const m = metricsOf(index, scene, v, r);
+    if (m) return { width: m.width, height: m.height };
+  }
+  return undefined;
+}
+
 /** Mean PSNR over the compared renderers (identical = 100 dB); undefined when nothing has metrics. */
 function score(index: SuiteIndex, scene: SceneNode, v: View): number | undefined {
   const values = v.compared.flatMap((r) => {

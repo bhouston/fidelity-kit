@@ -16,6 +16,7 @@ import {
   psnrClassName,
   renderUrl,
   resolveView,
+  sceneSize,
   selectScenes,
   validateViewSearch,
   type View,
@@ -126,8 +127,13 @@ function SceneRow({
   view: View;
 }) {
   const compared = view.compared.filter((r) => scene.images[view.output]?.includes(r));
+  const size = sceneSize(index, scene, view);
   return (
-    <article className="border-b border-border py-4 last:border-b-0">
+    // content-visibility: off-screen rows are neither rendered nor (with reserved image sizes) requested
+    <article
+      className="border-b border-border py-4 last:border-b-0"
+      style={{ contentVisibility: 'auto', containIntrinsicSize: 'auto 420px' }}
+    >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <h3 className="text-base font-semibold">
           <Link params={{ _splat: scene.path }} search={search} to="/scenes/$">
@@ -155,16 +161,21 @@ function SceneRow({
           </span>
         ))}
         <span className="text-right">Render</span>
-        <ResultImage alt={`${scene.title}: ${view.ref}`} src={renderUrl(scene, view, view.ref)} />
+        <ResultImage alt={`${scene.title}: ${view.ref}`} size={size} src={renderUrl(scene, view, view.ref)} />
         {compared.map((r) => (
-          <ResultImage alt={`${scene.title}: ${r}`} key={r} src={renderUrl(scene, view, r)} />
+          <ResultImage alt={`${scene.title}: ${r}`} key={r} size={size} src={renderUrl(scene, view, r)} />
         ))}
         {view.showDeltas ? (
           <>
             <span className="text-right">Delta</span>
             <span />
             {compared.map((r) => (
-              <ResultImage alt={`${scene.title}: ${r} delta`} key={r} src={deltaUrl(index, scene, view, r)} />
+              <ResultImage
+                alt={`${scene.title}: ${r} delta`}
+                key={r}
+                size={size}
+                src={deltaUrl(index, scene, view, r)}
+              />
             ))}
           </>
         ) : null}
