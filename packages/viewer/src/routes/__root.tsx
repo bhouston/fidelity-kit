@@ -19,8 +19,21 @@ function Root() {
     document.title = index.config.title;
   }, [index.config.title]);
   return (
-    <main>
-      <Outlet />
-    </main>
+    <>
+      <main>
+        <Outlet />
+      </main>
+      <footer className="mx-auto max-w-[1120px] px-4 py-8 text-center text-sm text-muted-foreground sm:px-6">
+        Website powered by{' '}
+        <a
+          className="underline underline-offset-4 hover:text-foreground"
+          href="https://github.com/bhouston/fidelity-kit"
+          rel="noopener noreferrer"
+          target="_blank"
+        >
+          Fidelity Kit
+        </a>
+      </footer>
+    </>
   );
 }
