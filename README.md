@@ -17,4 +17,4 @@ node packages/cli/dist/bin.js serve examples/demo
 
 ## Author and sponsor
 
-Created by [Ben Houston](https://github.com/bhouston) and sponsored by Land of Assets.
+Created by [Ben Houston](https://github.com/bhouston) and sponsored by [Land of Assets](https://landofassets.com).

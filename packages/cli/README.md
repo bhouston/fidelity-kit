@@ -12,4 +12,4 @@ See the [repository](https://github.com/bhouston/fidelity-kit) for the folder co
 
 ## Author and sponsor
 
-Created by [Ben Houston](https://github.com/bhouston) and sponsored by Land of Assets.
+Created by [Ben Houston](https://github.com/bhouston) and sponsored by [Land of Assets](https://landofassets.com).
