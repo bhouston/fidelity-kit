@@ -81,3 +81,20 @@ test('hash concurrency never exceeds the limit', async () => {
   await hashSuite(root, { concurrency: 1, hash });
   expect(peak).toBe(1);
 });
+
+test('hashes all supported source formats and WebP heatmaps without cache sidecars', async () => {
+  const root = await suite();
+  for (const name of ['z.webp', 'z.png', 'z.jpg', 'z.vs-ref.delta.webp', 'z.vs-ref.delta.webp.json', 'z.webp.tmp'])
+    await writeFile(join(root, 'a/beauty', name), name);
+  expect(await hashSuite(root)).toMatchObject({ hashed: 7, total: 7 });
+  expect(Object.keys((await read(root)).files)).toEqual([
+    'a/beauty/x.avif',
+    'a/beauty/y.avif',
+    'a/beauty/z.jpg',
+    'a/beauty/z.png',
+    'a/beauty/z.vs-ref.delta.webp',
+    'a/beauty/z.webp',
+    'b/beauty/x.avif',
+  ]);
+  expect(await hashSuite(root)).toMatchObject({ hashed: 0, reused: 7 });
+});

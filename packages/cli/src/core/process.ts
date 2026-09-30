@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import pLimit from 'p-limit';
 import { compareImages, type ImageMetrics } from './compare.js';
 import { readConfig, scanScene, scanSuite, type GroupNode, type SceneNode, type Suite } from './scan.js';
-import { deltaFile, imageFile, metricsFile } from './paths.js';
+import { deltaFile, imageFile, IMAGE_EXTENSIONS, isImageFile, metricsFile } from './paths.js';
 import type { FidelityConfig } from './schema.js';
 import type { ProgressCallback } from './progress.js';
 
@@ -13,6 +13,8 @@ export interface MetricsRecord extends ImageMetrics {
   width: number;
   height: number;
   generatedAt: string;
+  /** Present in the viewer index; legacy entries refer to AVIF heatmaps. */
+  deltaFile?: string;
 }
 export type SuiteIndex = Suite & { metrics: Record<string, MetricsRecord> };
 export interface ProcessResult {
@@ -31,8 +33,8 @@ interface Signature {
   size: number;
 }
 interface Inputs {
-  reference: Signature;
-  renderer: Signature;
+  reference: Signature & { path: string };
+  renderer: Signature & { path: string };
 }
 interface Pair {
   key: string;
@@ -62,6 +64,28 @@ async function signature(path: string): Promise<Signature | null> {
     throw error;
   }
 }
+/** Version 1 AVIF metrics predate explicit source filenames and independent delta records. */
+function matchesSource(saved: unknown, inputs: Inputs): boolean {
+  if (!saved || typeof saved !== 'object') return false;
+  const source = saved as {
+    version?: number;
+    reference?: Partial<Inputs['reference']>;
+    renderer?: Partial<Inputs['renderer']>;
+  };
+  return (
+    source.version === 1 &&
+    (['reference', 'renderer'] as const).every((side) => {
+      const previous = source[side];
+      const current = inputs[side];
+      return (
+        previous?.size === current.size &&
+        previous.mtimeMs === current.mtimeMs &&
+        (previous.path === current.path || (previous.path === undefined && current.path.endsWith('.avif')))
+      );
+    })
+  );
+}
+
 function validMetrics(value: unknown): value is MetricsRecord {
   if (!value || typeof value !== 'object') return false;
   const r = value as MetricsRecord;
@@ -139,10 +163,14 @@ export class SuiteProcessor {
     const file = parts.pop()!;
     if (file === 'scene.json' && parts.length) return parts.join('/');
     if (file === 'README.md') return parts.join('/');
-    if (file.includes('.vs-') && file.endsWith('.delta.avif')) return null;
+    if (file.includes('.vs-') && IMAGE_EXTENSIONS.some((ext) => file.endsWith(`.delta${ext}`))) return null;
     const output = parts.pop();
     if (!parts.length || !this.config.outputs.some((o) => o.id === output)) return null;
-    if (!this.config.renderers.some((r) => imageFile(r.id) === file)) return null;
+    if (
+      !isImageFile(file) ||
+      !this.config.renderers.some((r) => IMAGE_EXTENSIONS.some((ext) => imageFile(r.id, ext) === file))
+    )
+      return null;
     return parts.join('/');
   }
 
@@ -219,7 +247,7 @@ export class SuiteProcessor {
         const images = new Map(
           await Promise.all(
             renderers.map(async (r) => {
-              const path = `${rel}/${output}/${imageFile(r)}`;
+              const path = `${rel}/${output}/${node.imageFiles?.[output]?.[r] ?? imageFile(r)}`;
               return [r, { path, signature: await signature(join(this.root, path)) }] as const;
             }),
           ),
@@ -230,7 +258,7 @@ export class SuiteProcessor {
             const b = images.get(renderer)!;
             if (!a.signature || !b.signature) continue;
             const key = `${rel}/${output}/${metricsFile(renderer, ref.id)}`;
-            const inputs = { reference: a.signature, renderer: b.signature };
+            const inputs = { reference: { ...a.signature, path: a.path }, renderer: { ...b.signature, path: b.path } };
             const pair = old?.pairs.get(key) ?? {
               key,
               scene: rel,
@@ -243,21 +271,27 @@ export class SuiteProcessor {
             };
             if (signatureKey(pair.inputs) !== signatureKey(inputs)) {
               pair.inputs = inputs;
+              pair.reference = a.path;
+              pair.renderer = b.path;
               pair.attempted = undefined;
               delete this.metrics[key];
             }
             pairs.set(key, pair);
-            if (process && pair.attempted !== signatureKey(inputs)) {
-              if (!this.dirty.has(pair) && !pair.running) {
-                this.progressTotal++;
-                this.reportComparing();
-              }
-              this.dirty.add(pair);
-            }
           }
         }
       }
       this.scenes.set(rel, { node, pairs });
+      // A completing task can pump the queue during any await above. Publish the entire scene
+      // before making its pairs runnable, otherwise new pairs can be discarded as obsolete.
+      if (process)
+        for (const pair of pairs.values()) {
+          if (pair.attempted === signatureKey(pair.inputs)) continue;
+          if (!this.dirty.has(pair) && !pair.running) {
+            this.progressTotal++;
+            this.reportComparing();
+          }
+          this.dirty.add(pair);
+        }
     } else {
       this.scenes.delete(rel);
       this.epochs.delete(rel);
@@ -300,7 +334,9 @@ export class SuiteProcessor {
       signature(join(this.root, pair.reference)),
       signature(join(this.root, pair.renderer)),
     ]);
-    return reference && renderer ? { reference, renderer } : null;
+    return reference && renderer
+      ? { reference: { ...reference, path: pair.reference }, renderer: { ...renderer, path: pair.renderer } }
+      : null;
   }
 
   private async processPair(pair: Pair) {
@@ -308,8 +344,10 @@ export class SuiteProcessor {
     const inputs = pair.inputs;
     const key = signatureKey(inputs);
     const metricsPath = join(this.root, pair.key);
-    // Bump the recipe version when comparison or encoding semantics change.
-    const source = { version: 1, delta: this.config.delta, ...inputs };
+    // Independent commit markers let either artifact be refreshed without rewriting the other.
+    const source = { version: 1, ...inputs };
+    const deltaPath = join(this.root, pair.delta);
+    const deltaCachePath = `${deltaPath}.json`;
     const stillCurrent = async () => {
       const actual = await this.readInputs(pair);
       return this.current(pair, epoch) && signatureKey(actual) === key;
@@ -328,20 +366,24 @@ export class SuiteProcessor {
         return;
       }
       let record: MetricsRecord | undefined;
+      let deltaCurrent = !this.config.delta;
       if (!pair.force) {
         try {
           const { source: saved, ...cached } = JSON.parse(await readFile(metricsPath, 'utf8'));
-          if (
-            JSON.stringify(saved) === JSON.stringify(source) &&
-            validMetrics(cached) &&
-            (!this.config.delta || (await signature(join(this.root, pair.delta))))
-          )
-            record = cached;
+          if (matchesSource(saved, inputs) && validMetrics(cached)) record = cached;
         } catch {
-          /* Missing or invalid metrics are recomputed. */
+          /* Missing or invalid metrics are recomputed independently of the delta. */
+        }
+        if (this.config.delta) {
+          try {
+            const saved = JSON.parse(await readFile(deltaCachePath, 'utf8'));
+            deltaCurrent = matchesSource(saved, inputs) && !!(await signature(deltaPath));
+          } catch {
+            /* The delta has its own input signature and commit marker. */
+          }
         }
       }
-      if (record) {
+      if (record && deltaCurrent) {
         if (!(await stillCurrent())) {
           retry();
           return;
@@ -349,21 +391,25 @@ export class SuiteProcessor {
         this.result.skipped++;
       } else {
         const compared = await compareImages(join(this.root, pair.reference), join(this.root, pair.renderer), {
-          delta: this.config.delta,
+          delta: !deltaCurrent,
         });
-        record = {
-          ...compared.metrics,
-          width: compared.width,
-          height: compared.height,
-          generatedAt: new Date().toISOString(),
-        };
         if (!(await stillCurrent())) {
           retry();
           return;
         }
-        // Metrics are the commit marker: publish them only after all required artifacts exist.
-        if (this.config.delta) await atomicWrite(join(this.root, pair.delta), compared.deltaImage);
-        await atomicWrite(metricsPath, JSON.stringify({ ...record, source }, null, 2) + '\n');
+        if (!deltaCurrent) {
+          await atomicWrite(deltaPath, compared.deltaImage);
+          await atomicWrite(deltaCachePath, JSON.stringify(source, null, 2) + '\n');
+        }
+        if (!record) {
+          record = {
+            ...compared.metrics,
+            width: compared.width,
+            height: compared.height,
+            generatedAt: new Date().toISOString(),
+          };
+          await atomicWrite(metricsPath, JSON.stringify({ ...record, source }, null, 2) + '\n');
+        }
         if (!(await stillCurrent())) {
           retry();
           return;
@@ -373,7 +419,7 @@ export class SuiteProcessor {
       }
       pair.attempted = key;
       pair.force = false;
-      this.metrics[pair.key] = record;
+      this.metrics[pair.key] = { ...record, ...(this.config.delta ? { deltaFile: pair.delta.split('/').pop()! } : {}) };
       this.indexDirty = true;
     } catch (error) {
       if (!this.current(pair, epoch) || signatureKey(await this.readInputs(pair).catch(() => null)) !== key) {

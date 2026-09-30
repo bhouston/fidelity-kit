@@ -95,7 +95,7 @@ test('generated metrics, deltas, index and temporary writes never trigger watch 
   try {
     const baseline = updates.length;
     await writeFile(join(dir, 'a.vs-ref.metrics.json'), '{}');
-    await writeFile(join(dir, 'a.vs-ref.delta.avif'), await image(30));
+    await writeFile(join(dir, 'a.vs-ref.delta.webp'), await image(30));
     await writeFile(join(dir, 'a.avif.write.tmp'), 'temporary');
     await writeFile(join(root, 'index.json.write.tmp'), '{}');
     await writeFile(join(root, 'index.json'), JSON.stringify(await index(root)));
@@ -143,3 +143,42 @@ test('changes during initial processing are observed and supersede the initial c
     compare.mockRestore();
   }
 }, 10000);
+
+test('watch mode discovers preferred formats and falls back when they are removed', async () => {
+  const { rm } = await import('node:fs/promises');
+  const { root, dir } = await fixture();
+  await rm(join(dir, 'a.avif'));
+  await writeFile(
+    join(dir, 'a.jpg'),
+    await sharp(await image(160))
+      .jpeg()
+      .toBuffer(),
+  );
+  const updates: number[] = [];
+  const watcher = await watchResults(root, (result) => updates.push(result.computed));
+  try {
+    expect((await index(root)).root.scenes[0].imageFiles.beauty.a).toBe('a.jpg');
+    for (const extension of ['png', 'webp', 'avif'] as const) {
+      await writeFile(
+        join(dir, `a.${extension}`),
+        await sharp(await image(120))
+          .toFormat(extension)
+          .toBuffer(),
+      );
+      await expect
+        .poll(async () => (await index(root)).root.scenes[0].imageFiles.beauty.a, { timeout: 6000 })
+        .toBe(`a.${extension}`);
+    }
+    await rm(join(dir, 'a.avif'));
+    await expect
+      .poll(async () => (await index(root)).root.scenes[0].imageFiles.beauty.a, { timeout: 6000 })
+      .toBe('a.webp');
+    const count = updates.length;
+    await writeFile(join(dir, 'a.vs-ref.delta.webp.json'), '{}');
+    await new Promise((resolve) => setTimeout(resolve, 1100));
+    expect(updates).toHaveLength(count);
+  } finally {
+    await watcher.close();
+    await rm(root, { recursive: true, force: true });
+  }
+}, 15000);
