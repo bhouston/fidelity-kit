@@ -15,6 +15,11 @@ export const command = defineCommand({
       .option('host', { type: 'string', default: 'localhost', describe: 'Interface to bind (0.0.0.0 for all)' })
       .option('concurrency', { type: 'number', describe: 'Image pairs compared in parallel (default: CPU count)' })
       .option('quiet', { type: 'boolean', default: false, describe: 'Suppress progress and summary output' })
-      .option('process', { type: 'boolean', default: true, describe: 'Refresh stale metrics/deltas before serving' }),
+      .option('process', { type: 'boolean', default: true, describe: 'Refresh stale metrics/deltas before serving' })
+      .option('watch', {
+        type: 'boolean',
+        default: true,
+        describe: 'Keep metrics, deltas, and index updated as results change',
+      }),
   handler: (argv) => run(argv, true),
 });

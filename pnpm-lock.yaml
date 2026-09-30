@@ -74,6 +74,9 @@ importers:
       '@clidoc/yargs':
         specifier: ^1.1.0
         version: 1.1.0
+      chokidar:
+        specifier: ^5.0.0
+        version: 5.0.0
       p-limit:
         specifier: ^7.3.3
         version: 7.3.3

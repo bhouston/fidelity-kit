@@ -43,6 +43,7 @@ export function createProgress(
     finish: () => {
       if (showing) stream.write('\r\x1b[2K');
       showing = false;
+      phase = '';
     },
   };
 }

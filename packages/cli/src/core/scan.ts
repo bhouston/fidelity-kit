@@ -90,6 +90,30 @@ export async function scanSuite(root: string, onProgress?: ProgressCallback): Pr
   return { config, hasReadme: await exists(join(root, 'README.md')), root: top as GroupNode };
 }
 
+/** Scan one known scene without walking the rest of the suite. */
+export async function scanScene(root: string, rel: string, config: FidelityConfig): Promise<SceneNode | null> {
+  const dir = join(root, rel);
+  if (!rel || !(await isDir(dir))) return null;
+  const images: Record<string, string[]> = {};
+  for (const output of config.outputs) {
+    const found: string[] = [];
+    for (const renderer of config.renderers) {
+      if (await exists(join(dir, output.id, imageFile(renderer.id)))) found.push(renderer.id);
+    }
+    if (found.length) images[output.id] = found;
+  }
+  const metaFile = join(dir, 'scene.json');
+  if (!Object.keys(images).length && !(await exists(metaFile))) return null;
+  const meta = sceneMetaSchema.parse((await exists(metaFile)) ? JSON.parse(await readFile(metaFile, 'utf8')) : {});
+  return {
+    path: rel,
+    title: meta.title ?? rel.split('/').pop()!,
+    tags: meta.tags,
+    hasReadme: await exists(join(dir, 'README.md')),
+    images,
+  };
+}
+
 export function* allScenes(g: GroupNode): Generator<SceneNode> {
   yield* g.scenes;
   for (const c of g.groups) yield* allScenes(c);
