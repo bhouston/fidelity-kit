@@ -11,9 +11,14 @@ export const command = defineCommand({
         demandOption: true,
         describe: 'Suite results directory (contains fidelity.json)',
       })
+      .option('concurrency', { type: 'number', describe: 'Image pairs compared in parallel (default: CPU count)' })
       .option('force', { type: 'boolean', default: false, describe: 'Recompute even when up to date' }),
   handler: async (argv) => {
-    const r = await processSuite(argv.root, { force: argv.force, onCompute: (f) => console.log('wrote', f) });
+    const r = await processSuite(argv.root, {
+      force: argv.force,
+      concurrency: argv.concurrency,
+      onCompute: (f) => console.log('wrote', f),
+    });
     console.log(`${r.computed} computed, ${r.skipped} up to date, ${r.failed.length} failed`);
     for (const f of r.failed) console.error(`FAILED ${f.file}: ${f.error}`);
     if (r.failed.length) process.exitCode = 1;

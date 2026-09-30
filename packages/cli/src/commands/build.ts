@@ -16,13 +16,14 @@ export const command = defineCommand({
         describe: 'Suite results directory (contains fidelity.json)',
       })
       .option('out', { type: 'string', demandOption: true, describe: 'Output directory' })
+      .option('concurrency', { type: 'number', describe: 'Image pairs compared in parallel (default: CPU count)' })
       .option('process', { type: 'boolean', default: true, describe: 'Refresh stale metrics/deltas first' }),
   handler: async (argv) => {
     assertViewerBuilt();
     const root = resolve(argv.root);
     const out = resolve(argv.out);
     if (argv.process) {
-      const result = await processSuite(root);
+      const result = await processSuite(root, { concurrency: argv.concurrency });
       if (result.failed.length)
         throw new Error(
           `Failed to compare ${result.failed.length} image pair(s): ${result.failed.map((f) => `${f.file}: ${f.error}`).join('; ')}`,

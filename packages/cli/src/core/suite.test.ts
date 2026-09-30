@@ -93,3 +93,25 @@ test('config rejects empty outputs and duplicate ids', async () => {
     await expect(readConfig(root)).rejects.toThrow();
   }
 });
+
+const strip = (raw: string) => JSON.parse(raw.replace(/"generatedAt": "[^"]*"/g, '"generatedAt": ""'));
+
+test('concurrent and sequential processing give identical results', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'fk-conc-'));
+  await writeFile(
+    join(root, 'fidelity.json'),
+    JSON.stringify({ title: 'T', renderers: [{ id: 'ref', reference: true }, { id: 'a' }, { id: 'b' }] }),
+  );
+  for (let i = 0; i < 6; i++) {
+    const dir = join(root, `s${i}`, 'beauty');
+    await mkdir(dir, { recursive: true });
+    await writeFile(join(root, `s${i}`, 'scene.json'), '{}');
+    await writeFile(join(dir, 'ref.avif'), await png(100));
+    await writeFile(join(dir, 'a.avif'), await png(100 + i));
+    await writeFile(join(dir, 'b.avif'), await png(120 + i));
+  }
+  expect(await processSuite(root, { concurrency: 1 })).toMatchObject({ computed: 12, failed: [] });
+  const seq = strip(await readFile(join(root, 'index.json'), 'utf8'));
+  expect(await processSuite(root, { force: true, concurrency: 4 })).toMatchObject({ computed: 12, failed: [] });
+  expect(strip(await readFile(join(root, 'index.json'), 'utf8'))).toEqual(seq);
+});
