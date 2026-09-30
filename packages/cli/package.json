@@ -8,8 +8,13 @@
     "dist"
   ],
   "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "dependencies": {
+    "@clidoc/core": "^1.0.0",
+    "@clidoc/yargs": "^1.1.0",
     "@fidelity-kit/core": "workspace:*",
-    "yargs": "^18.0.0"
+    "yargs": "^18.0.0",
+    "yargs-file-commands": "^2.1.0"
   }
 }
