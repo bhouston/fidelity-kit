@@ -2,6 +2,15 @@
   "name": "fidelity-kit",
   "version": "0.1.0",
   "description": "Toolkit for renderer fidelity suites: metrics + delta CLI and a viewer served from any results folder.",
+  "keywords": [
+    "fidelity",
+    "image-comparison",
+    "image-diff",
+    "psnr",
+    "renderer",
+    "rendering",
+    "visual-regression"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
