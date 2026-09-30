@@ -33,6 +33,12 @@ jobs:
       - name: Check formatting
         run: pnpm exec oxfmt --check .
       - run: pnpm test --coverage
+      - uses: codecov/codecov-action@v5
+        if: ${{ !cancelled() && hashFiles('coverage/lcov.info') != '' }}
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage/lcov.info
+          fail_ci_if_error: false
       - name: Audit dependencies
         id: audit
         continue-on-error: true
