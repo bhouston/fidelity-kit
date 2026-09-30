@@ -18,19 +18,38 @@ export function isDataFile(rel: string): boolean {
   return rel === 'index.json' || rel === 'README.md' || rel.endsWith('/README.md') || rel.endsWith('.avif');
 }
 
-/** `/data/*` = the suite (allowlisted files); everything else = the viewer SPA (hash routing, so no fallback needed). */
-export function createHandler(root: string, assets = viewerDir) {
+export interface CachePolicy {
+  /** Seconds an image is served from cache without contacting the origin. */
+  maxAge: number;
+  /** Seconds after that a stale image may be served while a background refresh runs (also used for stale-if-error). */
+  staleWhileRevalidate: number;
+}
+export const defaultCachePolicy: CachePolicy = { maxAge: 300, staleWhileRevalidate: 86400 };
+
+/**
+ * `/data/*` = the suite (allowlisted files); everything else = the viewer SPA (hash routing, so no fallback needed).
+ * Images are shared-cacheable per `cache`; `index.json`, READMEs and `index.html` always revalidate (cheap 304s) so a
+ * re-run of `process` shows up immediately; hashed `/assets/*` are immutable.
+ */
+export function createHandler(root: string, assets = viewerDir, cache: CachePolicy = defaultCachePolicy) {
+  const imageCache = `public, max-age=${cache.maxAge}, stale-while-revalidate=${cache.staleWhileRevalidate}, stale-if-error=${cache.staleWhileRevalidate}`;
   return async (req: Request): Promise<Response> => {
     const path = decodeURIComponent(new URL(req.url).pathname);
-    const notFound = new Response('Not found', { status: 404 });
+    const notFound = new Response('Not found', { status: 404, headers: { 'Cache-Control': 'no-cache' } });
     if (path.startsWith('/data/')) {
       const rel = path.slice('/data/'.length);
       const full = isDataFile(rel) ? resolveInside(root, rel) : null;
-      return full ? fileResponse(req, full) : notFound;
+      return full ? fileResponse(req, full, rel.endsWith('.avif') ? { cacheControl: imageCache } : {}) : notFound;
     }
     const rel = path === '/' ? 'index.html' : path.slice(1);
     const full = resolveInside(assets, rel);
-    return full ? fileResponse(req, full, { immutable: rel.startsWith('assets/') }) : notFound;
+    return full
+      ? fileResponse(
+          req,
+          full,
+          rel.startsWith('assets/') ? { cacheControl: 'public, max-age=31536000, immutable' } : {},
+        )
+      : notFound;
   };
 }
 

@@ -57,23 +57,34 @@ const TYPES: Record<string, string> = {
   ico: 'image/x-icon',
 };
 
-/** Strong ETag `"size-crc32"`; 304 on `If-None-Match`; the body is streamed from disk. `immutable` is for content-hashed URLs. */
-export async function fileResponse(req: Request, path: string, opts: { immutable?: boolean } = {}): Promise<Response> {
+/** True when the request's validators say the client's copy is current (If-None-Match wins over If-Modified-Since). */
+function notModified(req: Request, etag: string, mtimeMs: number): boolean {
+  const inm = req.headers.get('if-none-match');
+  if (inm) return inm.trim() === '*' || inm.split(',').some((t) => t.trim().replace(/^W\//, '') === etag);
+  const ims = Date.parse(req.headers.get('if-modified-since') ?? '');
+  return Math.floor(mtimeMs / 1000) <= Math.floor(ims / 1000); // NaN (absent/invalid) compares false
+}
+
+/**
+ * Serves a file with CDN-friendly validators: strong ETag (`"size-crc32"`), Last-Modified, Content-Length, nosniff, and
+ * 304 on If-None-Match / If-Modified-Since. The body is streamed from disk. `cacheControl` defaults to `no-cache`
+ * (always revalidate). There is no Vary: the response never depends on request headers.
+ */
+export async function fileResponse(
+  req: Request,
+  path: string,
+  opts: { cacheControl?: string } = {},
+): Promise<Response> {
   const s = await stat(path).catch(() => null);
-  if (!s?.isFile()) return new Response('Not found', { status: 404 });
+  if (!s?.isFile()) return new Response('Not found', { status: 404, headers: { 'Cache-Control': 'no-cache' } });
   const { etag } = await entryFor(path, s.mtimeMs, s.size);
   const headers = {
     ETag: etag,
-    'Cache-Control': opts.immutable ? 'public, max-age=31536000, immutable' : 'no-cache',
+    'Last-Modified': new Date(s.mtimeMs).toUTCString(),
+    'Cache-Control': opts.cacheControl ?? 'no-cache',
+    'X-Content-Type-Options': 'nosniff',
   };
-  if (
-    req.headers
-      .get('if-none-match')
-      ?.split(',')
-      .some((t) => t.trim() === etag)
-  ) {
-    return new Response(null, { status: 304, headers });
-  }
+  if (notModified(req, etag, s.mtimeMs)) return new Response(null, { status: 304, headers });
   const ext = path.slice(path.lastIndexOf('.') + 1).toLowerCase();
   return new Response(Readable.toWeb(createReadStream(path)) as ReadableStream<Uint8Array>, {
     headers: {

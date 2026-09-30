@@ -72,6 +72,18 @@ Image-heavy pages are the main load, so: bodies are streamed from disk (never he
 
 Home page: root `README.md`, tag chips, text filter, sort (name / PSNR), grouped scene rows with reference, renderers, optional delta row and metrics. Scene page: scene `README.md`, swipe comparison, delta image, full metrics. All view state (`q`, `tags`, `output`, `ref`, `deltas`, `sort`) lives in the URL hash.
 
+### Caching and CDNs
+
+The server speaks plain HTTP/1.1. Put a CDN or reverse proxy in front for TLS/HTTP/2 if you need it.
+
+| Response                                  | `Cache-Control`                                                           |
+| ----------------------------------------- | ------------------------------------------------------------------------- |
+| `/data/**/*.avif`                         | `public, max-age=300, stale-while-revalidate=86400, stale-if-error=86400` |
+| `/data/index.json`, READMEs, `index.html` | `no-cache` (always revalidate; a `process` re-run shows up immediately)   |
+| `/assets/*` (content-hashed)              | `public, max-age=31536000, immutable`                                     |
+
+Tune images with `--max-age <s>` (default 300) and `--stale-while-revalidate <s>` (default 86400, also used for `stale-if-error`). Every file response also carries a strong `ETag`, `Last-Modified`, `Content-Length`, `Content-Type` and `X-Content-Type-Options: nosniff`, and answers `If-None-Match` and `If-Modified-Since` with `304`. There is deliberately no `Vary` (responses never depend on request headers) and no origin compression (AVIF is already compressed; let the CDN compress text). Range requests are not supported.
+
 ### Static export
 
 ```sh

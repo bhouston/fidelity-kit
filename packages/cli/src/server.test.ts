@@ -36,4 +36,25 @@ test('serves only allowlisted suite files and the viewer', async () => {
     '/nope',
   ])
     expect(await status(bad)).toBe(404);
+
+  // CDN-facing headers: images are shared-cacheable with SWR; everything mutable revalidates.
+  const img = await get('/data/s/beauty/a.avif');
+  expect(img.headers.get('cache-control')).toBe(
+    'public, max-age=300, stale-while-revalidate=86400, stale-if-error=86400',
+  );
+  expect(img.headers.get('content-length')).toBe('3');
+  expect(img.headers.get('content-type')).toBe('image/avif');
+  expect(img.headers.get('etag')).toMatch(/^"/);
+  expect(img.headers.get('last-modified')).toMatch(/GMT$/);
+  expect(img.headers.get('vary')).toBeNull();
+  expect((await get('/data/index.json')).headers.get('cache-control')).toBe('no-cache');
+  expect((await get('/')).headers.get('cache-control')).toBe('no-cache');
+
+  // validators: If-None-Match, and If-Modified-Since when there is no ETag
+  const revalidate = async (h: Record<string, string>) =>
+    (await createHandler(root, assets)(new Request('http://x/data/s/beauty/a.avif', { headers: h }))).status;
+  expect(await revalidate({ 'if-none-match': img.headers.get('etag')! })).toBe(304);
+  expect(await revalidate({ 'if-none-match': '"other"' })).toBe(200);
+  expect(await revalidate({ 'if-modified-since': img.headers.get('last-modified')! })).toBe(304);
+  expect(await revalidate({ 'if-modified-since': new Date(0).toUTCString() })).toBe(200);
 });
