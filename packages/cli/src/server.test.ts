@@ -235,3 +235,35 @@ test('dev mode never hashes: listing is empty, ?v is ignored, the hash file is n
   expect(img.headers.get('cache-control')).toBe('no-store');
   expect(img.headers.get('etag')).toBeNull();
 });
+
+test('serves, caches, and lists hashes for every supported image format', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'fk-formats-'));
+  const dir = join(root, 's/beauty');
+  await mkdir(dir, { recursive: true });
+  const formats = { avif: 'image/avif', webp: 'image/webp', png: 'image/png', jpg: 'image/jpeg' };
+  const handler = createHandler(root);
+  const devHandler = createHandler(root, { dev: true });
+  const get = (path: string) => handler(new Request(`http://x/data/${path}`));
+  for (const [extension, type] of Object.entries(formats)) {
+    const path = `s/beauty/a.${extension}`;
+    await writeFile(join(root, path), extension);
+    const response = await get(path);
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toBe(type);
+    expect(response.headers.get('cache-control')).toContain('max-age=300');
+    await response.body?.cancel();
+    const hashes = (await (await get('image-hashes.json')).json()) as Record<string, string>;
+    expect(hashes[path]).toBeTruthy();
+    const versioned = await get(`${path}?v=${hashes[path]}`);
+    expect(versioned.headers.get('cache-control')).toContain('immutable');
+    await versioned.body?.cancel();
+    const fresh = await devHandler(new Request(`http://x/data/${path}`));
+    expect(fresh.headers.get('content-type')).toBe(type);
+    expect(fresh.headers.get('cache-control')).toBe('no-store');
+    await fresh.body?.cancel();
+  }
+  for (const name of ['a.vs-ref.delta.webp.json', 'a.webp.tmp']) {
+    await writeFile(join(dir, name), '{}');
+    expect((await get(`s/beauty/${name}`)).status).toBe(404);
+  }
+});

@@ -14,7 +14,7 @@ import {
   readHashFile,
   resolveInside,
 } from './core/index.js';
-import { isDataFile } from './core/paths.js';
+import { isDataFile, isImageFile } from './core/paths.js';
 
 /** The prebuilt viewer SPA (built by `pnpm build` into packages/cli/viewer, shipped in the npm package). */
 export const viewerDir = fileURLToPath(new URL('../viewer', import.meta.url));
@@ -75,7 +75,7 @@ export function createHandler(
     const body = JSON.stringify(
       Object.fromEntries(
         [...known]
-          .filter(([p]) => p.endsWith('.avif'))
+          .filter(([p]) => isImageFile(p))
           .map(([p, h]) => [relative(base, p).split(sep).join('/'), h] as const)
           .toSorted(([a], [b]) => (a < b ? -1 : 1)),
       ),
@@ -101,7 +101,7 @@ export function createHandler(
       const [realRoot, realFile] = await Promise.all([realBase, realpath(full).catch(() => null)]);
       if (!realFile || (!realFile.startsWith(realRoot + sep) && realFile !== realRoot)) return notFound;
       await loaded;
-      const isImage = rel.endsWith('.avif');
+      const isImage = isImageFile(rel);
       return send(req, full, isImage ? imageCache : undefined, isImage ? new URL(req.url).searchParams.get('v') : null);
     }
     const rel = path === '/' ? 'index.html' : path.slice(1);

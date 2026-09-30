@@ -77,11 +77,18 @@ export const metricsOf = (index: SuiteIndex, scene: SceneNode, v: View, renderer
   index.metrics[`${scene.path}/${v.output}/${metricsFile(renderer, v.ref)}`];
 
 export const renderUrl = (scene: SceneNode, v: View, renderer: string) =>
-  scene.images[v.output]?.includes(renderer) ? fileUrl(scene.path, v.output, imageFile(renderer), v.hashes) : undefined;
+  scene.images[v.output]?.includes(renderer)
+    ? fileUrl(scene.path, v.output, scene.imageFiles?.[v.output]?.[renderer] ?? imageFile(renderer), v.hashes)
+    : undefined;
 
 export const deltaUrl = (index: SuiteIndex, scene: SceneNode, v: View, renderer: string) =>
   metricsOf(index, scene, v, renderer)
-    ? fileUrl(scene.path, v.output, deltaFile(renderer, v.ref), v.hashes)
+    ? fileUrl(
+        scene.path,
+        v.output,
+        metricsOf(index, scene, v, renderer)?.deltaFile ?? deltaFile(renderer, v.ref, '.avif'),
+        v.hashes,
+      )
     : undefined;
 
 /** Pixel size of a scene's images in this view (a reference and its test always match), from any metrics record. */

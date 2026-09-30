@@ -40,7 +40,7 @@ results/
         my-renderer.avif
 ```
 
-Folders can have as many group levels as you need. A scene is any folder containing an image at `<output>/<renderer>.avif` for names declared in `fidelity.json`. Missing renderer images are allowed; the viewer marks them as missing. Other files, such as scene sources and textures, can live alongside the images.
+Folders can have as many group levels as you need. A scene is any folder containing an image at `<output>/<renderer>.<extension>` for names declared in `fidelity.json`. Supported input extensions are `.avif`, `.webp`, `.png`, and `.jpg`; when several files match a renderer, that order determines which one is used. Formats can be mixed across renderers and outputs. Missing renderer images are allowed; the viewer marks them as missing. Other files, such as scene sources and textures, can live alongside the images.
 
 Start with this configuration:
 
@@ -82,7 +82,7 @@ The CLI supports this workflow:
 | `fidelity-kit serve results`             | Process stale comparisons, then serve the viewer with browser and CDN caching.                                                                  |
 | `fidelity-kit build results --out site/` | Process stale comparisons and export a site for static hosting.                                                                                 |
 
-`process` computes PSNR, RMSE, MAE, and maximum error for each available comparison. Reference and renderer images in a pair must have the same dimensions. Both `dev` and `serve` start at `localhost:3000` and try higher ports if one is occupied; use `--port` to require a specific port and `--host` to change the bind address. The actual viewer URL is printed at startup. To serve results already processed during a build, pass `--no-process`.
+`process` computes PSNR, RMSE, MAE, and maximum error for each available comparison. Heatmaps are encoded as lossless WebP (`<renderer>.vs-<reference>.delta.webp`) for fast generation and exact false colours; source images keep their original formats. Reference and renderer images in a pair must have the same dimensions. Both `dev` and `serve` start at `localhost:3000` and try higher ports if one is occupied; use `--port` to require a specific port and `--host` to change the bind address. The actual viewer URL is printed at startup. To serve results already processed during a build, pass `--no-process`.
 
 `process`, `dev`, and `hash` show scanning and processing progress on one updating terminal line, including the remaining count and an approximate ETA. Use `--quiet` to suppress progress and summary output; errors are still reported.
 
@@ -140,4 +140,4 @@ Created by [Ben Houston](https://github.com/bhouston) and sponsored by [Land of 
 
 `process --watch` and `dev` retain per-scene dependencies, batch source changes, and share the configured `--concurrency` limit. Scenes and renderer/reference images can be added or removed while watching. Restart after changing renderer IDs, output/pass IDs, or other settings in `fidelity.json`.
 
-Input freshness uses modification time and byte size recorded in metrics files. Older-dated replacements are detected; changes preserving both values require `--force`. Metrics without saved input signatures are regenerated once. Generated metrics, delta images, index files, and temporary writes are ignored by the watcher. Removed comparisons are dropped from the index; generated files may remain on disk.
+Input freshness uses the existing modification-time and byte-size signatures, with the selected filename identifying each input. Metrics keep their signatures in the metrics JSON; heatmaps keep theirs separately in `<renderer>.vs-<reference>.delta.webp.json`. These heatmap cache sidecars are not served or exported. Each artifact is checked independently: replacing a missing or stale heatmap preserves current metrics, and refreshing metrics does not re-encode a current heatmap. Older-dated replacements are detected; changes preserving both values require `--force`. Metrics without saved input signatures are regenerated once. Upgrading from AVIF heatmaps generates WebP heatmaps once while retaining current metrics; old AVIF heatmaps may remain on disk. Existing indexes still work with `--no-process`. Generated metrics, delta images, index files, and temporary writes are ignored by the watcher. Removed comparisons are dropped from the index; generated files may remain on disk.
