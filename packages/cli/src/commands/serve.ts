@@ -24,6 +24,7 @@ export const command = defineCommand({
         default: defaultCachePolicy.staleWhileRevalidate,
         describe: 'Seconds a stale image may be served while it refreshes in the background',
       })
+      .option('concurrency', { type: 'number', describe: 'Image pairs compared in parallel (default: CPU count)' })
       .option('process', { type: 'boolean', default: true, describe: 'Refresh stale metrics/deltas before serving' }),
   handler: (argv) => run(argv, false),
 });

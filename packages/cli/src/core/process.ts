@@ -1,5 +1,7 @@
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { availableParallelism } from 'node:os';
 import { dirname, join } from 'node:path';
+import pLimit from 'p-limit';
 import { compareImages, type ImageMetrics } from './compare.js';
 import { allScenes, scanSuite, type Suite } from './scan.js';
 import { deltaFile, imageFile, metricsFile } from './paths.js';
@@ -27,46 +29,54 @@ export interface ProcessResult {
 /** Writes metrics + delta for every (scene, output, reference, renderer) pair whose outputs are older than either input, then `index.json`. */
 export async function processSuite(
   root: string,
-  opts: { force?: boolean; onCompute?: (file: string) => void } = {},
+  opts: { force?: boolean; concurrency?: number; onCompute?: (file: string) => void } = {},
 ): Promise<ProcessResult> {
   const suite = await scanSuite(root);
   const refs = suite.config.renderers.filter((r) => r.reference).map((r) => r.id);
   const result: ProcessResult = { computed: 0, skipped: 0, failed: [] };
   const validMetrics = new Set<string>();
+  const limit = pLimit(Math.max(1, opts.concurrency ?? availableParallelism()));
+  const tasks: Promise<void>[] = [];
 
   for (const scene of allScenes(suite.root)) {
     for (const [output, renderers] of Object.entries(scene.images)) {
       const dir = join(root, scene.path, output);
       for (const ref of refs.filter((r) => renderers.includes(r))) {
         for (const r of renderers.filter((x) => x !== ref)) {
-          const [refPath, testPath] = [join(dir, imageFile(ref)), join(dir, imageFile(r))];
-          const metricsPath = join(dir, metricsFile(r, ref));
-          const metricsRel = `${scene.path}/${output}/${metricsFile(r, ref)}`;
-          const deltaPath = join(dir, deltaFile(r, ref));
-          const inputs = Math.max(await mtime(refPath), await mtime(testPath));
-          const outputs = [metricsPath, ...(suite.config.delta ? [deltaPath] : [])];
-          const oldest = Math.min(...(await Promise.all(outputs.map(mtime))));
-          if (!opts.force && oldest > inputs) {
-            result.skipped += 1;
-            validMetrics.add(metricsRel);
-            continue;
-          }
-          try {
-            const { metrics, width, height, deltaImage } = await compareImages(refPath, testPath);
-            const rec: MetricsRecord = { ...metrics, width, height, generatedAt: new Date().toISOString() };
-            await writeFile(metricsPath, JSON.stringify(rec, null, 2) + '\n');
-            if (suite.config.delta) await writeFile(deltaPath, deltaImage);
-            result.computed += 1;
-            validMetrics.add(metricsRel);
-            opts.onCompute?.(metricsPath);
-          } catch (e) {
-            result.failed.push({ file: testPath, error: e instanceof Error ? e.message : String(e) });
-          }
+          tasks.push(
+            limit(async () => {
+              const [refPath, testPath] = [join(dir, imageFile(ref)), join(dir, imageFile(r))];
+              const metricsPath = join(dir, metricsFile(r, ref));
+              const metricsRel = `${scene.path}/${output}/${metricsFile(r, ref)}`;
+              const deltaPath = join(dir, deltaFile(r, ref));
+              const inputs = Math.max(await mtime(refPath), await mtime(testPath));
+              const outputs = [metricsPath, ...(suite.config.delta ? [deltaPath] : [])];
+              const oldest = Math.min(...(await Promise.all(outputs.map(mtime))));
+              if (!opts.force && oldest > inputs) {
+                result.skipped += 1;
+                validMetrics.add(metricsRel);
+                return;
+              }
+              try {
+                const { metrics, width, height, deltaImage } = await compareImages(refPath, testPath);
+                const rec: MetricsRecord = { ...metrics, width, height, generatedAt: new Date().toISOString() };
+                await writeFile(metricsPath, JSON.stringify(rec, null, 2) + '\n');
+                if (suite.config.delta) await writeFile(deltaPath, deltaImage);
+                result.computed += 1;
+                validMetrics.add(metricsRel);
+                opts.onCompute?.(metricsPath);
+              } catch (e) {
+                result.failed.push({ file: testPath, error: e instanceof Error ? e.message : String(e) });
+              }
+            }),
+          );
         }
       }
     }
   }
 
+  await Promise.all(tasks);
+  result.failed.sort((a, b) => a.file.localeCompare(b.file)); // deterministic regardless of completion order
   await writeIndex(root, await scanSuite(root), validMetrics);
   return result;
 }
