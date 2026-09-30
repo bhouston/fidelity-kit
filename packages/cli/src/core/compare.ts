@@ -17,8 +17,8 @@ export interface ImageMetrics {
 /** Encoding for committed result images: near-lossless (worst render ~40 dB PSNR vs PNG), full-res chroma so noise and false colour survive. */
 export const RESULT_AVIF = { quality: 90, chromaSubsampling: '4:4:4' } as const;
 
-/** Heatmaps preserve exact false colours and favour encoding speed. */
-export const DELTA_WEBP = { lossless: true, effort: 0 } as const;
+/** Heatmaps trade minor visual differences for smaller files at modest encoding cost. */
+export const DELTA_WEBP = { quality: 85, effort: 4 } as const;
 
 /** Decodes an image (path or encoded buffer) to 8-bit RGB, dropping alpha. */
 export async function readRgb(input: string | Buffer): Promise<RawImage> {
@@ -92,7 +92,7 @@ export function compareRgb(reference: RawImage, test: RawImage): { metrics: Imag
   };
 }
 
-/** Compares two encoded images; returns metrics and a lossless WebP heatmap (empty when disabled). */
+/** Compares two encoded images; returns metrics and a quality-85 WebP heatmap (empty when disabled). */
 export async function compareImages(
   reference: string | Buffer,
   test: string | Buffer,
