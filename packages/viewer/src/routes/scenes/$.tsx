@@ -144,7 +144,7 @@ function Comparison({
         </figure>
         {showDelta ? (
           <figure>
-            <ResultImage alt={`${label} delta`} size={size} src={delta} />
+            <ResultImage alt={`${label} delta`} notApplicable={!reference} size={size} src={delta} />
             <figcaption className="mt-1 text-center text-sm text-muted-foreground">{label} delta</figcaption>
           </figure>
         ) : null}

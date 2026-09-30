@@ -173,6 +173,7 @@ function SceneRow({
               <ResultImage
                 alt={`${scene.title}: ${r} delta`}
                 key={r}
+                notApplicable={!renderUrl(scene, view, view.ref)}
                 size={size}
                 src={deltaUrl(index, scene, view, r)}
               />
