@@ -7,7 +7,7 @@ import { ResultImage } from '#/components/ResultImage';
 import { Button } from '#/components/ui/button';
 import { Input } from '#/components/ui/input';
 import { SortSelect, ViewControls } from '#/components/ViewControls';
-import { getReadme } from '#/lib/data';
+import { getPreamble } from '#/lib/data';
 import {
   allTags,
   deltaUrl,
@@ -27,12 +27,12 @@ const root = getRouteApi('__root__');
 
 export const Route = createFileRoute('/')({
   validateSearch: validateViewSearch,
-  loader: () => getReadme(''),
+  loader: () => getPreamble(),
   component: Index,
 });
 
 function Index() {
-  const readme = Route.useLoaderData();
+  const preamble = Route.useLoaderData();
   const { index, hashes, scenes } = root.useLoaderData();
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
@@ -75,7 +75,7 @@ function Index() {
         </span>
       </Header>
       <div className="flex w-full flex-col gap-6 px-4 py-6 sm:px-6">
-        {readme ? <Markdown>{readme}</Markdown> : null}
+        {preamble ? <Markdown>{preamble}</Markdown> : null}
         {tags.length ? (
           <div className="flex flex-wrap gap-2">
             {tags.map((t) => (

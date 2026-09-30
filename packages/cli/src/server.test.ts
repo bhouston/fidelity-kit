@@ -53,6 +53,7 @@ test('serves only allowlisted suite files and the viewer', async () => {
     ['root/index.json', '{}'],
     ['root/fidelity.json', '{}'],
     ['root/README.md', '# x'],
+    ['root/index.md', '# Preamble'],
     ['root/s/scene.json', '{}'],
     ['root/s/beauty/a.avif', 'img'],
     ['secret.txt', 'nope'],
@@ -67,7 +68,8 @@ test('serves only allowlisted suite files and the viewer', async () => {
   expect(await status('/')).toBe(200);
   expect((await get('/')).headers.get('content-type')).toContain('text/html');
   expect((await get('/assets/app.js')).headers.get('cache-control')).toContain('immutable');
-  for (const ok of ['/data/index.json', '/data/README.md', '/data/s/beauty/a.avif']) expect(await status(ok)).toBe(200);
+  for (const ok of ['/data/index.json', '/data/index.md', '/data/README.md', '/data/s/beauty/a.avif'])
+    expect(await status(ok)).toBe(200);
   for (const bad of [
     '/data/fidelity.json',
     '/data/s/scene.json',
@@ -76,6 +78,11 @@ test('serves only allowlisted suite files and the viewer', async () => {
     '/nope',
   ])
     expect(await status(bad)).toBe(404);
+
+  const preamble = await get('/data/index.md');
+  expect(await preamble.text()).toBe('# Preamble');
+  expect(preamble.headers.get('content-type')).not.toContain('html');
+  expect(preamble.headers.get('cache-control')).toBe('no-cache');
 
   // CDN-facing headers: images are shared-cacheable with SWR; everything mutable revalidates.
   const img = await get('/data/s/beauty/a.avif');
