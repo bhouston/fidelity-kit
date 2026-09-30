@@ -103,7 +103,7 @@ function Index() {
             ))
           ) : (
             <div className="border border-border bg-muted/20 px-4 py-8 text-center text-sm text-muted-foreground">
-              {scenes.length === 0 ? 'No scenes found. Run `fidelity process <root>`.' : 'No scenes match.'}
+              {scenes.length === 0 ? 'No scenes found. Run `fidelity-kit process <root>`.' : 'No scenes match.'}
             </div>
           )}
         </section>

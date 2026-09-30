@@ -161,7 +161,7 @@ function Comparison({
             <dd>{metrics.generatedAt}</dd>
           </dl>
         ) : (
-          <p className="text-sm text-muted-foreground">No metrics yet. Run `fidelity process`.</p>
+          <p className="text-sm text-muted-foreground">No metrics yet. Run `fidelity-kit process`.</p>
         )}
       </div>
     </section>
