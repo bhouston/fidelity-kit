@@ -27,13 +27,13 @@ export const Route = createFileRoute('/scenes/$')({
 
 function SceneDetail() {
   const readme = Route.useLoaderData();
-  const { index, scenes } = root.useLoaderData();
+  const { index, hashes, scenes } = root.useLoaderData();
   const search = Route.useSearch();
   const path = Route.useParams()._splat ?? '';
   const scene = scenes.find((s) => s.path === path);
   const navigate = useNavigate({ from: Route.fullPath });
   if (!scene) throw notFound();
-  const view = resolveView(index, search);
+  const view = resolveView(index, search, hashes);
   const compared = view.compared.filter((r) => scene.images[view.output]?.includes(r));
   const size = sceneSize(index, scene, view);
 

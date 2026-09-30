@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
@@ -87,4 +87,98 @@ test('dev mode serves everything fresh: no validators, no caching, conditionals 
   const after = await get('/data/s/beauty/a.avif');
   expect(await after.text()).toBe('changed!');
   expect(after.headers.get('content-length')).toBe('8');
+});
+
+async function hashedSuite(prepare?: (root: string) => Promise<void>) {
+  const dir = await mkdtemp(join(tmpdir(), 'fk-hsh-'));
+  const [root, assets] = [join(dir, 'root'), join(dir, 'assets')];
+  await mkdir(join(root, 's', 'beauty'), { recursive: true });
+  await mkdir(assets, { recursive: true });
+  await writeFile(join(assets, 'index.html'), '<html>');
+  await writeFile(join(root, 'index.json'), '{}');
+  await writeFile(join(root, 's', 'beauty', 'a.avif'), 'one');
+  await writeFile(join(root, 's', 'beauty', 'b.avif'), 'two2');
+  await prepare?.(root);
+  return { root, assets };
+}
+const SHORT = 'public, max-age=300, stale-while-revalidate=86400, stale-if-error=86400';
+const IMMUTABLE = 'public, max-age=31536000, immutable';
+const A = '/data/s/beauty/a.avif';
+
+test('?v is immutable only when it matches the current hash; the listing grows as images are hashed', async () => {
+  const { root, assets } = await hashedSuite();
+  const h = createHandler(root, { assets });
+  const get = (p: string, headers: Record<string, string> = {}) => h(new Request(`http://x${p}`, { headers }));
+
+  const empty = await get('/data/image-hashes.json');
+  expect(await empty.json()).toEqual({});
+  expect(empty.headers.get('cache-control')).toBe('no-cache');
+  expect(empty.headers.get('content-type')).toBe('application/json');
+
+  const first = await get(A);
+  const hash = first.headers.get('etag')!.slice(1, -1);
+  expect(first.headers.get('cache-control')).toBe(SHORT);
+  expect((await get(`${A}?v=${hash}`)).headers.get('cache-control')).toBe(IMMUTABLE);
+  expect((await get(`${A}?v=bogus`)).headers.get('cache-control')).toBe(SHORT);
+  expect((await get('/data/s/beauty/b.avif?v=' + hash)).headers.get('cache-control')).toBe(SHORT);
+  expect((await get('/data/index.json?v=' + hash)).headers.get('cache-control')).toBe('no-cache');
+
+  const list = await get('/data/image-hashes.json');
+  expect(await list.json()).toEqual({ 's/beauty/a.avif': hash, 's/beauty/b.avif': expect.any(String) });
+  const etag = list.headers.get('etag')!;
+  expect(etag).not.toBe(empty.headers.get('etag'));
+  expect((await get('/data/image-hashes.json', { 'if-none-match': etag })).status).toBe(304);
+
+  // a changed file drops out of the listing and its old version is no longer immutable
+  await writeFile(join(root, 's', 'beauty', 'a.avif'), 'changed');
+  expect(Object.keys((await (await get('/data/image-hashes.json')).json()) as object)).toEqual(['s/beauty/b.avif']);
+  expect((await get(`${A}?v=${hash}`)).headers.get('cache-control')).toBe(SHORT);
+});
+
+test('image-hashes.json pre-populates the map; entries with a different size or mtime are discarded', async () => {
+  const { root, assets } = await hashedSuite(async (r) => {
+    const [a, b] = ['a', 'b'].map((n) => join(r, 's', 'beauty', `${n}.avif`));
+    const [sa, sb] = await Promise.all([stat(a!), stat(b!)]);
+    await writeFile(
+      join(r, 'image-hashes.json'),
+      JSON.stringify({
+        version: 1,
+        files: {
+          // deliberately not the real hash: proves the file is trusted instead of re-read
+          's/beauty/a.avif': { hash: 'prepopulated', size: sa.size, mtimeMs: sa.mtimeMs },
+          's/beauty/b.avif': { hash: 'stale', size: sb.size, mtimeMs: sb.mtimeMs + 1 },
+        },
+      }),
+    );
+  });
+  const h = createHandler(root, { assets });
+  const get = (p: string) => h(new Request(`http://x${p}`));
+  expect(await (await get('/data/image-hashes.json')).json()).toEqual({ 's/beauty/a.avif': 'prepopulated' });
+  const a = await get(A);
+  expect(a.headers.get('etag')).toBe('"prepopulated"');
+  expect((await get(`${A}?v=prepopulated`)).headers.get('cache-control')).toBe(IMMUTABLE);
+  const b = await get('/data/s/beauty/b.avif');
+  expect(b.headers.get('etag')).not.toMatch(/stale/);
+  expect((await get('/data/s/beauty/b.avif?v=stale')).headers.get('cache-control')).toBe(SHORT);
+  expect((await get('/data/image-hashes.json')).status).toBe(200);
+});
+
+test('dev mode never hashes: listing is empty, ?v is ignored, the hash file is not loaded', async () => {
+  const { root, assets } = await hashedSuite(async (r) => {
+    const s = await stat(join(r, 's', 'beauty', 'a.avif'));
+    await writeFile(
+      join(r, 'image-hashes.json'),
+      JSON.stringify({ version: 1, files: { 's/beauty/a.avif': { hash: 'h', size: s.size, mtimeMs: s.mtimeMs } } }),
+    );
+  });
+  const h = createHandler(root, { assets, dev: true });
+  const list = await h(new Request('http://x/data/image-hashes.json'));
+  expect(list.status).toBe(200);
+  expect(await list.json()).toEqual({});
+  expect(list.headers.get('cache-control')).toBe('no-store');
+  expect(list.headers.get('etag')).toBeNull();
+  const img = await h(new Request(`http://x${A}?v=h`));
+  expect(img.status).toBe(200);
+  expect(img.headers.get('cache-control')).toBe('no-store');
+  expect(img.headers.get('etag')).toBeNull();
 });

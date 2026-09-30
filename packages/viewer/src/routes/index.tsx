@@ -33,12 +33,12 @@ export const Route = createFileRoute('/')({
 
 function Index() {
   const readme = Route.useLoaderData();
-  const { index, scenes } = root.useLoaderData();
+  const { index, hashes, scenes } = root.useLoaderData();
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   const update = (patch: Partial<ViewSearch>) =>
     void navigate({ replace: true, search: (prev) => ({ ...prev, ...patch }) });
-  const view = resolveView(index, search);
+  const view = resolveView(index, search, hashes);
   const shown = selectScenes(index, scenes, search, view);
   const [q, setQ] = useState(search.q ?? '');
   const tags = allTags(scenes);
