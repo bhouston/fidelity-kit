@@ -35,7 +35,7 @@ export function ResultImage({
     />
   ) : (
     <div
-      className={`flex w-full items-center justify-center border border-dashed border-border text-xs font-semibold uppercase tracking-wide text-muted-foreground ${className}`}
+      className={`flex w-full items-center justify-center border border-dashed border-border text-xs font-semibold uppercase tracking-wide ${notApplicable ? 'text-muted-foreground' : 'text-destructive'} ${className}`}
       style={style}
     >
       {notApplicable ? (
