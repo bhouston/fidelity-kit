@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { processSuite } from './core/index.js';
 import { createProgress } from './progress.js';
 import { assertViewerBuilt, createHandler, defaultCachePolicy, serve, type CachePolicy } from './server.js';
-import { watchResults } from './watch.js';
+import { watchResults, type ResultsWatcher } from './watch.js';
 
 export interface RunArgs {
   root: string;
@@ -21,8 +21,9 @@ export interface RunArgs {
 export async function run(argv: RunArgs, dev: boolean) {
   assertViewerBuilt();
   const root = resolve(argv.root);
-  if (argv.process) {
-    const progress = createProgress(dev ? 'dev' : 'serve', argv.quiet || !dev);
+  const watching = dev && argv.watch;
+  const progress = createProgress(dev ? 'dev' : 'serve', argv.quiet || !dev);
+  if (argv.process && !watching) {
     const r = await processSuite(root, { concurrency: argv.concurrency, onProgress: progress.update }).finally(
       progress.finish,
     );
@@ -31,17 +32,16 @@ export async function run(argv: RunArgs, dev: boolean) {
       throw new Error(
         `Failed to compare ${r.failed.length} image pair(s): ${r.failed.map((f) => `${f.file}: ${f.error}`).join('; ')}`,
       );
-  } else if (!existsSync(`${root}/index.json`)) {
+  } else if (!argv.process && !existsSync(`${root}/index.json`)) {
     throw new Error(`No index.json in ${root}; run \`fidelity-kit process\` or drop --no-process.`);
   }
   const cache: CachePolicy = {
     maxAge: argv.maxAge ?? defaultCachePolicy.maxAge,
     staleWhileRevalidate: argv.staleWhileRevalidate ?? defaultCachePolicy.staleWhileRevalidate,
   };
-  await serve(createHandler(root, { cache, dev }), argv.port, argv.host);
-  if (dev && argv.watch) {
-    const progress = createProgress('dev', argv.quiet);
-    await watchResults(
+  let watcher: ResultsWatcher | undefined;
+  if (watching) {
+    watcher = await watchResults(
       root,
       (update) => {
         progress.finish();
@@ -49,8 +49,14 @@ export async function run(argv: RunArgs, dev: boolean) {
           console.log(`${update.computed} computed, ${update.failed.length} failed`);
         for (const f of update.failed) console.error(`FAILED ${f.file}: ${f.error}`);
       },
-      progress.update,
+      { concurrency: argv.concurrency, process: argv.process, onProgress: progress.update },
     );
+  }
+  try {
+    await serve(createHandler(root, { cache, dev }), argv.port, argv.host);
+  } catch (error) {
+    await watcher?.close();
+    throw error;
   }
   if (!argv.quiet)
     console.log(`Serving ${root} at http://${argv.host}:${argv.port}${dev ? ' (dev: nothing cached)' : ''}`);

@@ -2,7 +2,8 @@ import { mkdtemp, mkdir, readFile, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import sharp from 'sharp';
-import { expect, test } from 'vitest';
+import { expect, test, vi } from 'vitest';
+import * as comparison from './core/compare.js';
 import { processChanges, processSuite } from './core/process.js';
 import { watchResults } from './watch.js';
 import type { ProgressUpdate } from './core/progress.js';
@@ -86,3 +87,59 @@ test('reference and metadata changes refresh the affected scene', async () => {
   await utimes(changed, future, future);
   expect(await processChanges(root, ['one/beauty/ref.avif'])).toMatchObject({ computed: 2, failed: [] });
 });
+
+test('generated metrics, deltas, index and temporary writes never trigger watch updates', async () => {
+  const { root, dir } = await fixture();
+  const updates: number[] = [];
+  const watcher = await watchResults(root, (result) => updates.push(result.computed), { concurrency: 1 });
+  try {
+    const baseline = updates.length;
+    await writeFile(join(dir, 'a.vs-ref.metrics.json'), '{}');
+    await writeFile(join(dir, 'a.vs-ref.delta.avif'), await image(30));
+    await writeFile(join(dir, 'a.avif.write.tmp'), 'temporary');
+    await writeFile(join(root, 'index.json.write.tmp'), '{}');
+    await writeFile(join(root, 'index.json'), JSON.stringify(await index(root)));
+    await new Promise((resolve) => setTimeout(resolve, 1100));
+    expect(updates).toHaveLength(baseline);
+    await writeFile(join(dir, 'a.avif'), await image(190));
+    await expect.poll(() => updates.length, { timeout: 6000 }).toBe(baseline + 1);
+    expect(updates.at(-1)).toBe(1);
+    // The comparison itself writes all generated artifacts; none may feed back into the watcher.
+    await new Promise((resolve) => setTimeout(resolve, 1100));
+    expect(updates).toHaveLength(baseline + 1);
+  } finally {
+    await watcher.close();
+  }
+}, 10000);
+
+test('changes during initial processing are observed and supersede the initial comparison', async () => {
+  const { root, dir } = await fixture();
+  await writeFile(join(dir, 'a.avif'), await image(130));
+  const started = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
+  const original = comparison.compareImages;
+  const compare = vi.spyOn(comparison, 'compareImages').mockImplementationOnce(async (...args) => {
+    const result = await original(...args);
+    started.resolve();
+    await release.promise;
+    return result;
+  });
+  let watcher: Awaited<ReturnType<typeof watchResults>> | undefined;
+  try {
+    const starting = watchResults(root);
+    await started.promise;
+    await writeFile(join(dir, 'a.avif'), await image(190));
+    // Let the real watcher deliver its stable-write notification while startup is still running.
+    await new Promise((resolve) => setTimeout(resolve, 900));
+    release.resolve();
+    watcher = await starting;
+    await expect
+      .poll(async () => (await index(root)).metrics['one/beauty/a.vs-ref.metrics.json']?.maxError, { timeout: 6000 })
+      .toBeGreaterThan(0.3);
+    expect(compare).toHaveBeenCalledTimes(2);
+  } finally {
+    release.resolve();
+    await watcher?.close();
+    compare.mockRestore();
+  }
+}, 10000);

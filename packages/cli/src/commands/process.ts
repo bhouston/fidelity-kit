@@ -1,7 +1,13 @@
-import { processSuite } from '../core/index.js';
+import { processSuite, type ProcessResult } from '../core/index.js';
 import { defineCommand } from 'yargs-file-commands';
-import { createProgress } from '../progress.js';
 import { watchResults } from '../watch.js';
+import { createProgress } from '../progress.js';
+
+function report(r: ProcessResult, quiet: boolean) {
+  if (!quiet) console.log(`${r.computed} computed, ${r.skipped} up to date, ${r.failed.length} failed`);
+  for (const f of r.failed) console.error(`FAILED ${f.file}: ${f.error}`);
+  if (r.failed.length) process.exitCode = 1;
+}
 
 export const command = defineCommand({
   command: 'process <root>',
@@ -23,27 +29,18 @@ export const command = defineCommand({
       }),
   handler: async (argv) => {
     const progress = createProgress('process', argv.quiet);
-    const r = await processSuite(argv.root, {
+    const options = {
       force: argv.force,
       concurrency: argv.concurrency,
       onProgress: progress.update,
-    }).finally(progress.finish);
-    if (!argv.quiet) console.log(`${r.computed} computed, ${r.skipped} up to date, ${r.failed.length} failed`);
-    for (const f of r.failed) console.error(`FAILED ${f.file}: ${f.error}`);
-    if (r.failed.length) process.exitCode = 1;
+    };
+    const onResult = (result: ProcessResult) => {
+      progress.finish();
+      report(result, argv.quiet);
+    };
     if (argv.watch) {
-      await watchResults(
-        argv.root,
-        (update) => {
-          progress.finish();
-          if (!argv.quiet)
-            console.log(`${update.computed} computed, ${update.skipped} up to date, ${update.failed.length} failed`);
-          for (const f of update.failed) console.error(`FAILED ${f.file}: ${f.error}`);
-          if (update.failed.length) process.exitCode = 1;
-        },
-        progress.update,
-      );
+      await watchResults(argv.root, onResult, options);
       if (!argv.quiet) console.log(`Watching ${argv.root}`);
-    }
+    } else onResult(await processSuite(argv.root, options).finally(progress.finish));
   },
 });

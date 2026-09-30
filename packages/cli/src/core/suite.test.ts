@@ -38,7 +38,7 @@ test('scan, process, staleness, etag', async () => {
     failed: [],
   });
   expect(progress.filter((update) => update.completed === update.total).map((update) => update.phase)).toEqual(
-    expect.arrayContaining(['Scanning', 'Comparing', 'Scanning for index', 'Writing index']),
+    expect.arrayContaining(['Scanning', 'Comparing', 'Writing index']),
   );
   const a = JSON.parse(await readFile(join(dir, 'a.vs-ref.metrics.json'), 'utf8'));
   const b = JSON.parse(await readFile(join(dir, 'b.vs-ref.metrics.json'), 'utf8'));

@@ -1,10 +1,12 @@
-import { mkdir, readFile, rename, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import { availableParallelism } from 'node:os';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import pLimit from 'p-limit';
 import { compareImages, type ImageMetrics } from './compare.js';
-import { allScenes, scanScene, scanSuite, type GroupNode, type SceneNode, type Suite } from './scan.js';
+import { readConfig, scanScene, scanSuite, type GroupNode, type SceneNode, type Suite } from './scan.js';
 import { deltaFile, imageFile, metricsFile } from './paths.js';
+import type { FidelityConfig } from './schema.js';
 import type { ProgressCallback } from './progress.js';
 
 export interface MetricsRecord extends ImageMetrics {
@@ -12,114 +14,468 @@ export interface MetricsRecord extends ImageMetrics {
   height: number;
   generatedAt: string;
 }
-
-const mtime = (p: string) =>
-  stat(p).then(
-    (s) => s.mtimeMs,
-    () => 0,
-  );
-
 export type SuiteIndex = Suite & { metrics: Record<string, MetricsRecord> };
-
 export interface ProcessResult {
   computed: number;
   skipped: number;
   failed: { file: string; error: string }[];
 }
+export interface ProcessOptions {
+  force?: boolean;
+  concurrency?: number;
+  onCompute?: (file: string) => void;
+  onProgress?: ProgressCallback;
+}
+interface Signature {
+  mtimeMs: number;
+  size: number;
+}
+interface Inputs {
+  reference: Signature;
+  renderer: Signature;
+}
+interface Pair {
+  key: string;
+  scene: string;
+  reference: string;
+  renderer: string;
+  delta: string;
+  inputs: Inputs;
+  attempted?: string;
+  running: boolean;
+  force: boolean;
+}
+interface SceneState {
+  node: SceneNode;
+  pairs: Map<string, Pair>;
+}
+const emptyResult = (): ProcessResult => ({ computed: 0, skipped: 0, failed: [] });
+const signatureKey = (inputs: Inputs | null) => JSON.stringify(inputs);
 
-async function processPair(
-  root: string,
-  scene: SceneNode,
-  output: string,
-  renderer: string,
-  ref: string,
-  delta: boolean,
-  result: ProcessResult,
-  force = false,
-  onCompute?: (file: string) => void,
-) {
-  const dir = join(root, scene.path, output);
-  const [refPath, testPath] = [join(dir, imageFile(ref)), join(dir, imageFile(renderer))];
-  const metricsPath = join(dir, metricsFile(renderer, ref));
-  const deltaPath = join(dir, deltaFile(renderer, ref));
-  const inputs = Math.max(await mtime(refPath), await mtime(testPath));
-  const outputs = [metricsPath, ...(delta ? [deltaPath] : [])];
-  const oldest = Math.min(...(await Promise.all(outputs.map(mtime))));
-  if (!force && oldest > inputs) {
-    try {
-      const record = JSON.parse(await readFile(metricsPath, 'utf8')) as MetricsRecord;
-      result.skipped++;
-      return record;
-    } catch {
-      /* recompute invalid metrics */
-    }
-  }
+async function signature(path: string): Promise<Signature | null> {
   try {
-    const { metrics, width, height, deltaImage } = await compareImages(refPath, testPath);
-    const rec: MetricsRecord = { ...metrics, width, height, generatedAt: new Date().toISOString() };
-    await writeFile(metricsPath, JSON.stringify(rec, null, 2) + '\n');
-    if (delta) await writeFile(deltaPath, deltaImage);
-    result.computed++;
-    onCompute?.(metricsPath);
-    return rec;
-  } catch (e) {
-    result.failed.push({ file: testPath, error: e instanceof Error ? e.message : String(e) });
-    return null;
+    const s = await stat(path);
+    return s.isFile() ? { mtimeMs: s.mtimeMs, size: s.size } : null;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT' || (error as NodeJS.ErrnoException).code === 'ENOTDIR')
+      return null;
+    throw error;
+  }
+}
+function validMetrics(value: unknown): value is MetricsRecord {
+  if (!value || typeof value !== 'object') return false;
+  const r = value as MetricsRecord;
+  return (
+    (r.psnr === null || Number.isFinite(r.psnr)) &&
+    [r.rmse, r.mae, r.maxError].every((n) => Number.isFinite(n) && n >= 0 && n <= 1) &&
+    Number.isInteger(r.width) &&
+    r.width > 0 &&
+    Number.isInteger(r.height) &&
+    r.height > 0 &&
+    typeof r.generatedAt === 'string'
+  );
+}
+async function atomicWrite(file: string, data: string | Buffer) {
+  const tmp = `${file}.${randomUUID()}.tmp`;
+  try {
+    await writeFile(tmp, data);
+    await rename(tmp, file);
+  } finally {
+    await rm(tmp, { force: true });
   }
 }
 
-/** Writes metrics + delta for every (scene, output, reference, renderer) pair whose outputs are older than either input, then `index.json`. */
-export async function processSuite(
-  root: string,
-  opts: {
-    force?: boolean;
-    concurrency?: number;
-    onCompute?: (file: string) => void;
-    onProgress?: ProgressCallback;
-  } = {},
-): Promise<ProcessResult> {
-  const suite = await scanSuite(root, opts.onProgress);
-  const refs = suite.config.renderers.filter((r) => r.reference).map((r) => r.id);
-  const result: ProcessResult = { computed: 0, skipped: 0, failed: [] };
-  const validMetrics = new Set<string>();
-  const limit = pLimit(Math.max(1, opts.concurrency ?? availableParallelism()));
-  const tasks: Promise<void>[] = [];
-  let completed = 0;
-  let total = 0;
-  const report = () => opts.onProgress?.({ phase: 'Comparing', completed, total, unit: 'pairs' });
-  report();
+/** A fixed configuration, small per-scene dependency maps, and one bounded comparison queue. */
+export class SuiteProcessor {
+  readonly config: FidelityConfig;
+  private suite: Suite;
+  private scenes = new Map<string, SceneState>();
+  private metrics: SuiteIndex['metrics'] = {};
+  private pending = new Set<string>();
+  private unsettled = new Set<string>();
+  private epochs = new Map<string, number>();
+  private dirty = new Set<Pair>();
+  private active = new Set<Promise<void>>();
+  private limit: ReturnType<typeof pLimit>;
+  private concurrency: number;
+  private result = emptyResult();
+  private flushing?: Promise<ProcessResult>;
+  private force: boolean;
+  private indexDirty = false;
+  private progressCompleted = 0;
+  private progressTotal = 0;
 
-  for (const scene of allScenes(suite.root)) {
-    for (const [output, renderers] of Object.entries(scene.images)) {
-      for (const ref of refs.filter((r) => renderers.includes(r))) {
-        for (const r of renderers.filter((x) => x !== ref)) {
-          total++;
-          report();
-          tasks.push(
-            limit(async () => {
-              try {
-                const metricsRel = `${scene.path}/${output}/${metricsFile(r, ref)}`;
-                if (
-                  await processPair(root, scene, output, r, ref, suite.config.delta, result, opts.force, opts.onCompute)
-                ) {
-                  validMetrics.add(metricsRel);
-                }
-              } finally {
-                completed++;
-                report();
-              }
-            }),
-          );
-        }
+  private reportComparing() {
+    this.opts.onProgress?.({
+      phase: 'Comparing',
+      completed: this.progressCompleted,
+      total: this.progressTotal,
+      unit: 'pairs',
+    });
+  }
+
+  private constructor(
+    readonly root: string,
+    config: FidelityConfig,
+    private opts: ProcessOptions,
+  ) {
+    this.config = config;
+    this.suite = { config, hasReadme: false, root: { path: '', hasReadme: false, groups: [], scenes: [] } };
+    this.concurrency = opts.concurrency ?? availableParallelism();
+    if (!Number.isInteger(this.concurrency) || this.concurrency < 1)
+      throw new Error('Concurrency must be a positive integer');
+    this.limit = pLimit(this.concurrency);
+    this.force = opts.force ?? false;
+  }
+
+  static async create(root: string, opts: ProcessOptions = {}) {
+    return new SuiteProcessor(root, await readConfig(root), opts);
+  }
+
+  /** Only source inputs qualify. Generated deltas, metrics, index and temporary files never do. */
+  sceneForInput(path: string): string | null {
+    const parts = path.split('/');
+    if (parts.some((p) => !p || p.startsWith('.'))) return null;
+    const file = parts.pop()!;
+    if (file === 'scene.json' && parts.length) return parts.join('/');
+    if (file === 'README.md') return parts.join('/');
+    if (file.includes('.vs-') && file.endsWith('.delta.avif')) return null;
+    const output = parts.pop();
+    if (!parts.length || !this.config.outputs.some((o) => o.id === output)) return null;
+    if (!this.config.renderers.some((r) => imageFile(r.id) === file)) return null;
+    return parts.join('/');
+  }
+
+  /** Invalidate synchronously, including work already running; reconciliation happens at the batch boundary. */
+  notify(paths: Iterable<string>, defer = false) {
+    for (const path of paths) {
+      const scene = this.sceneForInput(path);
+      if (scene === null) continue;
+      (defer ? this.unsettled : this.pending).add(scene);
+      this.epochs.set(scene, (this.epochs.get(scene) ?? 0) + 1);
+    }
+  }
+
+  /** Release one coalesced watcher batch without delaying invalidation of running work. */
+  settle() {
+    for (const scene of this.unsettled) this.pending.add(scene);
+    this.unsettled.clear();
+  }
+
+  get needsFlush() {
+    return !!(this.pending.size || this.active.size || this.indexDirty);
+  }
+
+  removeDirectory(path: string, defer = false) {
+    for (const scene of this.scenes.keys()) {
+      if (scene === path || scene.startsWith(`${path}/`) || path.startsWith(`${scene}/`)) {
+        (defer ? this.unsettled : this.pending).add(scene);
+        this.epochs.set(scene, (this.epochs.get(scene) ?? 0) + 1);
       }
     }
   }
 
-  await Promise.all(tasks);
-  result.failed.sort((a, b) => a.file.localeCompare(b.file)); // deterministic regardless of completion order
-  const indexedSuite = await scanSuite(root, (status) => opts.onProgress?.({ ...status, phase: 'Scanning for index' }));
-  await writeIndex(root, indexedSuite, validMetrics, opts.onProgress);
-  return result;
+  /** Comparisons start as scenes are discovered; no second walk or metrics reread is needed. */
+  async initialize(process = true): Promise<ProcessResult> {
+    if (!process) {
+      const index = JSON.parse(await readFile(join(this.root, 'index.json'), 'utf8')) as SuiteIndex;
+      this.metrics = index.metrics;
+    }
+    try {
+      this.suite = await scanSuite(this.root, {
+        config: this.config,
+        onProgress: this.opts.onProgress,
+        onScene: async (scene) => {
+          await this.reconcile(scene.path, scene, process);
+        },
+      });
+    } catch (error) {
+      this.dirty.clear();
+      await Promise.all(this.active);
+      throw error;
+    }
+    if (!process) {
+      const valid = new Set([...this.scenes.values()].flatMap((scene) => [...scene.pairs.keys()]));
+      for (const key of Object.keys(this.metrics)) if (!valid.has(key)) delete this.metrics[key];
+    }
+    this.indexDirty = process;
+    // Events collected during discovery are reconciled even when the initial processing was disabled.
+    return this.flush();
+  }
+
+  flush(): Promise<ProcessResult> {
+    if (!this.flushing)
+      this.flushing = this.drain().finally(() => {
+        this.flushing = undefined;
+      });
+    return this.flushing;
+  }
+
+  private async reconcile(rel: string, node: SceneNode | null, process = true) {
+    const old = this.scenes.get(rel);
+    const pairs = new Map<string, Pair>();
+    if (node) {
+      for (const [output, renderers] of Object.entries(node.images)) {
+        const images = new Map(
+          await Promise.all(
+            renderers.map(async (r) => {
+              const path = `${rel}/${output}/${imageFile(r)}`;
+              return [r, { path, signature: await signature(join(this.root, path)) }] as const;
+            }),
+          ),
+        );
+        for (const ref of this.config.renderers.filter((r) => r.reference && images.has(r.id))) {
+          for (const renderer of renderers.filter((r) => r !== ref.id)) {
+            const a = images.get(ref.id)!;
+            const b = images.get(renderer)!;
+            if (!a.signature || !b.signature) continue;
+            const key = `${rel}/${output}/${metricsFile(renderer, ref.id)}`;
+            const inputs = { reference: a.signature, renderer: b.signature };
+            const pair = old?.pairs.get(key) ?? {
+              key,
+              scene: rel,
+              reference: a.path,
+              renderer: b.path,
+              delta: `${rel}/${output}/${deltaFile(renderer, ref.id)}`,
+              inputs,
+              running: false,
+              force: this.force,
+            };
+            if (signatureKey(pair.inputs) !== signatureKey(inputs)) {
+              pair.inputs = inputs;
+              pair.attempted = undefined;
+              delete this.metrics[key];
+            }
+            pairs.set(key, pair);
+            if (process && pair.attempted !== signatureKey(inputs)) {
+              if (!this.dirty.has(pair) && !pair.running) {
+                this.progressTotal++;
+                this.reportComparing();
+              }
+              this.dirty.add(pair);
+            }
+          }
+        }
+      }
+      this.scenes.set(rel, { node, pairs });
+    } else {
+      this.scenes.delete(rel);
+      this.epochs.delete(rel);
+    }
+    for (const [key, pair] of old?.pairs ?? []) {
+      if (!pairs.has(key)) {
+        this.dirty.delete(pair);
+        delete this.metrics[key];
+      }
+    }
+    replaceScene(this.suite.root, rel, node);
+    this.indexDirty = true;
+    if (process) this.pump();
+  }
+
+  private current(pair: Pair, epoch: number) {
+    return this.scenes.get(pair.scene)?.pairs.get(pair.key) === pair && (this.epochs.get(pair.scene) ?? 0) === epoch;
+  }
+
+  private pump() {
+    for (const pair of this.dirty) {
+      if (this.active.size >= this.concurrency) break;
+      if (pair.running || this.unsettled.has(pair.scene)) continue;
+      this.dirty.delete(pair);
+      if (pair.attempted === signatureKey(pair.inputs)) continue;
+      pair.running = true;
+      const task = this.limit(() => this.processPair(pair)).finally(() => {
+        this.progressCompleted++;
+        this.reportComparing();
+        pair.running = false;
+        this.active.delete(task);
+        this.pump();
+      });
+      this.active.add(task);
+    }
+  }
+
+  private async readInputs(pair: Pair): Promise<Inputs | null> {
+    const [reference, renderer] = await Promise.all([
+      signature(join(this.root, pair.reference)),
+      signature(join(this.root, pair.renderer)),
+    ]);
+    return reference && renderer ? { reference, renderer } : null;
+  }
+
+  private async processPair(pair: Pair) {
+    const epoch = this.epochs.get(pair.scene) ?? 0;
+    const inputs = pair.inputs;
+    const key = signatureKey(inputs);
+    const metricsPath = join(this.root, pair.key);
+    // Bump the recipe version when comparison or encoding semantics change.
+    const source = { version: 1, delta: this.config.delta, ...inputs };
+    const stillCurrent = async () => {
+      const actual = await this.readInputs(pair);
+      return this.current(pair, epoch) && signatureKey(actual) === key;
+    };
+    const retry = () => {
+      if (this.scenes.get(pair.scene)?.pairs.get(pair.key) === pair) {
+        pair.attempted = undefined;
+        if (!this.unsettled.has(pair.scene)) this.pending.add(pair.scene);
+        this.indexDirty = true;
+        delete this.metrics[pair.key];
+      }
+    };
+    try {
+      if (!(await stillCurrent())) {
+        retry();
+        return;
+      }
+      let record: MetricsRecord | undefined;
+      if (!pair.force) {
+        try {
+          const { source: saved, ...cached } = JSON.parse(await readFile(metricsPath, 'utf8'));
+          if (
+            JSON.stringify(saved) === JSON.stringify(source) &&
+            validMetrics(cached) &&
+            (!this.config.delta || (await signature(join(this.root, pair.delta))))
+          )
+            record = cached;
+        } catch {
+          /* Missing or invalid metrics are recomputed. */
+        }
+      }
+      if (record) {
+        if (!(await stillCurrent())) {
+          retry();
+          return;
+        }
+        this.result.skipped++;
+      } else {
+        const compared = await compareImages(join(this.root, pair.reference), join(this.root, pair.renderer), {
+          delta: this.config.delta,
+        });
+        record = {
+          ...compared.metrics,
+          width: compared.width,
+          height: compared.height,
+          generatedAt: new Date().toISOString(),
+        };
+        if (!(await stillCurrent())) {
+          retry();
+          return;
+        }
+        // Metrics are the commit marker: publish them only after all required artifacts exist.
+        if (this.config.delta) await atomicWrite(join(this.root, pair.delta), compared.deltaImage);
+        await atomicWrite(metricsPath, JSON.stringify({ ...record, source }, null, 2) + '\n');
+        if (!(await stillCurrent())) {
+          retry();
+          return;
+        }
+        this.result.computed++;
+        this.opts.onCompute?.(metricsPath);
+      }
+      pair.attempted = key;
+      pair.force = false;
+      this.metrics[pair.key] = record;
+      this.indexDirty = true;
+    } catch (error) {
+      if (!this.current(pair, epoch) || signatureKey(await this.readInputs(pair).catch(() => null)) !== key) {
+        retry();
+        return;
+      }
+      pair.attempted = key; // Wait for changed inputs; do not spin on corrupt images.
+      delete this.metrics[pair.key];
+      this.indexDirty = true;
+      this.result.failed.push({
+        file: join(this.root, pair.renderer),
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  private async drain(): Promise<ProcessResult> {
+    do {
+      while (this.pending.size || this.dirty.size || this.active.size) {
+        const pending = [...this.pending];
+        this.pending.clear();
+        let scanned = 0;
+        const reportScanning = () =>
+          this.opts.onProgress?.({
+            phase: 'Scanning changes',
+            completed: scanned,
+            total: pending.length,
+            unit: 'scenes',
+          });
+        if (pending.length) reportScanning();
+        for (const rel of pending) {
+          try {
+            if (!rel) {
+              this.suite.hasReadme = !!(await signature(join(this.root, 'README.md')));
+              this.suite.root.hasReadme = this.suite.hasReadme;
+              this.indexDirty = true;
+            } else {
+              await this.reconcile(rel, await scanScene(this.root, rel, this.config));
+              // Newly inserted groups and README-only changes need current presence flags too.
+              let group = this.suite.root;
+              for (const part of rel.split('/')) {
+                const path = group.path ? `${group.path}/${part}` : part;
+                const child = group.groups.find((g) => g.path === path);
+                if (!child) break;
+                child.hasReadme = !!(await signature(join(this.root, path, 'README.md')));
+                group = child;
+              }
+            }
+          } catch (error) {
+            this.result.failed.push({
+              file: join(this.root, rel),
+              error: error instanceof Error ? error.message : String(error),
+            });
+          }
+          scanned++;
+          reportScanning();
+        }
+        this.pump();
+        if (this.active.size) await Promise.race(this.active);
+        else if (!this.pending.size) break; // Remaining dirty nodes belong to an unsettled watcher batch.
+      }
+      if (this.indexDirty) {
+        this.opts.onProgress?.({ phase: 'Writing index', completed: 0, total: 1, unit: 'files' });
+        const index: SuiteIndex = {
+          ...this.suite,
+          metrics: Object.fromEntries(Object.entries(this.metrics).toSorted(([a], [b]) => a.localeCompare(b))),
+        };
+        await mkdir(this.root, { recursive: true });
+        await atomicWrite(join(this.root, 'index.json'), JSON.stringify(index, null, 2) + '\n');
+        this.indexDirty = false;
+        this.opts.onProgress?.({ phase: 'Writing index', completed: 1, total: 1, unit: 'files' });
+      }
+    } while (this.pending.size);
+    this.force = false;
+    this.progressCompleted = 0;
+    this.progressTotal = 0;
+    const result = this.result;
+    this.result = emptyResult();
+    result.failed.sort((a, b) => a.file.localeCompare(b.file));
+    return result;
+  }
+}
+
+/** Process discovered scenes through the same scheduler used by watch mode. */
+export async function processSuite(root: string, opts: ProcessOptions = {}): Promise<ProcessResult> {
+  return (await SuiteProcessor.create(root, opts)).initialize();
+}
+
+/** One-shot compatibility helper. Watch mode retains its SuiteProcessor instead. */
+export async function processChanges(
+  root: string,
+  paths: Iterable<string>,
+  onProgress?: ProgressCallback,
+): Promise<ProcessResult> {
+  const processor = await SuiteProcessor.create(root, { onProgress });
+  try {
+    await processor.initialize(false);
+  } catch {
+    return processSuite(root, { onProgress });
+  }
+  processor.notify(paths);
+  return processor.flush();
 }
 
 function replaceScene(root: GroupNode, path: string, scene: SceneNode | null) {
@@ -146,120 +502,4 @@ function replaceScene(root: GroupNode, path: string, scene: SceneNode | null) {
     if (current.groups.length || current.scenes.length) break;
     parents[i - 1]!.groups = parents[i - 1]!.groups.filter((g) => g !== current);
   }
-}
-
-/** Update only scenes and pairs touched by image or scene metadata changes. Config changes use a full pass. */
-export async function processChanges(
-  root: string,
-  paths: Iterable<string>,
-  onProgress?: ProgressCallback,
-): Promise<ProcessResult> {
-  const changed = [...paths];
-  if (changed.includes('fidelity.json')) return processSuite(root, { onProgress });
-  let index: SuiteIndex;
-  try {
-    index = JSON.parse(await readFile(join(root, 'index.json'), 'utf8')) as SuiteIndex;
-  } catch {
-    return processSuite(root, { onProgress });
-  }
-  const result: ProcessResult = { computed: 0, skipped: 0, failed: [] };
-  const scenes = new Map<string, Map<string, Set<string>>>();
-  for (const path of changed) {
-    const parts = path.split('/');
-    const file = parts.pop()!;
-    if (file === 'scene.json' && parts.length) {
-      const rel = parts.join('/');
-      if (!scenes.has(rel)) scenes.set(rel, new Map());
-    } else if (file.endsWith('.avif') && !file.includes('.vs-') && parts.length >= 2) {
-      const output = parts.pop()!;
-      const renderer = file.slice(0, -5);
-      if (!index.config.outputs.some((o) => o.id === output) || !index.config.renderers.some((r) => r.id === renderer))
-        continue;
-      const rel = parts.join('/');
-      if (!scenes.has(rel)) scenes.set(rel, new Map());
-      const outputs = scenes.get(rel)!;
-      if (!outputs.has(output)) outputs.set(output, new Set());
-      outputs.get(output)!.add(renderer);
-    }
-  }
-  let scanned = 0;
-  let compared = 0;
-  let totalPairs = 0;
-  const scanProgress = () =>
-    onProgress?.({ phase: 'Scanning changes', completed: scanned, total: scenes.size, unit: 'scenes' });
-  const compareProgress = () =>
-    onProgress?.({ phase: 'Comparing', completed: compared, total: totalPairs, unit: 'pairs' });
-  scanProgress();
-  for (const [rel, outputs] of scenes) {
-    const scene = await scanScene(root, rel, index.config);
-    scanned++;
-    scanProgress();
-    replaceScene(index.root, rel, scene);
-    const valid = new Set<string>();
-    if (scene) {
-      for (const [output, renderers] of Object.entries(scene.images)) {
-        for (const ref of index.config.renderers.filter((r) => r.reference && renderers.includes(r.id))) {
-          for (const renderer of renderers.filter((r) => r !== ref.id)) {
-            valid.add(`${rel}/${output}/${metricsFile(renderer, ref.id)}`);
-          }
-        }
-      }
-    }
-    for (const key of Object.keys(index.metrics)) {
-      if (key.startsWith(`${rel}/`) && !valid.has(key)) delete index.metrics[key];
-    }
-    if (!scene) continue;
-    for (const [output, touched] of outputs) {
-      const renderers = scene.images[output] ?? [];
-      for (const ref of index.config.renderers.filter((r) => r.reference && renderers.includes(r.id))) {
-        for (const renderer of renderers.filter((r) => r !== ref.id && (touched.has(r) || touched.has(ref.id)))) {
-          totalPairs++;
-          compareProgress();
-          const key = `${rel}/${output}/${metricsFile(renderer, ref.id)}`;
-          const rec = await processPair(root, scene, output, renderer, ref.id, index.config.delta, result);
-          if (rec) index.metrics[key] = rec;
-          else delete index.metrics[key];
-          compared++;
-          compareProgress();
-        }
-      }
-    }
-  }
-  if (scenes.size) {
-    onProgress?.({ phase: 'Writing index', completed: 0, total: 1, unit: 'files' });
-    const file = join(root, 'index.json');
-    const tmp = `${file}.${process.pid}.tmp`;
-    await writeFile(tmp, JSON.stringify(index, null, 2) + '\n');
-    await rename(tmp, file);
-    onProgress?.({ phase: 'Writing index', completed: 1, total: 1, unit: 'files' });
-  }
-  return result;
-}
-
-/** `index.json`: the scan plus metrics for successful or up-to-date pairs, so the viewer never walks the disk per request. */
-async function writeIndex(root: string, suite: Suite, validMetrics: Set<string>, onProgress?: ProgressCallback) {
-  const metrics: SuiteIndex['metrics'] = {};
-  let completed = 0;
-  const report = () =>
-    onProgress?.({ phase: 'Writing index', completed, total: validMetrics.size + 1, unit: 'entries' });
-  report();
-  for (const scene of allScenes(suite.root)) {
-    for (const [output, renderers] of Object.entries(scene.images)) {
-      for (const r of renderers) {
-        for (const ref of suite.config.renderers.filter((x) => x.reference)) {
-          const rel = `${scene.path}/${output}/${metricsFile(r, ref.id)}`;
-          if (!validMetrics.has(rel)) continue;
-          const raw = await readFile(join(root, rel), 'utf8').catch(() => null);
-          if (raw) metrics[rel] = JSON.parse(raw);
-          completed++;
-          report();
-        }
-      }
-    }
-  }
-  const file = join(root, 'index.json');
-  await mkdir(dirname(file), { recursive: true });
-  await writeFile(file, JSON.stringify({ ...suite, metrics }, null, 2) + '\n');
-  completed++;
-  report();
 }
