@@ -1,10 +1,9 @@
 import { defineCommand } from 'yargs-file-commands';
 import { run } from '../run.js';
-import { defaultCachePolicy } from '../server.js';
 
 export const command = defineCommand({
-  command: 'serve <root>',
-  describe: 'Serve the viewer for a results directory (lazy ETags and shared-cache headers)',
+  command: 'dev <root>',
+  describe: 'Serve the viewer for local work: nothing is cached, no ETags, every request reads the file fresh',
   builder: (yargs) =>
     yargs
       .positional('root', {
@@ -14,16 +13,6 @@ export const command = defineCommand({
       })
       .option('port', { type: 'number', default: 3000, describe: 'Port to listen on' })
       .option('host', { type: 'string', default: 'localhost', describe: 'Interface to bind (0.0.0.0 for all)' })
-      .option('max-age', {
-        type: 'number',
-        default: defaultCachePolicy.maxAge,
-        describe: 'Seconds images are cached (browsers and CDNs) without revalidation',
-      })
-      .option('stale-while-revalidate', {
-        type: 'number',
-        default: defaultCachePolicy.staleWhileRevalidate,
-        describe: 'Seconds a stale image may be served while it refreshes in the background',
-      })
       .option('process', { type: 'boolean', default: true, describe: 'Refresh stale metrics/deltas before serving' }),
-  handler: (argv) => run(argv, false),
+  handler: (argv) => run(argv, true),
 });

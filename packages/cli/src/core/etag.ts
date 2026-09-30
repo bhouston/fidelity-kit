@@ -85,12 +85,24 @@ export async function fileResponse(
     'X-Content-Type-Options': 'nosniff',
   };
   if (notModified(req, etag, s.mtimeMs)) return new Response(null, { status: 304, headers });
-  const ext = path.slice(path.lastIndexOf('.') + 1).toLowerCase();
   return new Response(Readable.toWeb(createReadStream(path)) as ReadableStream<Uint8Array>, {
-    headers: {
-      ...headers,
-      'Content-Type': TYPES[ext] ?? 'application/octet-stream',
-      'Content-Length': String(s.size),
-    },
+    headers: { ...headers, ...bodyHeaders(path, s.size) },
+  });
+}
+
+function bodyHeaders(path: string, size: number) {
+  const ext = path.slice(path.lastIndexOf('.') + 1).toLowerCase();
+  return { 'Content-Type': TYPES[ext] ?? 'application/octet-stream', 'Content-Length': String(size) };
+}
+
+/**
+ * Dev-mode variant: the file exactly as it is on disk right now, every time. No ETag, no Last-Modified, no hash cache,
+ * conditional headers are ignored (always 200) and `Cache-Control: no-store` keeps browsers and proxies from reusing it.
+ */
+export async function freshFileResponse(path: string): Promise<Response> {
+  const s = await stat(path).catch(() => null);
+  if (!s?.isFile()) return new Response('Not found', { status: 404, headers: { 'Cache-Control': 'no-store' } });
+  return new Response(Readable.toWeb(createReadStream(path)) as ReadableStream<Uint8Array>, {
+    headers: { ...bodyHeaders(path, s.size), 'Cache-Control': 'no-store' },
   });
 }
