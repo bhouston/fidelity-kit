@@ -33,8 +33,12 @@ export const SORT_OPTIONS: { value: Sort; label: string }[] = [
   { value: 'psnr-desc', label: 'PSNR, best first' },
 ];
 
-export const fileUrl = (scenePath: string, output: string, file: string) =>
-  `data/${[...scenePath.split('/'), output, file].map(encodeURIComponent).join('/')}`;
+/** Image URL; `?v=<hash>` (when the server knows the file's hash) lets caches keep it as immutable. */
+export const fileUrl = (scenePath: string, output: string, file: string, hashes: Record<string, string> = {}) => {
+  const parts = [...scenePath.split('/'), output, file];
+  const hash = hashes[parts.join('/')];
+  return `data/${parts.map(encodeURIComponent).join('/')}${hash ? `?v=${encodeURIComponent(hash)}` : ''}`;
+};
 
 export interface View {
   output: string;
@@ -44,9 +48,11 @@ export interface View {
   /** every renderer except the selected reference, in config order */
   compared: string[];
   label: (id: string) => string;
+  /** rel path -> content hash, for versioned image URLs */
+  hashes: Record<string, string>;
 }
 
-export function resolveView(index: SuiteIndex, search: ViewSearch): View {
+export function resolveView(index: SuiteIndex, search: ViewSearch, hashes: Record<string, string> = {}): View {
   const { renderers, outputs, delta } = index.config;
   const references = renderers.filter((r) => r.reference).map((r) => r.id);
   const output = outputs.find((o) => o.id === search.output)?.id ?? outputs[0]!.id;
@@ -59,6 +65,7 @@ export function resolveView(index: SuiteIndex, search: ViewSearch): View {
     references,
     compared: renderers.map((r) => r.id).filter((id) => id !== ref),
     label: (id) => labels.get(id) ?? id,
+    hashes,
   };
 }
 
@@ -66,10 +73,12 @@ export const metricsOf = (index: SuiteIndex, scene: SceneNode, v: View, renderer
   index.metrics[`${scene.path}/${v.output}/${metricsFile(renderer, v.ref)}`];
 
 export const renderUrl = (scene: SceneNode, v: View, renderer: string) =>
-  scene.images[v.output]?.includes(renderer) ? fileUrl(scene.path, v.output, imageFile(renderer)) : undefined;
+  scene.images[v.output]?.includes(renderer) ? fileUrl(scene.path, v.output, imageFile(renderer), v.hashes) : undefined;
 
 export const deltaUrl = (index: SuiteIndex, scene: SceneNode, v: View, renderer: string) =>
-  metricsOf(index, scene, v, renderer) ? fileUrl(scene.path, v.output, deltaFile(renderer, v.ref)) : undefined;
+  metricsOf(index, scene, v, renderer)
+    ? fileUrl(scene.path, v.output, deltaFile(renderer, v.ref), v.hashes)
+    : undefined;
 
 /** Pixel size of a scene's images in this view (a reference and its test always match), from any metrics record. */
 export function sceneSize(index: SuiteIndex, scene: SceneNode, v: View): { width: number; height: number } | undefined {

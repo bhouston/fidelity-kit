@@ -60,7 +60,7 @@ Image sizes of a reference and a test must match; mismatches are reported as fai
 
 ## 3. View it
 
-Two modes, same options (`--port 3000`, `--host localhost`, `--no-process`):
+Two modes, same options (`--port 3000`, `--host localhost`, `--no-process`); `hash <root> [--concurrency <n>]` pre-computes image hashes for `serve` (see "Versioned image URLs"):
 
 ```sh
 npx fidelity-kit dev <root>     # while working on a suite: nothing is cached
@@ -83,13 +83,26 @@ Home page: root `README.md`, tag chips, text filter, sort (name / PSNR), grouped
 
 The server speaks plain HTTP/1.1. Put a CDN or reverse proxy in front for TLS/HTTP/2 if you need it.
 
-| Response                                  | `Cache-Control`                                                           |
-| ----------------------------------------- | ------------------------------------------------------------------------- |
-| `/data/**/*.avif`                         | `public, max-age=300, stale-while-revalidate=86400, stale-if-error=86400` |
-| `/data/index.json`, READMEs, `index.html` | `no-cache` (always revalidate; a `process` re-run shows up immediately)   |
-| `/assets/*` (content-hashed)              | `public, max-age=31536000, immutable`                                     |
+| Response                                  | `Cache-Control`                                                             |
+| ----------------------------------------- | --------------------------------------------------------------------------- |
+| `/data/**/*.avif`                         | `public, max-age=300, stale-while-revalidate=86400, stale-if-error=86400`   |
+| `/data/**/*.avif?v=<current hash>`        | `public, max-age=31536000, immutable` (only when `<hash>` matches the file) |
+| `/data/image-hashes.json` (dynamic)       | `no-cache` (strong ETag, cheap `304`)                                       |
+| `/data/index.json`, READMEs, `index.html` | `no-cache` (always revalidate; a `process` re-run shows up immediately)     |
+| `/assets/*` (content-hashed)              | `public, max-age=31536000, immutable`                                       |
 
 Tune images with `--max-age <s>` (default 300) and `--stale-while-revalidate <s>` (default 86400, also used for `stale-if-error`). Every file response also carries a strong `ETag`, `Last-Modified`, `Content-Length`, `Content-Type` and `X-Content-Type-Options: nosniff`, and answers `If-None-Match` and `If-Modified-Since` with `304`. There is deliberately no `Vary` (responses never depend on request headers) and no origin compression (AVIF is already compressed; let the CDN compress text). Range requests are not supported.
+
+### Versioned image URLs
+
+Even with a `304` per image, a returning visitor makes hundreds of revalidation requests per page. In `serve` mode the viewer therefore asks for images by content hash (`.../raster-a.avif?v=<hash>`), which the server answers with `immutable`, so repeat visits make no image requests at all.
+
+- **Lazy map.** The server keeps an in-memory map of file to `{ size, mtimeMs, hash }`. The hash (`<size>-<crc32>` in base36, the same value as the ETag) is computed by streaming a file the first time it is requested, once per version, and never caches bodies. `GET /data/image-hashes.json` is generated from this map (`{ "<path>": "<hash>" }`, `no-cache` with a strong ETag), and the viewer fetches it next to `index.json`. As images get requested and hashed, later page loads get more hashed URLs; files without a hash use the plain URL.
+- **Verified only.** `?v=<hash>` is `immutable` only if `<hash>` equals the file's current hash on the server. A wrong or outdated version, or an unknown file, gets the normal short-cache headers, never `immutable`.
+- **Optional pre-population.** `fidelity-kit hash <root>` writes `<root>/image-hashes.json` (`{ "version": 1, "files": { "<path>": { "hash", "size", "mtimeMs" } } }`, sorted, no timestamps, so unchanged files give identical output). It hashes in parallel (`p-limit`, `--concurrency` defaults to `os.availableParallelism()`), streams files, and is incremental: entries whose size and mtime are unchanged are reused without reading the file. `serve` loads the file at startup; an entry is trusted only while the file's current size and mtime still match, otherwise it is discarded and rehashed lazily.
+- **Dev mode never hashes.** `dev` answers `/data/image-hashes.json` with an empty `{}` (`no-store`), ignores `?v=`, does not load `image-hashes.json`, and keeps everything `no-store`.
+
+**Recommended: hash in your Docker build.** Run `fidelity-kit process` and `fidelity-kit hash` while building the image, in the stage where the results end up (mtimes must still match at runtime; `COPY --from` preserves them), then serve with `--no-process`. The very first visitor already gets immutable hashed URLs and the server never has to hash: fast serving out of the box. See the Dockerfile below.
 
 ### Static export
 
@@ -102,12 +115,20 @@ Writes the viewer plus the allowlisted suite files (`data/`) to `site/`, ready f
 ### Docker
 
 ```dockerfile
+# Build: process and hash the results once, at image build time.
+FROM node:24-slim AS build
+RUN npm install -g fidelity-kit
+COPY results /data
+RUN fidelity-kit process /data && fidelity-kit hash /data
+
+# Run: no process step, hashes come from /data/image-hashes.json.
 FROM node:24-slim
 RUN npm install -g fidelity-kit
+COPY --from=build /data /data
 CMD ["fidelity-kit", "serve", "/data", "--host", "0.0.0.0", "--port", "8080", "--no-process"]
 ```
 
-Mount the (already processed) results at `/data`.
+Without the build step, mount already processed results at `/data`; the server then hashes lazily and pages start getting hashed URLs after a while.
 
 ## 4. Add it to a suite repository
 
