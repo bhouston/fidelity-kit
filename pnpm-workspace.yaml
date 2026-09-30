@@ -1,6 +1,9 @@
 packages:
   - packages/*
 
+overrides:
+  conventional-changelog-conventionalcommits: 9.3.1
+
 allowBuilds:
   esbuild: true
   sharp: true
