@@ -22,8 +22,3 @@ export type FidelityConfig = z.infer<typeof configSchema>;
 
 /** Optional `<scene>/scene.json`. */
 export const sceneMetaSchema = z.object({ title: z.string().optional(), tags: z.array(z.string()).default([]) });
-
-export const IMAGE_EXT = '.avif';
-export const imageFile = (renderer: string) => `${renderer}${IMAGE_EXT}`;
-export const metricsFile = (renderer: string, reference: string) => `${renderer}.vs-${reference}.metrics.json`;
-export const deltaFile = (renderer: string, reference: string) => `${renderer}.vs-${reference}.delta${IMAGE_EXT}`;

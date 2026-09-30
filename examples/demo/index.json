@@ -1,0 +1,511 @@
+{
+  "config": {
+    "title": "Demo Fidelity Suite",
+    "renderers": [
+      {
+        "id": "pathtracer",
+        "label": "Path Tracer",
+        "reference": true,
+        "category": "pathtracer"
+      },
+      {
+        "id": "offline-b",
+        "label": "Offline B",
+        "reference": true
+      },
+      {
+        "id": "raster-a",
+        "label": "Raster A"
+      },
+      {
+        "id": "raster-b",
+        "label": "Raster B"
+      }
+    ],
+    "outputs": [
+      {
+        "id": "beauty",
+        "label": "Beauty"
+      },
+      {
+        "id": "ao",
+        "label": "Ambient occlusion"
+      }
+    ],
+    "delta": true
+  },
+  "hasReadme": true,
+  "root": {
+    "path": "",
+    "hasReadme": true,
+    "groups": [
+      {
+        "path": "lighting",
+        "hasReadme": false,
+        "groups": [],
+        "scenes": [
+          {
+            "path": "lighting/sun-and-sky",
+            "title": "sun-and-sky",
+            "tags": ["outdoor"],
+            "hasReadme": true,
+            "images": {
+              "beauty": ["pathtracer", "offline-b", "raster-a", "raster-b"],
+              "ao": ["pathtracer", "offline-b", "raster-a", "raster-b"]
+            }
+          }
+        ]
+      },
+      {
+        "path": "materials",
+        "hasReadme": false,
+        "groups": [
+          {
+            "path": "materials/fabrics",
+            "hasReadme": false,
+            "groups": [],
+            "scenes": [
+              {
+                "path": "materials/fabrics/velvet",
+                "title": "velvet",
+                "tags": ["fabric", "pbr"],
+                "hasReadme": false,
+                "images": {
+                  "beauty": ["pathtracer", "offline-b", "raster-a"],
+                  "ao": ["pathtracer", "offline-b", "raster-a"]
+                }
+              }
+            ]
+          },
+          {
+            "path": "materials/metals",
+            "hasReadme": false,
+            "groups": [],
+            "scenes": [
+              {
+                "path": "materials/metals/brass",
+                "title": "brass",
+                "tags": ["metal", "pbr"],
+                "hasReadme": true,
+                "images": {
+                  "beauty": ["pathtracer", "offline-b", "raster-a", "raster-b"],
+                  "ao": ["pathtracer", "offline-b", "raster-a", "raster-b"]
+                }
+              },
+              {
+                "path": "materials/metals/copper",
+                "title": "copper",
+                "tags": ["metal"],
+                "hasReadme": false,
+                "images": {
+                  "beauty": ["pathtracer", "offline-b", "raster-a", "raster-b"],
+                  "ao": ["pathtracer", "offline-b", "raster-a", "raster-b"]
+                }
+              }
+            ]
+          }
+        ],
+        "scenes": []
+      }
+    ],
+    "scenes": []
+  },
+  "metrics": {
+    "lighting/sun-and-sky/beauty/pathtracer.vs-offline-b.metrics.json": {
+      "psnr": 35.13591694622387,
+      "rmse": 0.01750669448063394,
+      "mae": 0.014493265477487291,
+      "maxError": 0.058823529411764705,
+      "width": 96,
+      "height": 96,
+      "generatedAt": "2026-09-30T13:56:35.845Z"
+    },
+    "lighting/sun-and-sky/beauty/offline-b.vs-pathtracer.metrics.json": {
+      "psnr": 35.13591694622387,
+      "rmse": 0.01750669448063394,
+      "mae": 0.014493265477487291,
+      "maxError": 0.058823529411764705,
+      "width": 96,
+      "height": 96,
+      "generatedAt": "2026-09-30T13:56:35.717Z"
+    },
+    "lighting/sun-and-sky/beauty/raster-a.vs-pathtracer.metrics.json": {
+      "psnr": 25.10111308039412,
+      "rmse": 0.05558330237513983,
+      "mae": 0.04703839869281046,
+      "maxError": 0.14901960784313725,
+      "width": 96,
+      "height": 96,
+      "generatedAt": "2026-09-30T13:56:35.754Z"
+    },
+    "lighting/sun-and-sky/beauty/raster-a.vs-offline-b.metrics.json": {
+      "psnr": 27.353959136838796,
+      "rmse": 0.0428846671020662,
+      "mae": 0.035591554330065354,
+      "maxError": 0.13725490196078433,
+      "width": 96,
+      "height": 96,
+      "generatedAt": "2026-09-30T13:56:35.883Z"
+    },
+    "lighting/sun-and-sky/beauty/raster-b.vs-pathtracer.metrics.json": {
+      "psnr": 16.37831080283146,
+      "rmse": 0.15173454260532204,
+      "mae": 0.12769565291394336,
+      "maxError": 0.4,
+      "width": 96,
+      "height": 96,
+      "generatedAt": "2026-09-30T13:56:35.793Z"
+    },
+    "lighting/sun-and-sky/beauty/raster-b.vs-offline-b.metrics.json": {
+      "psnr": 17.143377423033947,
+      "rmse": 0.13894122668235642,
+      "mae": 0.11607633215323165,
+      "maxError": 0.3803921568627451,
+      "width": 96,
+      "height": 96,
+      "generatedAt": "2026-09-30T13:56:35.925Z"
+    },
+    "lighting/sun-and-sky/ao/pathtracer.vs-offline-b.metrics.json": {
+      "psnr": 35.147013086383,
+      "rmse": 0.017484344126664737,
+      "mae": 0.014471138571169209,
+      "maxError": 0.058823529411764705,
+      "width": 96,
+      "height": 96,
+      "generatedAt": "2026-09-30T13:56:36.123Z"
+    },
+    "lighting/sun-and-sky/ao/offline-b.vs-pathtracer.metrics.json": {
+      "psnr": 35.147013086383,
+      "rmse": 0.017484344126664737,
+      "mae": 0.014471138571169209,
+      "maxError": 0.058823529411764705,
+      "width": 96,
+      "height": 96,
+      "generatedAt": "2026-09-30T13:56:35.977Z"
+    },
+    "lighting/sun-and-sky/ao/raster-a.vs-pathtracer.metrics.json": {
+      "psnr": 25.576914577119368,
+      "rmse": 0.052620415271687114,
+      "mae": 0.04495222857661583,
+      "maxError": 0.14901960784313725,
+      "width": 96,
+      "height": 96,
+      "generatedAt": "2026-09-30T13:56:36.014Z"
+    },
+    "lighting/sun-and-sky/ao/raster-a.vs-offline-b.metrics.json": {
+      "psnr": 28.152419670761727,
+      "rmse": 0.03911821384251115,
+      "mae": 0.032849803694626,
+      "maxError": 0.12549019607843137,
+      "width": 96,
+      "height": 96,
+      "generatedAt": "2026-09-30T13:56:36.164Z"
+    },
+    "lighting/sun-and-sky/ao/raster-b.vs-pathtracer.metrics.json": {
+      "psnr": 17.06678865251718,
+      "rmse": 0.14017177322883945,
+      "mae": 0.11961592796840959,
+      "maxError": 0.34901960784313724,
+      "width": 96,
+      "height": 96,
+      "generatedAt": "2026-09-30T13:56:36.072Z"
+    },
+    "lighting/sun-and-sky/ao/raster-b.vs-offline-b.metrics.json": {
+      "psnr": 17.951139731746476,
+      "rmse": 0.126602713300454,
+      "mae": 0.10736712509077706,
+      "maxError": 0.3176470588235294,
+      "width": 96,
+      "height": 96,
+      "generatedAt": "2026-09-30T13:56:36.221Z"
+    },
+    "materials/fabrics/velvet/beauty/pathtracer.vs-offline-b.metrics.json": {
+      "psnr": 34.97489297471751,
+      "rmse": 0.017834270573028794,
+      "mae": 0.014788432734204793,
+      "maxError": 0.058823529411764705,
+      "width": 96,
+      "height": 96,
+      "generatedAt": "2026-09-30T13:56:36.359Z"
+    },
+    "materials/fabrics/velvet/beauty/offline-b.vs-pathtracer.metrics.json": {
+      "psnr": 34.97489297471751,
+      "rmse": 0.017834270573028794,
+      "mae": 0.014788432734204793,
+      "maxError": 0.058823529411764705,
+      "width": 96,
+      "height": 96,
+      "generatedAt": "2026-09-30T13:56:36.270Z"
+    },
+    "materials/fabrics/velvet/beauty/raster-a.vs-pathtracer.metrics.json": {
+      "psnr": 25.154148994382037,
+      "rmse": 0.05524494560282962,
+      "mae": 0.04690804852033406,
+      "maxError": 0.1568627450980392,
+      "width": 96,
+      "height": 96,
+      "generatedAt": "2026-09-30T13:56:36.308Z"
+    },
+    "materials/fabrics/velvet/beauty/raster-a.vs-offline-b.metrics.json": {
+      "psnr": 27.44071616691421,
+      "rmse": 0.04245845547579497,
+      "mae": 0.03525965073529412,
+      "maxError": 0.12941176470588237,
+      "width": 96,
+      "height": 96,
+      "generatedAt": "2026-09-30T13:56:36.399Z"
+    },
+    "materials/fabrics/velvet/ao/pathtracer.vs-offline-b.metrics.json": {
+      "psnr": 35.131946275150405,
+      "rmse": 0.017514699327501645,
+      "mae": 0.014608438861655774,
+      "maxError": 0.054901960784313725,
+      "width": 96,
+      "height": 96,
+      "generatedAt": "2026-09-30T13:56:36.542Z"
+    },
+    "materials/fabrics/velvet/ao/offline-b.vs-pathtracer.metrics.json": {
+      "psnr": 35.131946275150405,
+      "rmse": 0.017514699327501645,
+      "mae": 0.014608438861655774,
+      "maxError": 0.054901960784313725,
+      "width": 96,
+      "height": 96,
+      "generatedAt": "2026-09-30T13:56:36.450Z"
+    },
+    "materials/fabrics/velvet/ao/raster-a.vs-pathtracer.metrics.json": {
+      "psnr": 25.61824580492891,
+      "rmse": 0.05237061931747786,
+      "mae": 0.04480187908496732,
+      "maxError": 0.1450980392156863,
+      "width": 96,
+      "height": 96,
+      "generatedAt": "2026-09-30T13:56:36.491Z"
+    },
+    "materials/fabrics/velvet/ao/raster-a.vs-offline-b.metrics.json": {
+      "psnr": 28.17048522396883,
+      "rmse": 0.03903693745091781,
+      "mae": 0.03272725467501816,
+      "maxError": 0.12941176470588237,
+      "width": 96,
+      "height": 96,
+      "generatedAt": "2026-09-30T13:56:36.583Z"
+    },
+    "materials/metals/brass/beauty/pathtracer.vs-offline-b.metrics.json": {
+      "psnr": 35.0710625086302,
+      "rmse": 0.017637899942104598,
+      "mae": 0.01461751656681191,
+      "maxError": 0.06274509803921569,
+      "width": 96,
+      "height": 96,
+      "generatedAt": "2026-09-30T13:56:36.779Z"
+    },
+    "materials/metals/brass/beauty/offline-b.vs-pathtracer.metrics.json": {
+      "psnr": 35.0710625086302,
+      "rmse": 0.017637899942104598,
+      "mae": 0.01461751656681191,
+      "maxError": 0.06274509803921569,
+      "width": 96,
+      "height": 96,
+      "generatedAt": "2026-09-30T13:56:36.635Z"
+    },
+    "materials/metals/brass/beauty/raster-a.vs-pathtracer.metrics.json": {
+      "psnr": 25.085375386127154,
+      "rmse": 0.055684103329721214,
+      "mae": 0.047236406136528686,
+      "maxError": 0.14901960784313725,
+      "width": 96,
+      "height": 96,
+      "generatedAt": "2026-09-30T13:56:36.671Z"
+    },
+    "materials/metals/brass/beauty/raster-a.vs-offline-b.metrics.json": {
+      "psnr": 27.353693814237516,
+      "rmse": 0.04288597709398287,
+      "mae": 0.035599213643790845,
+      "maxError": 0.13725490196078433,
+      "width": 96,
+      "height": 96,
+      "generatedAt": "2026-09-30T13:56:36.818Z"
+    },
+    "materials/metals/brass/beauty/raster-b.vs-pathtracer.metrics.json": {
+      "psnr": 16.34271792162992,
+      "rmse": 0.15235759335631582,
+      "mae": 0.1281098232116921,
+      "maxError": 0.41568627450980394,
+      "width": 96,
+      "height": 96,
+      "generatedAt": "2026-09-30T13:56:36.726Z"
+    },
+    "materials/metals/brass/beauty/raster-b.vs-offline-b.metrics.json": {
+      "psnr": 17.114916383983044,
+      "rmse": 0.13939724185550845,
+      "mae": 0.11626242510893246,
+      "maxError": 0.3843137254901961,
+      "width": 96,
+      "height": 96,
+      "generatedAt": "2026-09-30T13:56:36.874Z"
+    },
+    "materials/metals/brass/ao/pathtracer.vs-offline-b.metrics.json": {
+      "psnr": 35.16790102807769,
+      "rmse": 0.017442348062424604,
+      "mae": 0.014502485021786492,
+      "maxError": 0.058823529411764705,
+      "width": 96,
+      "height": 96,
+      "generatedAt": "2026-09-30T13:56:37.072Z"
+    },
+    "materials/metals/brass/ao/offline-b.vs-pathtracer.metrics.json": {
+      "psnr": 35.16790102807769,
+      "rmse": 0.017442348062424604,
+      "mae": 0.014502485021786492,
+      "maxError": 0.058823529411764705,
+      "width": 96,
+      "height": 96,
+      "generatedAt": "2026-09-30T13:56:36.927Z"
+    },
+    "materials/metals/brass/ao/raster-a.vs-pathtracer.metrics.json": {
+      "psnr": 25.55588412702498,
+      "rmse": 0.052747975238941584,
+      "mae": 0.04519363879811184,
+      "maxError": 0.1411764705882353,
+      "width": 96,
+      "height": 96,
+      "generatedAt": "2026-09-30T13:56:36.964Z"
+    },
+    "materials/metals/brass/ao/raster-a.vs-offline-b.metrics.json": {
+      "psnr": 28.113374486567665,
+      "rmse": 0.03929445554551424,
+      "mae": 0.033087951615831515,
+      "maxError": 0.12156862745098039,
+      "width": 96,
+      "height": 96,
+      "generatedAt": "2026-09-30T13:56:37.112Z"
+    },
+    "materials/metals/brass/ao/raster-b.vs-pathtracer.metrics.json": {
+      "psnr": 17.046303485442873,
+      "rmse": 0.14050275037015275,
+      "mae": 0.11983620415758897,
+      "maxError": 0.3686274509803922,
+      "width": 96,
+      "height": 96,
+      "generatedAt": "2026-09-30T13:56:37.019Z"
+    },
+    "materials/metals/brass/ao/raster-b.vs-offline-b.metrics.json": {
+      "psnr": 17.931071549516076,
+      "rmse": 0.1268955587928802,
+      "mae": 0.10754584241103848,
+      "maxError": 0.3333333333333333,
+      "width": 96,
+      "height": 96,
+      "generatedAt": "2026-09-30T13:56:37.167Z"
+    },
+    "materials/metals/copper/beauty/pathtracer.vs-offline-b.metrics.json": {
+      "psnr": 34.94014081884673,
+      "rmse": 0.017905768243080177,
+      "mae": 0.014867862654320987,
+      "maxError": 0.06274509803921569,
+      "width": 96,
+      "height": 96,
+      "generatedAt": "2026-09-30T13:56:37.352Z"
+    },
+    "materials/metals/copper/beauty/offline-b.vs-pathtracer.metrics.json": {
+      "psnr": 34.94014081884673,
+      "rmse": 0.017905768243080177,
+      "mae": 0.014867862654320987,
+      "maxError": 0.06274509803921569,
+      "width": 96,
+      "height": 96,
+      "generatedAt": "2026-09-30T13:56:37.220Z"
+    },
+    "materials/metals/copper/beauty/raster-a.vs-pathtracer.metrics.json": {
+      "psnr": 25.18810648627303,
+      "rmse": 0.055029387085245386,
+      "mae": 0.04679869054103123,
+      "maxError": 0.14901960784313725,
+      "width": 96,
+      "height": 96,
+      "generatedAt": "2026-09-30T13:56:37.258Z"
+    },
+    "materials/metals/copper/beauty/raster-a.vs-offline-b.metrics.json": {
+      "psnr": 27.493775529717162,
+      "rmse": 0.0421998807302077,
+      "mae": 0.03510320216049383,
+      "maxError": 0.1411764705882353,
+      "width": 96,
+      "height": 96,
+      "generatedAt": "2026-09-30T13:56:37.390Z"
+    },
+    "materials/metals/copper/beauty/raster-b.vs-pathtracer.metrics.json": {
+      "psnr": 16.389739261700335,
+      "rmse": 0.15153502917194642,
+      "mae": 0.12752757352941177,
+      "maxError": 0.41568627450980394,
+      "width": 96,
+      "height": 96,
+      "generatedAt": "2026-09-30T13:56:37.300Z"
+    },
+    "materials/metals/copper/beauty/raster-b.vs-offline-b.metrics.json": {
+      "psnr": 17.165893374620023,
+      "rmse": 0.13858152344140612,
+      "mae": 0.11558755446623094,
+      "maxError": 0.38823529411764707,
+      "width": 96,
+      "height": 96,
+      "generatedAt": "2026-09-30T13:56:37.431Z"
+    },
+    "materials/metals/copper/ao/pathtracer.vs-offline-b.metrics.json": {
+      "psnr": 35.264333253421924,
+      "rmse": 0.017249771134031207,
+      "mae": 0.014342064950980392,
+      "maxError": 0.058823529411764705,
+      "width": 96,
+      "height": 96,
+      "generatedAt": "2026-09-30T13:56:37.610Z"
+    },
+    "materials/metals/copper/ao/offline-b.vs-pathtracer.metrics.json": {
+      "psnr": 35.264333253421924,
+      "rmse": 0.017249771134031207,
+      "mae": 0.014342064950980392,
+      "maxError": 0.058823529411764705,
+      "width": 96,
+      "height": 96,
+      "generatedAt": "2026-09-30T13:56:37.482Z"
+    },
+    "materials/metals/copper/ao/raster-a.vs-pathtracer.metrics.json": {
+      "psnr": 25.61140493411021,
+      "rmse": 0.052411881844825564,
+      "mae": 0.04497875249636892,
+      "maxError": 0.1411764705882353,
+      "width": 96,
+      "height": 96,
+      "generatedAt": "2026-09-30T13:56:37.519Z"
+    },
+    "materials/metals/copper/ao/raster-a.vs-offline-b.metrics.json": {
+      "psnr": 28.120862413409334,
+      "rmse": 0.03926059520068414,
+      "mae": 0.033064973674655045,
+      "maxError": 0.12549019607843137,
+      "width": 96,
+      "height": 96,
+      "generatedAt": "2026-09-30T13:56:37.650Z"
+    },
+    "materials/metals/copper/ao/raster-b.vs-pathtracer.metrics.json": {
+      "psnr": 17.032935103279026,
+      "rmse": 0.14071916350870925,
+      "mae": 0.1201035709422658,
+      "maxError": 0.3686274509803922,
+      "width": 96,
+      "height": 96,
+      "generatedAt": "2026-09-30T13:56:37.559Z"
+    },
+    "materials/metals/copper/ao/raster-b.vs-offline-b.metrics.json": {
+      "psnr": 17.89227779536166,
+      "rmse": 0.12746357944960782,
+      "mae": 0.10799405410312274,
+      "maxError": 0.35294117647058826,
+      "width": 96,
+      "height": 96,
+      "generatedAt": "2026-09-30T13:56:37.702Z"
+    }
+  }
+}

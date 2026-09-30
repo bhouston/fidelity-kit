@@ -2,7 +2,7 @@ import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { compareImages, type ImageMetrics } from './compare.js';
 import { allScenes, scanSuite, type Suite } from './scan.js';
-import { deltaFile, imageFile, metricsFile } from './schema.js';
+import { deltaFile, imageFile, metricsFile } from './paths.js';
 
 export interface MetricsRecord extends ImageMetrics {
   width: number;
@@ -15,6 +15,8 @@ const mtime = (p: string) =>
     (s) => s.mtimeMs,
     () => 0,
   );
+
+export type SuiteIndex = Suite & { metrics: Record<string, MetricsRecord> };
 
 export interface ProcessResult {
   computed: number;
@@ -35,7 +37,7 @@ export async function processSuite(
     for (const [output, renderers] of Object.entries(scene.images)) {
       const dir = join(root, scene.path, output);
       for (const ref of refs.filter((r) => renderers.includes(r))) {
-        for (const r of renderers.filter((x) => !refs.includes(x))) {
+        for (const r of renderers.filter((x) => x !== ref)) {
           const [refPath, testPath] = [join(dir, imageFile(ref)), join(dir, imageFile(r))];
           const metricsPath = join(dir, metricsFile(r, ref));
           const deltaPath = join(dir, deltaFile(r, ref));
@@ -67,7 +69,7 @@ export async function processSuite(
 
 /** `index.json`: the scan plus every metrics record, so the viewer never walks the disk per request. */
 async function writeIndex(root: string, suite: Suite) {
-  const metrics: Record<string, MetricsRecord> = {};
+  const metrics: SuiteIndex['metrics'] = {};
   for (const scene of allScenes(suite.root)) {
     for (const [output, renderers] of Object.entries(scene.images)) {
       for (const r of renderers) {

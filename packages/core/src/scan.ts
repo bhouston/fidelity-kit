@@ -1,6 +1,7 @@
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
-import { configSchema, imageFile, sceneMetaSchema, type FidelityConfig } from './schema.js';
+import { imageFile } from './paths.js';
+import { configSchema, sceneMetaSchema, type FidelityConfig } from './schema.js';
 
 export interface SceneNode {
   /** Slash-joined path from the root, e.g. `surfaces/standard_surface/brass`. */
@@ -60,7 +61,7 @@ export async function scanSuite(root: string): Promise<Suite> {
     }
     const group: GroupNode = { path: rel, hasReadme, groups: [], scenes: [] };
     const outputIds = new Set(config.outputs.map((o) => o.id));
-    for (const e of (await readdir(dir, { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name))) {
+    for (const e of (await readdir(dir, { withFileTypes: true })).toSorted((a, b) => a.name.localeCompare(b.name))) {
       if (!e.isDirectory() || e.name.startsWith('.') || outputIds.has(e.name)) continue;
       const child = await visit(rel ? `${rel}/${e.name}` : e.name);
       if (!child) continue;

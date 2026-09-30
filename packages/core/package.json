@@ -7,6 +7,24 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./paths": {
+      "types": "./dist/paths.d.ts",
+      "import": "./dist/paths.js"
+    },
+    "./etag": {
+      "types": "./dist/etag.d.ts",
+      "import": "./dist/etag.js"
+    },
+    "./scan": {
+      "types": "./dist/scan.d.ts",
+      "import": "./dist/scan.js"
+    }
+  },
   "dependencies": {
     "sharp": "^0.35.4",
     "zod": "^4.0.0"

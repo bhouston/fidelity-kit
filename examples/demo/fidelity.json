@@ -1,0 +1,35 @@
+{
+  "title": "Demo Fidelity Suite",
+  "renderers": [
+    {
+      "id": "pathtracer",
+      "label": "Path Tracer",
+      "reference": true,
+      "category": "pathtracer"
+    },
+    {
+      "id": "offline-b",
+      "label": "Offline B",
+      "reference": true
+    },
+    {
+      "id": "raster-a",
+      "label": "Raster A"
+    },
+    {
+      "id": "raster-b",
+      "label": "Raster B"
+    }
+  ],
+  "outputs": [
+    {
+      "id": "beauty",
+      "label": "Beauty"
+    },
+    {
+      "id": "ao",
+      "label": "Ambient occlusion"
+    }
+  ],
+  "delta": true
+}
