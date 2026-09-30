@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import sharp from 'sharp';
 import { expect, test } from 'vitest';
-import { fileResponse, processSuite, scanSuite } from './index.js';
+import { fileResponse, processSuite, readConfig, scanSuite } from './index.js';
 
 const png = (v: number) =>
   sharp({ create: { width: 8, height: 8, channels: 3, background: { r: v, g: v, b: v } } })
@@ -47,4 +47,49 @@ test('scan, process, staleness, etag', async () => {
   await first.body?.cancel();
   const second = await fileResponse(new Request(url, { headers: { 'if-none-match': tag } }), join(dir, 'a.avif'));
   expect(second.status).toBe(304);
+});
+
+test('explicit empty scenes remain in the index and failed pairs cannot reuse stale metrics', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'fk-failure-'));
+  await writeFile(
+    join(root, 'fidelity.json'),
+    JSON.stringify({ title: 'T', renderers: [{ id: 'ref', reference: true }, { id: 'test' }] }),
+  );
+  const empty = join(root, 'empty');
+  const images = join(root, 'broken', 'beauty');
+  await mkdir(empty);
+  await mkdir(images, { recursive: true });
+  await writeFile(join(empty, 'scene.json'), JSON.stringify({ title: 'Empty' }));
+  await writeFile(join(images, 'ref.avif'), await png(100));
+  await writeFile(
+    join(images, 'test.avif'),
+    await sharp({ create: { width: 4, height: 4, channels: 3, background: '#ffffff' } })
+      .avif()
+      .toBuffer(),
+  );
+  await writeFile(join(images, 'test.vs-ref.metrics.json'), JSON.stringify({ psnr: 50, width: 8, height: 8 }));
+
+  const result = await processSuite(root, { force: true });
+  expect(result.failed).toHaveLength(1);
+  const index = JSON.parse(await readFile(join(root, 'index.json'), 'utf8'));
+  expect(index.root.scenes.map((s: { path: string }) => s.path)).toEqual(['broken', 'empty']);
+  expect(index.root.scenes[1].images).toEqual({});
+  expect(index.metrics).toEqual({});
+});
+
+test('config rejects empty outputs and duplicate ids', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'fk-config-'));
+  const config = {
+    title: 'T',
+    renderers: [{ id: 'ref', reference: true }, { id: 'test' }],
+    outputs: [{ id: 'beauty' }],
+  };
+  for (const change of [
+    { outputs: [] },
+    { outputs: [{ id: 'beauty' }, { id: 'beauty' }] },
+    { renderers: [{ id: 'ref', reference: true }, { id: 'ref' }] },
+  ]) {
+    await writeFile(join(root, 'fidelity.json'), JSON.stringify({ ...config, ...change }));
+    await expect(readConfig(root)).rejects.toThrow();
+  }
 });

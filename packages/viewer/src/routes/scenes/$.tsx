@@ -34,7 +34,7 @@ function SceneDetail() {
   const navigate = useNavigate({ from: Route.fullPath });
   if (!scene) throw notFound();
   const view = resolveView(index, search, hashes);
-  const compared = view.compared.filter((r) => scene.images[view.output]?.includes(r));
+  const compared = view.compared;
   const size = sceneSize(index, scene, view);
 
   return (

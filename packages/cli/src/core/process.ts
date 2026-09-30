@@ -32,6 +32,7 @@ export async function processSuite(
   const suite = await scanSuite(root);
   const refs = suite.config.renderers.filter((r) => r.reference).map((r) => r.id);
   const result: ProcessResult = { computed: 0, skipped: 0, failed: [] };
+  const validMetrics = new Set<string>();
 
   for (const scene of allScenes(suite.root)) {
     for (const [output, renderers] of Object.entries(scene.images)) {
@@ -40,12 +41,14 @@ export async function processSuite(
         for (const r of renderers.filter((x) => x !== ref)) {
           const [refPath, testPath] = [join(dir, imageFile(ref)), join(dir, imageFile(r))];
           const metricsPath = join(dir, metricsFile(r, ref));
+          const metricsRel = `${scene.path}/${output}/${metricsFile(r, ref)}`;
           const deltaPath = join(dir, deltaFile(r, ref));
           const inputs = Math.max(await mtime(refPath), await mtime(testPath));
           const outputs = [metricsPath, ...(suite.config.delta ? [deltaPath] : [])];
           const oldest = Math.min(...(await Promise.all(outputs.map(mtime))));
           if (!opts.force && oldest > inputs) {
             result.skipped += 1;
+            validMetrics.add(metricsRel);
             continue;
           }
           try {
@@ -54,6 +57,7 @@ export async function processSuite(
             await writeFile(metricsPath, JSON.stringify(rec, null, 2) + '\n');
             if (suite.config.delta) await writeFile(deltaPath, deltaImage);
             result.computed += 1;
+            validMetrics.add(metricsRel);
             opts.onCompute?.(metricsPath);
           } catch (e) {
             result.failed.push({ file: testPath, error: e instanceof Error ? e.message : String(e) });
@@ -63,18 +67,19 @@ export async function processSuite(
     }
   }
 
-  await writeIndex(root, await scanSuite(root));
+  await writeIndex(root, await scanSuite(root), validMetrics);
   return result;
 }
 
-/** `index.json`: the scan plus every metrics record, so the viewer never walks the disk per request. */
-async function writeIndex(root: string, suite: Suite) {
+/** `index.json`: the scan plus metrics for successful or up-to-date pairs, so the viewer never walks the disk per request. */
+async function writeIndex(root: string, suite: Suite, validMetrics: Set<string>) {
   const metrics: SuiteIndex['metrics'] = {};
   for (const scene of allScenes(suite.root)) {
     for (const [output, renderers] of Object.entries(scene.images)) {
       for (const r of renderers) {
         for (const ref of suite.config.renderers.filter((x) => x.reference)) {
           const rel = `${scene.path}/${output}/${metricsFile(r, ref.id)}`;
+          if (!validMetrics.has(rel)) continue;
           const raw = await readFile(join(root, rel), 'utf8').catch(() => null);
           if (raw) metrics[rel] = JSON.parse(raw);
         }

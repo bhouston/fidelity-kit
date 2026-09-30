@@ -8,6 +8,8 @@ export interface ViewSearch {
   tags?: string;
   output?: string;
   ref?: string;
+  /** Comma-separated compared renderer ids; omitted means all. `-` means no compared renderers. */
+  renderers?: string;
   /** undefined = the suite default (fidelity.json "delta") */
   deltas?: boolean;
   sort?: Sort;
@@ -22,6 +24,7 @@ export function validateViewSearch(s: Record<string, unknown>): ViewSearch {
     tags: str(s.tags),
     output: str(s.output),
     ref: str(s.ref),
+    renderers: str(s.renderers),
     deltas: typeof s.deltas === 'boolean' ? s.deltas : undefined,
     sort,
   };
@@ -58,12 +61,13 @@ export function resolveView(index: SuiteIndex, search: ViewSearch, hashes: Recor
   const output = outputs.find((o) => o.id === search.output)?.id ?? outputs[0]!.id;
   const ref = references.includes(search.ref ?? '') ? search.ref! : references[0]!;
   const labels = new Map(renderers.map((r) => [r.id, r.label ?? r.id]));
+  const selected = search.renderers === undefined ? null : new Set(search.renderers.split(','));
   return {
     output,
     ref,
     showDeltas: delta && (search.deltas ?? true),
     references,
-    compared: renderers.map((r) => r.id).filter((id) => id !== ref),
+    compared: renderers.map((r) => r.id).filter((id) => id !== ref && (!selected || selected.has(id))),
     label: (id) => labels.get(id) ?? id,
     hashes,
   };
@@ -107,7 +111,6 @@ export function selectScenes(index: SuiteIndex, scenes: SceneNode[], search: Vie
   const tags = search.tags?.split(',') ?? [];
   const shown = scenes.filter(
     (s) =>
-      v.output in s.images &&
       (!q || s.path.toLowerCase().includes(q) || s.title.toLowerCase().includes(q)) &&
       tags.every((t) => s.tags.includes(t)),
   );

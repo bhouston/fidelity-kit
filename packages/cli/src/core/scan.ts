@@ -53,7 +53,8 @@ export async function scanSuite(root: string): Promise<Suite> {
       if (found.length) images[o.id] = found;
     }
     const hasReadme = await exists(join(dir, 'README.md'));
-    if (Object.keys(images).length) {
+    // scene.json also marks scenes whose renders are all missing or failed.
+    if (rel && (Object.keys(images).length || (await exists(join(dir, 'scene.json'))))) {
       const meta = sceneMetaSchema.parse(
         (await exists(join(dir, 'scene.json'))) ? JSON.parse(await readFile(join(dir, 'scene.json'), 'utf8')) : {},
       );
