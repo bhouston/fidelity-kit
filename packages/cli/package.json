@@ -1,0 +1,15 @@
+{
+  "name": "@fidelity-kit/cli",
+  "version": "0.1.0",
+  "bin": {
+    "fidelity": "./dist/bin.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "dependencies": {
+    "@fidelity-kit/core": "workspace:*",
+    "yargs": "^18.0.0"
+  }
+}
