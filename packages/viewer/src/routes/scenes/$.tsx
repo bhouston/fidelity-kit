@@ -158,14 +158,6 @@ function Comparison({
             <dd>{formatMetric(metrics.rmse, 5)}</dd>
             <dt>MAE</dt>
             <dd>{formatMetric(metrics.mae, 5)}</dd>
-            <dt>Max error</dt>
-            <dd>{formatMetric(metrics.maxError, 5)}</dd>
-            <dt>Size</dt>
-            <dd>
-              {metrics.width}×{metrics.height}
-            </dd>
-            <dt>Generated</dt>
-            <dd>{metrics.generatedAt}</dd>
           </dl>
         ) : (
           <p className="text-sm text-muted-foreground">No metrics yet. Run `fidelity-kit process`.</p>
