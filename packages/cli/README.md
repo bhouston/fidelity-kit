@@ -27,7 +27,8 @@ Create a `results` directory with a `fidelity.json` file. Put each scene in its 
 ```text
 results/
   fidelity.json
-  README.md                         optional introduction shown in the viewer
+  index.md                          optional Markdown preamble above the results
+  README.md                         fallback introduction when index.md is absent
   materials/
     brushed-metal/
       README.md                     optional scene description
@@ -62,6 +63,12 @@ For searchable scene labels, add a `scene.json` next to a scene's images:
 ```json
 { "title": "Brushed metal", "tags": ["metal", "roughness"] }
 ```
+
+### Results preamble
+
+Place an optional `index.md` in the results root beside `fidelity.json`. The viewer renders it below the top navigation and above the results, with Markdown headings, paragraphs, lists, emphasis, code, and links. An empty file hides the introduction. If `index.md` is absent, the root `README.md` remains the fallback; group and scene READMEs are unchanged.
+
+`dev` and `serve` expose this file, and `build` includes it in the exported site's `data/` directory. No configuration or processing step is needed to add the preamble to an existing results directory. Markdown is static content; renderer lists must be maintained in the file.
 
 ## Use it during development
 

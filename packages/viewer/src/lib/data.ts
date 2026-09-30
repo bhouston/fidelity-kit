@@ -34,3 +34,18 @@ export async function getReadme(path: string): Promise<string | null> {
   const res = await fetch(`${dataPath(path)}${path ? '/' : ''}README.md`);
   return res.ok && !res.headers.get('content-type')?.includes('html') ? res.text() : null;
 }
+
+/** Homepage preamble; index.md takes precedence over the legacy root README.md. */
+export async function getPreamble(): Promise<string | null> {
+  try {
+    const res = await fetch('data/index.md');
+    if (res.ok && !res.headers.get('content-type')?.includes('html')) return await res.text();
+  } catch {
+    // Optional content must not prevent results from loading.
+  }
+  try {
+    return await getReadme('');
+  } catch {
+    return null;
+  }
+}
