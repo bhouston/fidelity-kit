@@ -10,7 +10,7 @@ export default defineConfig({
     environment: 'node',
     coverage: {
       reporter: ['text', 'json', 'html', 'lcov'],
-      include: ['packages/*/src/**/*.ts'],
+      include: ['packages/cli/src/**/*.ts'],
       exclude: ['**/*.test.ts', '**/*.spec.ts', '**/node_modules/**'],
     },
   },
