@@ -1,24 +1,42 @@
 # Contributing
 
-These rules apply to every contributor, including Claude and Codex. This file is the single source of truth for the workflow.
+These rules apply to every contributor, human or AI agent (Claude, Codex, and others). This file is the single source of truth for the workflow; `AGENTS.md` and `CLAUDE.md` only point here.
 
-## Issue → branch → implementation → PR
+## Issue → branch → PR
 
-1. Before starting a feature or other tracked change, create a GitHub issue using the feature/change template. Include what changes, why, constraints, and testable acceptance criteria. Reuse an existing issue when it already covers the request. With `gh issue create`, include the same sections in the body.
-2. Fetch origin and branch from `origin/main`. Branch names are not checked; use whatever name is convenient.
-3. Implement and validate the acceptance criteria. Every commit must use Conventional Commits. Reference the issue in the commit body where useful. Never commit directly to `main`.
-4. Run `pnpm build`, `pnpm tsc`, `pnpm lint`, and `pnpm test --coverage`. Run `pnpm audit --audit-level=high` and review findings. Format changed files with `pnpm exec oxfmt <files>`.
-5. Push the branch and open a PR against **main**. Give the PR a Conventional Commit title and include `Closes #<issue>`, a description of the resulting behavior, and validation results. Do not merge your own work unless the maintainer requested a merge. PRs are merged with merge commits; do not squash.
-6. Merging a PR to `main` runs CI and deploys the viewer to Cloud Run. Nothing is published to npm.
+1. **Start with an issue.** Before a feature, fix, or other tracked change, open a GitHub issue (or reuse one that already covers it) with the problem, motivation, constraints, and testable acceptance criteria. Agents use `gh issue create` with the same sections.
+2. **Branch from `main`.** Fetch and branch from current `origin/main`, named `<type>/<issue>-<short-description>` (for example `feat/42-batch-export`). Never commit directly to `main`. Use a separate worktree when you have unrelated local changes.
+3. **Commit with Conventional Commits** (see below). Reference the issue in the commit body where useful.
+4. **Run the local checks** below and fix failures before opening the PR.
+5. **Open a PR against `main`** with a Conventional Commit title, `Closes #<issue>` in the body, a description of the resulting behavior, and the validation you ran.
+6. **Merge only on green CI.** Every required check must pass. PRs are merged with merge commits (`gh pr merge --merge`); never squash or rebase-merge. Do not merge your own PR unless the maintainer asked you to.
 
-GitHub automatically closes referenced issues when their closing commits reach the default branch (`main`).
+`main` is the default branch and the only integration branch.
 
 ## Commit format
 
-Use `type(optional-scope): description`. Allowed types are `feat`, `fix`, `perf`, `docs`, `chore`, `refactor`, `test`, `style`, `build`, `ci`, and `revert`. Use an imperative, concise description. Add a blank line before a body or footer. Husky validates commit messages after `pnpm install`; CI validates feature commits and PR titles too. Git-generated merge commits are exempt from commitlint.
+Use `type(optional-scope): description` in the imperative mood. Allowed types: `feat`, `fix`, `perf`, `docs`, `chore`, `refactor`, `test`, `style`, `build`, `ci`, `revert`. Mark breaking changes with `!` after the type or a `BREAKING CHANGE:` footer.
 
-## Development and CI
+Husky runs commitlint on every commit after `pnpm install`. CI checks the PR title and every commit in the PR. Git-generated merge commits are exempt.
 
-Use Node 26 and the pinned pnpm version in `package.json`. Clone with submodules (`git clone --recurse-submodules`, or `git submodule update --init` afterwards), then run `pnpm install --frozen-lockfile`.
+## Local checks
 
-CI checks builds, types, lint, and tests with coverage. Dependency audit findings appear as warnings so existing advisories remain visible without preventing unrelated fixes. Coverage is uploaded as an artifact.
+Use the Node version in `.nvmrc` and the pnpm version pinned in `package.json` (`packageManager`).
+
+```sh
+pnpm install --frozen-lockfile
+pnpm build
+pnpm tsc
+pnpm lint
+pnpm test
+```
+
+The Husky pre-commit hook formats and lints staged files (`oxfmt`, `oxlint --fix`) and type-checks the workspace. CI runs the same checks plus any repository-specific gates; see `.github/workflows/ci.yml`.
+
+## Releases
+
+Merging to `main` runs CI. Nothing is deployed automatically; publishing `fidelity-kit` to npm is a manual maintainer step.
+
+## Security
+
+Report vulnerabilities privately through GitHub's private vulnerability reporting (see `SECURITY.md` where present), never in a public issue.
