@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { availableParallelism } from 'node:os';
 import { join } from 'node:path';
 import pLimit from 'p-limit';
-import { compareImages, type ImageMetrics } from './compare.js';
+import { compareImages, measureImages, type ImageMetrics } from './compare.js';
 import { readConfig, scanScene, scanSuite, type GroupNode, type SceneNode, type Suite } from './scan.js';
 import { deltaFile, imageFile, IMAGE_EXTENSIONS, isImageFile, metricsFile } from './paths.js';
 import type { FidelityConfig } from './schema.js';
@@ -388,12 +388,16 @@ export class SuiteProcessor {
         }
         this.result.skipped++;
       } else {
-        const compared = await compareImages(join(this.root, pair.reference), join(this.root, pair.renderer));
+        const compare = deltaCurrent ? measureImages : compareImages;
+        const compared: { metrics: ImageMetrics; width: number; height: number; deltaImage?: Buffer } = await compare(
+          join(this.root, pair.reference),
+          join(this.root, pair.renderer),
+        );
         if (!(await stillCurrent())) {
           retry();
           return;
         }
-        if (!deltaCurrent) {
+        if (compared.deltaImage) {
           await atomicWrite(deltaPath, compared.deltaImage);
           await atomicWrite(deltaCachePath, JSON.stringify(source, null, 2) + '\n');
         }

@@ -298,7 +298,7 @@ test('metrics and heatmaps have independent input-signature caches', async () =>
 
   await rm(delta);
   expect(await processSuite(root)).toMatchObject({ computed: 1, skipped: 1 });
-  expect(compare).toHaveBeenLastCalledWith(expect.any(String), expect.any(String));
+  expect(compare).toHaveBeenCalledTimes(1);
   expect(await readFile(metrics, 'utf8')).toBe(originalMetrics);
   expect((await stat(metrics)).mtimeMs).toBe(originalMetricsStat.mtimeMs);
   expect((await sharp(delta).metadata()).format).toBe('webp');
@@ -309,7 +309,7 @@ test('metrics and heatmaps have independent input-signature caches', async () =>
 
   await rm(metrics);
   expect(await processSuite(root)).toMatchObject({ computed: 1, skipped: 1 });
-  expect(compare).toHaveBeenLastCalledWith(expect.any(String), expect.any(String));
+  expect(compare).toHaveBeenCalledTimes(1);
   expect(await readFile(delta)).toEqual(originalDelta);
   expect((await stat(delta)).mtimeMs).toBe(originalDeltaStat.mtimeMs);
   expect(await readFile(cache, 'utf8')).toBe(originalCache);
@@ -321,12 +321,13 @@ test('metrics and heatmaps have independent input-signature caches', async () =>
     JSON.stringify({ ...saved, source: { ...saved.source, renderer: { ...saved.source.renderer, size: -1 } } }),
   );
   expect(await processSuite(root)).toMatchObject({ computed: 1, skipped: 1 });
-  expect(compare).toHaveBeenLastCalledWith(expect.any(String), expect.any(String));
+  expect(compare).toHaveBeenCalledTimes(1);
   expect((await stat(delta)).mtimeMs).toBe(originalDeltaStat.mtimeMs);
 
   const currentMetrics = await readFile(metrics, 'utf8');
   await writeFile(cache, '{}');
   expect(await processSuite(root)).toMatchObject({ computed: 1, skipped: 1 });
+  expect(compare).toHaveBeenCalledTimes(2);
   expect(await readFile(metrics, 'utf8')).toBe(currentMetrics);
   expect(await processSuite(root)).toMatchObject({ computed: 0, skipped: 2 });
 });
