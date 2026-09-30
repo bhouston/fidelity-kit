@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { processSuite } from './core/index.js';
+import { createProgress } from './progress.js';
 import { assertViewerBuilt, createHandler, defaultCachePolicy, serve, type CachePolicy } from './server.js';
 import { watchResults, type ResultsWatcher } from './watch.js';
 
@@ -11,6 +12,7 @@ export interface RunArgs {
   process: boolean;
   watch?: boolean;
   concurrency?: number;
+  quiet?: boolean;
   maxAge?: number;
   staleWhileRevalidate?: number;
 }
@@ -20,9 +22,12 @@ export async function run(argv: RunArgs, dev: boolean) {
   assertViewerBuilt();
   const root = resolve(argv.root);
   const watching = dev && argv.watch;
+  const progress = createProgress(dev ? 'dev' : 'serve', argv.quiet || !dev);
   if (argv.process && !watching) {
-    const r = await processSuite(root, { concurrency: argv.concurrency });
-    console.log(`${r.computed} computed, ${r.skipped} up to date, ${r.failed.length} failed`);
+    const r = await processSuite(root, { concurrency: argv.concurrency, onProgress: progress.update }).finally(
+      progress.finish,
+    );
+    if (!argv.quiet) console.log(`${r.computed} computed, ${r.skipped} up to date, ${r.failed.length} failed`);
     if (r.failed.length)
       throw new Error(
         `Failed to compare ${r.failed.length} image pair(s): ${r.failed.map((f) => `${f.file}: ${f.error}`).join('; ')}`,
@@ -39,11 +44,12 @@ export async function run(argv: RunArgs, dev: boolean) {
     watcher = await watchResults(
       root,
       (update) => {
-        if (update.computed || update.failed.length)
+        progress.finish();
+        if (!argv.quiet && (update.computed || update.failed.length))
           console.log(`${update.computed} computed, ${update.failed.length} failed`);
         for (const f of update.failed) console.error(`FAILED ${f.file}: ${f.error}`);
       },
-      { concurrency: argv.concurrency, process: argv.process },
+      { concurrency: argv.concurrency, process: argv.process, onProgress: progress.update },
     );
   }
   try {
@@ -52,5 +58,6 @@ export async function run(argv: RunArgs, dev: boolean) {
     await watcher?.close();
     throw error;
   }
-  console.log(`Serving ${root} at http://${argv.host}:${argv.port}${dev ? ' (dev: nothing cached)' : ''}`);
+  if (!argv.quiet)
+    console.log(`Serving ${root} at http://${argv.host}:${argv.port}${dev ? ' (dev: nothing cached)' : ''}`);
 }

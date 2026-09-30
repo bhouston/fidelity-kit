@@ -2,6 +2,7 @@ import { readdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { imageFile } from './paths.js';
 import { configSchema, sceneMetaSchema, type FidelityConfig } from './schema.js';
+import type { ProgressCallback } from './progress.js';
 
 export interface SceneNode {
   /** Slash-joined path from the root, e.g. `surfaces/standard_surface/brass`. */
@@ -42,10 +43,18 @@ export async function readConfig(root: string): Promise<FidelityConfig> {
 /** A directory is a scene when any `<output>/<renderer>.avif` exists in it; every other directory is a group. */
 export async function scanSuite(
   root: string,
-  options: { config?: FidelityConfig; onScene?: (scene: SceneNode) => Promise<void> } = {},
+  options: {
+    config?: FidelityConfig;
+    onScene?: (scene: SceneNode) => Promise<void>;
+    onProgress?: ProgressCallback;
+  } = {},
 ): Promise<Suite> {
   const config = options.config ?? (await readConfig(root));
   const rendererIds = config.renderers.map((r) => r.id);
+  let completed = 0;
+  let total = 1;
+  const report = () => options.onProgress?.({ phase: 'Scanning', completed, total, unit: 'directories' });
+  report();
 
   async function visit(rel: string): Promise<GroupNode | SceneNode | null> {
     try {
@@ -53,6 +62,9 @@ export async function scanSuite(
     } catch (error) {
       if (rel && isMissing(error)) return null;
       throw error;
+    } finally {
+      completed++;
+      report();
     }
   }
 
@@ -76,8 +88,12 @@ export async function scanSuite(
     }
     const group: GroupNode = { path: rel, hasReadme, groups: [], scenes: [] };
     const outputIds = new Set(config.outputs.map((o) => o.id));
-    for (const e of (await readdir(dir, { withFileTypes: true })).toSorted((a, b) => a.name.localeCompare(b.name))) {
-      if (!e.isDirectory() || e.name.startsWith('.') || outputIds.has(e.name)) continue;
+    const children = (await readdir(dir, { withFileTypes: true }))
+      .filter((e) => e.isDirectory() && !e.name.startsWith('.') && !outputIds.has(e.name))
+      .toSorted((a, b) => a.name.localeCompare(b.name));
+    total += children.length;
+    report();
+    for (const e of children) {
       const child = await visit(rel ? `${rel}/${e.name}` : e.name);
       if (!child) continue;
       if ('scenes' in child) group.groups.push(child);

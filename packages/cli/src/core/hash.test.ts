@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { HASHES_FILE, hashFile, hashSuite } from './index.js';
+import type { ProgressUpdate } from './progress.js';
 
 async function suite() {
   const root = await mkdtemp(join(tmpdir(), 'fk-hash-'));
@@ -24,7 +25,14 @@ const read = async (root: string) => JSON.parse(await readFile(join(root, HASHES
 
 test('hash is deterministic, sorted, covers only served images, and is incremental', async () => {
   const root = await suite();
-  expect(await hashSuite(root)).toEqual({ hashed: 3, reused: 0, total: 3 });
+  const progress: ProgressUpdate[] = [];
+  expect(await hashSuite(root, { onProgress: (update) => progress.push(update) })).toEqual({
+    hashed: 3,
+    reused: 0,
+    total: 3,
+  });
+  expect(progress.at(-1)).toEqual({ phase: 'Writing hashes', completed: 1, total: 1, unit: 'files' });
+  expect(progress.find((update) => update.phase === 'Hashing' && update.completed === 3)).toBeDefined();
   const first = await readFile(join(root, HASHES_FILE), 'utf8');
   const json = JSON.parse(first);
   expect(json.version).toBe(1);

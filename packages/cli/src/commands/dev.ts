@@ -14,6 +14,7 @@ export const command = defineCommand({
       .option('port', { type: 'number', default: 3000, describe: 'Port to listen on' })
       .option('host', { type: 'string', default: 'localhost', describe: 'Interface to bind (0.0.0.0 for all)' })
       .option('concurrency', { type: 'number', describe: 'Image pairs compared in parallel (default: CPU count)' })
+      .option('quiet', { type: 'boolean', default: false, describe: 'Suppress progress and summary output' })
       .option('process', { type: 'boolean', default: true, describe: 'Refresh stale metrics/deltas before serving' })
       .option('watch', {
         type: 'boolean',
