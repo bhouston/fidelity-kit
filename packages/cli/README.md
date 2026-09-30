@@ -133,3 +133,9 @@ Created by [Ben Houston](https://github.com/bhouston) and sponsored by [Land of 
 [coverage-url]: https://codecov.io/gh/bhouston/fidelity-kit
 [discord-badge]: https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white
 [discord-url]: https://discord.gg/5J5Ur3F6Z2
+
+### Incremental processing
+
+`process --watch` and `dev` retain per-scene dependencies, batch source changes, and share the configured `--concurrency` limit. Scenes and renderer/reference images can be added or removed while watching. Restart after changing renderer IDs, output/pass IDs, or other settings in `fidelity.json`.
+
+Input freshness uses modification time and byte size recorded in metrics files. Older-dated replacements are detected; changes preserving both values require `--force`. Metrics without saved input signatures are regenerated once. Generated metrics, delta images, index files, and temporary writes are ignored by the watcher. Removed comparisons are dropped from the index; generated files may remain on disk.

@@ -40,11 +40,23 @@ export async function readConfig(root: string): Promise<FidelityConfig> {
 }
 
 /** A directory is a scene when any `<output>/<renderer>.avif` exists in it; every other directory is a group. */
-export async function scanSuite(root: string): Promise<Suite> {
-  const config = await readConfig(root);
+export async function scanSuite(
+  root: string,
+  options: { config?: FidelityConfig; onScene?: (scene: SceneNode) => Promise<void> } = {},
+): Promise<Suite> {
+  const config = options.config ?? (await readConfig(root));
   const rendererIds = config.renderers.map((r) => r.id);
 
   async function visit(rel: string): Promise<GroupNode | SceneNode | null> {
+    try {
+      return await visitDirectory(rel);
+    } catch (error) {
+      if (rel && isMissing(error)) return null;
+      throw error;
+    }
+  }
+
+  async function visitDirectory(rel: string): Promise<GroupNode | SceneNode | null> {
     const dir = join(root, rel);
     const images: Record<string, string[]> = {};
     for (const o of config.outputs) {
@@ -58,7 +70,9 @@ export async function scanSuite(root: string): Promise<Suite> {
       const meta = sceneMetaSchema.parse(
         (await exists(join(dir, 'scene.json'))) ? JSON.parse(await readFile(join(dir, 'scene.json'), 'utf8')) : {},
       );
-      return { path: rel, title: meta.title ?? rel.split('/').pop()!, tags: meta.tags, hasReadme, images };
+      const scene = { path: rel, title: meta.title ?? rel.split('/').pop()!, tags: meta.tags, hasReadme, images };
+      await options.onScene?.(scene);
+      return scene;
     }
     const group: GroupNode = { path: rel, hasReadme, groups: [], scenes: [] };
     const outputIds = new Set(config.outputs.map((o) => o.id));
@@ -79,6 +93,20 @@ export async function scanSuite(root: string): Promise<Suite> {
 
 /** Scan one known scene without walking the rest of the suite. */
 export async function scanScene(root: string, rel: string, config: FidelityConfig): Promise<SceneNode | null> {
+  try {
+    return await scanSceneDirectory(root, rel, config);
+  } catch (error) {
+    if (isMissing(error)) return null;
+    throw error;
+  }
+}
+
+function isMissing(error: unknown) {
+  const code = (error as NodeJS.ErrnoException).code;
+  return code === 'ENOENT' || code === 'ENOTDIR';
+}
+
+async function scanSceneDirectory(root: string, rel: string, config: FidelityConfig): Promise<SceneNode | null> {
   const dir = join(root, rel);
   if (!rel || !(await isDir(dir))) return null;
   const images: Record<string, string[]> = {};
