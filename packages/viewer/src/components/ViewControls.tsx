@@ -14,7 +14,7 @@ export function ViewControls({
   view: View;
   onChange: (patch: Partial<ViewSearch>) => void;
 }) {
-  const { outputs, delta } = index.config;
+  const { outputs } = index.config;
   const selectable = index.config.renderers.filter((r) => r.id !== view.ref);
   const selected = new Set(view.compared);
   const toggleRenderer = (id: string) => {
@@ -71,16 +71,14 @@ export function ViewControls({
           onChange={(ref) => onChange({ ref })}
         />
       ) : null}
-      {delta ? (
-        <label htmlFor="show-deltas" className="flex shrink-0 items-center gap-2 text-sm text-muted-foreground">
-          <Switch
-            aria-label="Show delta images"
-            checked={view.showDeltas}
-            onCheckedChange={(deltas) => onChange({ deltas })}
-          />
-          Deltas
-        </label>
-      ) : null}
+      <label htmlFor="show-deltas" className="flex shrink-0 items-center gap-2 text-sm text-muted-foreground">
+        <Switch
+          aria-label="Show delta images"
+          checked={view.showDeltas}
+          onCheckedChange={(deltas) => onChange({ deltas })}
+        />
+        Deltas
+      </label>
     </>
   );
 }

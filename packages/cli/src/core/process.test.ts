@@ -250,16 +250,19 @@ test('multiple references invalidate both incoming and outgoing comparisons', as
   expect(await processor.flush()).toMatchObject({ computed: 3 });
 });
 
-test('metrics-only processing avoids delta encoding and reuses its results', async () => {
+test('legacy delta false still generates delta images and repairs missing deltas', async () => {
   const { root } = await fixture();
   const config = JSON.parse(await readFile(join(root, 'fidelity.json'), 'utf8'));
   await writeFile(join(root, 'fidelity.json'), JSON.stringify({ ...config, delta: false }));
   const compare = vi.spyOn(comparison, 'compareImages');
   expect(await processSuite(root)).toMatchObject({ computed: 2 });
-  for (const result of compare.mock.results) expect((await result.value).deltaImage.length).toBe(0);
+  for (const result of compare.mock.results) expect((await result.value).deltaImage.length).toBeGreaterThan(0);
   expect((await index(root)).metrics[aKey].maxError).toBe(0);
-  await expect(stat(join(root, 'one/beauty/a.vs-ref.delta.avif'))).rejects.toMatchObject({ code: 'ENOENT' });
+  expect((await stat(join(root, 'one/beauty/a.vs-ref.delta.avif'))).size).toBeGreaterThan(0);
   expect(await processSuite(root)).toMatchObject({ computed: 0, skipped: 2 });
+  await rm(join(root, 'one/beauty/a.vs-ref.delta.avif'));
+  expect(await processSuite(root)).toMatchObject({ computed: 1, skipped: 1 });
+  expect((await stat(join(root, 'one/beauty/a.vs-ref.delta.avif'))).size).toBeGreaterThan(0);
 });
 
 test('one-shot changes remove stale index records after files disappeared before startup', async () => {

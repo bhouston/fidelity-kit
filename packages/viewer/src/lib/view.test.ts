@@ -7,7 +7,6 @@ const index = {
     title: 'Test',
     renderers: [{ id: 'ref', reference: true }, { id: 'a' }, { id: 'b' }],
     outputs: [{ id: 'beauty' }],
-    delta: true,
   },
   metrics: {},
 } as SuiteIndex;
@@ -25,4 +24,10 @@ test('renderer selection defaults to all, persists through URL search, and prese
   const search = validateViewSearch({ renderers: 'b' });
   expect(resolveView(index, search).compared).toEqual(['b']);
   expect(resolveView(index, validateViewSearch({ renderers: '-' })).compared).toEqual([]);
+});
+
+test('deltas default to visible even with legacy configuration, with a display-only opt-out', () => {
+  const legacy = { ...index, config: { ...index.config, delta: false } };
+  expect(resolveView(legacy, {}).showDeltas).toBe(true);
+  expect(resolveView(legacy, { deltas: false }).showDeltas).toBe(false);
 });

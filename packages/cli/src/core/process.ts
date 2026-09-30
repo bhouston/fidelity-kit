@@ -309,7 +309,7 @@ export class SuiteProcessor {
     const key = signatureKey(inputs);
     const metricsPath = join(this.root, pair.key);
     // Bump the recipe version when comparison or encoding semantics change.
-    const source = { version: 1, delta: this.config.delta, ...inputs };
+    const source = { version: 1, delta: true, ...inputs };
     const stillCurrent = async () => {
       const actual = await this.readInputs(pair);
       return this.current(pair, epoch) && signatureKey(actual) === key;
@@ -334,7 +334,7 @@ export class SuiteProcessor {
           if (
             JSON.stringify(saved) === JSON.stringify(source) &&
             validMetrics(cached) &&
-            (!this.config.delta || (await signature(join(this.root, pair.delta))))
+            (await signature(join(this.root, pair.delta)))
           )
             record = cached;
         } catch {
@@ -348,9 +348,7 @@ export class SuiteProcessor {
         }
         this.result.skipped++;
       } else {
-        const compared = await compareImages(join(this.root, pair.reference), join(this.root, pair.renderer), {
-          delta: this.config.delta,
-        });
+        const compared = await compareImages(join(this.root, pair.reference), join(this.root, pair.renderer));
         record = {
           ...compared.metrics,
           width: compared.width,
@@ -362,7 +360,7 @@ export class SuiteProcessor {
           return;
         }
         // Metrics are the commit marker: publish them only after all required artifacts exist.
-        if (this.config.delta) await atomicWrite(join(this.root, pair.delta), compared.deltaImage);
+        await atomicWrite(join(this.root, pair.delta), compared.deltaImage);
         await atomicWrite(metricsPath, JSON.stringify({ ...record, source }, null, 2) + '\n');
         if (!(await stillCurrent())) {
           retry();
