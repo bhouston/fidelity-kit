@@ -22,7 +22,6 @@ export const configSchema = z.object({
     .min(1, 'at least one output is required')
     .refine(uniqueIds, 'output ids must be unique')
     .default([{ id: 'beauty' }]),
-  delta: z.boolean().default(true),
 });
 export type FidelityConfig = z.infer<typeof configSchema>;
 

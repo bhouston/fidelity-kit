@@ -250,16 +250,19 @@ test('multiple references invalidate both incoming and outgoing comparisons', as
   expect(await processor.flush()).toMatchObject({ computed: 3 });
 });
 
-test('metrics-only processing avoids delta encoding and reuses its results', async () => {
+test('legacy delta false still generates delta images and repairs missing deltas', async () => {
   const { root } = await fixture();
   const config = JSON.parse(await readFile(join(root, 'fidelity.json'), 'utf8'));
   await writeFile(join(root, 'fidelity.json'), JSON.stringify({ ...config, delta: false }));
   const compare = vi.spyOn(comparison, 'compareImages');
   expect(await processSuite(root)).toMatchObject({ computed: 2 });
-  for (const result of compare.mock.results) expect((await result.value).deltaImage.length).toBe(0);
+  for (const result of compare.mock.results) expect((await result.value).deltaImage.length).toBeGreaterThan(0);
   expect((await index(root)).metrics[aKey].maxError).toBe(0);
-  await expect(stat(join(root, 'one/beauty/a.vs-ref.delta.webp'))).rejects.toMatchObject({ code: 'ENOENT' });
+  expect((await stat(join(root, 'one/beauty/a.vs-ref.delta.webp'))).size).toBeGreaterThan(0);
   expect(await processSuite(root)).toMatchObject({ computed: 0, skipped: 2 });
+  await rm(join(root, 'one/beauty/a.vs-ref.delta.webp'));
+  expect(await processSuite(root)).toMatchObject({ computed: 1, skipped: 1 });
+  expect((await stat(join(root, 'one/beauty/a.vs-ref.delta.webp'))).size).toBeGreaterThan(0);
 });
 
 test('one-shot changes remove stale index records after files disappeared before startup', async () => {
@@ -295,7 +298,7 @@ test('metrics and heatmaps have independent input-signature caches', async () =>
 
   await rm(delta);
   expect(await processSuite(root)).toMatchObject({ computed: 1, skipped: 1 });
-  expect(compare).toHaveBeenLastCalledWith(expect.any(String), expect.any(String), { delta: true });
+  expect(compare).toHaveBeenCalledTimes(1);
   expect(await readFile(metrics, 'utf8')).toBe(originalMetrics);
   expect((await stat(metrics)).mtimeMs).toBe(originalMetricsStat.mtimeMs);
   expect((await sharp(delta).metadata()).format).toBe('webp');
@@ -306,7 +309,7 @@ test('metrics and heatmaps have independent input-signature caches', async () =>
 
   await rm(metrics);
   expect(await processSuite(root)).toMatchObject({ computed: 1, skipped: 1 });
-  expect(compare).toHaveBeenLastCalledWith(expect.any(String), expect.any(String), { delta: false });
+  expect(compare).toHaveBeenCalledTimes(1);
   expect(await readFile(delta)).toEqual(originalDelta);
   expect((await stat(delta)).mtimeMs).toBe(originalDeltaStat.mtimeMs);
   expect(await readFile(cache, 'utf8')).toBe(originalCache);
@@ -318,12 +321,13 @@ test('metrics and heatmaps have independent input-signature caches', async () =>
     JSON.stringify({ ...saved, source: { ...saved.source, renderer: { ...saved.source.renderer, size: -1 } } }),
   );
   expect(await processSuite(root)).toMatchObject({ computed: 1, skipped: 1 });
-  expect(compare).toHaveBeenLastCalledWith(expect.any(String), expect.any(String), { delta: false });
+  expect(compare).toHaveBeenCalledTimes(1);
   expect((await stat(delta)).mtimeMs).toBe(originalDeltaStat.mtimeMs);
 
   const currentMetrics = await readFile(metrics, 'utf8');
   await writeFile(cache, '{}');
   expect(await processSuite(root)).toMatchObject({ computed: 1, skipped: 1 });
+  expect(compare).toHaveBeenCalledTimes(2);
   expect(await readFile(metrics, 'utf8')).toBe(currentMetrics);
   expect(await processSuite(root)).toMatchObject({ computed: 0, skipped: 2 });
 });

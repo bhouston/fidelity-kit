@@ -51,12 +51,11 @@ Start with this configuration:
     { "id": "reference", "label": "Reference", "reference": true },
     { "id": "my-renderer", "label": "My Renderer" }
   ],
-  "outputs": [{ "id": "beauty" }, { "id": "ao", "label": "Ambient occlusion" }],
-  "delta": true
+  "outputs": [{ "id": "beauty" }, { "id": "ao", "label": "Ambient occlusion" }]
 }
 ```
 
-Mark at least one renderer as a reference. You can declare multiple references; the viewer lets readers choose which one to compare against. Renderer and output IDs must use lowercase letters, numbers, `.`, `_`, or `-`, and start with a letter or number. `outputs` defaults to `beauty` if omitted. Set `delta` to `false` if you only want metrics and the original images.
+Mark at least one renderer as a reference. You can declare multiple references; the viewer lets readers choose which one to compare against. Renderer and output IDs must use lowercase letters, numbers, `.`, `_`, or `-`, and start with a letter or number. `outputs` defaults to `beauty` if omitted. Every comparison generates metrics and a delta image. Legacy `delta` settings are ignored.
 
 For searchable scene labels, add a `scene.json` next to a scene's images:
 
@@ -75,12 +74,12 @@ pnpm exec fidelity-kit dev results
 
 The CLI supports this workflow:
 
-| Command                                  | Use                                                                                                                                                                           |
-| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `fidelity-kit process results`           | Generate comparison metrics, optional delta images, and the viewer index. Reruns update only stale comparisons; add `--force` to recompute all or `--watch` to keep updating. |
-| `fidelity-kit dev results`               | Process stale comparisons, watch new and changed renders, and open a local viewer with caching disabled. Add `--no-watch` to disable watching.                                |
-| `fidelity-kit serve results`             | Process stale comparisons, then serve the viewer with browser and CDN caching.                                                                                                |
-| `fidelity-kit build results --out site/` | Process stale comparisons and export a site for static hosting.                                                                                                               |
+| Command                                  | Use                                                                                                                                                                  |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `fidelity-kit process results`           | Generate comparison metrics, delta images, and the viewer index. Reruns update only stale comparisons; add `--force` to recompute all or `--watch` to keep updating. |
+| `fidelity-kit dev results`               | Process stale comparisons, watch new and changed renders, and open a local viewer with caching disabled. Add `--no-watch` to disable watching.                       |
+| `fidelity-kit serve results`             | Process stale comparisons, then serve the viewer with browser and CDN caching.                                                                                       |
+| `fidelity-kit build results --out site/` | Process stale comparisons and export a site for static hosting.                                                                                                      |
 
 `process` computes PSNR, RMSE, MAE, and maximum error for each available comparison. Heatmaps are encoded as lossy WebP at quality 85 and effort 4 (`<renderer>.vs-<reference>.delta.webp`) to reduce file size; source images keep their original formats, and metrics are computed from the source pixels before heatmap compression. Existing cached heatmaps are retained; run `fidelity-kit process results --force` to regenerate them with this setting. Reference and renderer images in a pair must have the same dimensions. Both `dev` and `serve` start at `localhost:3000` and try higher ports if one is occupied; use `--port` to require a specific port and `--host` to change the bind address. The actual viewer URL is printed at startup. Comparisons run in parallel (default: one per CPU); set `--concurrency <n>` on `process`, `dev`, `serve`, or `build` to change it, or `--concurrency 1` for sequential. To serve results already processed during a build, pass `--no-process`.
 

@@ -10,7 +10,7 @@ export interface ViewSearch {
   ref?: string;
   /** Comma-separated compared renderer ids; omitted means all. `-` means no compared renderers. */
   renderers?: string;
-  /** undefined = the suite default (fidelity.json "delta") */
+  /** undefined = show delta images by default */
   deltas?: boolean;
   sort?: Sort;
 }
@@ -56,7 +56,7 @@ export interface View {
 }
 
 export function resolveView(index: SuiteIndex, search: ViewSearch, hashes: Record<string, string> = {}): View {
-  const { renderers, outputs, delta } = index.config;
+  const { renderers, outputs } = index.config;
   const references = renderers.filter((r) => r.reference).map((r) => r.id);
   const output = outputs.find((o) => o.id === search.output)?.id ?? outputs[0]!.id;
   const ref = references.includes(search.ref ?? '') ? search.ref! : references[0]!;
@@ -65,7 +65,7 @@ export function resolveView(index: SuiteIndex, search: ViewSearch, hashes: Recor
   return {
     output,
     ref,
-    showDeltas: delta && (search.deltas ?? true),
+    showDeltas: search.deltas ?? true,
     references,
     compared: renderers.map((r) => r.id).filter((id) => id !== ref && (!selected || selected.has(id))),
     label: (id) => labels.get(id) ?? id,

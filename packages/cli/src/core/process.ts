@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { availableParallelism } from 'node:os';
 import { join } from 'node:path';
 import pLimit from 'p-limit';
-import { compareImages, type ImageMetrics } from './compare.js';
+import { compareImages, measureImages, type ImageMetrics } from './compare.js';
 import { readConfig, scanScene, scanSuite, type GroupNode, type SceneNode, type Suite } from './scan.js';
 import { deltaFile, imageFile, IMAGE_EXTENSIONS, isImageFile, metricsFile } from './paths.js';
 import type { FidelityConfig } from './schema.js';
@@ -366,7 +366,7 @@ export class SuiteProcessor {
         return;
       }
       let record: MetricsRecord | undefined;
-      let deltaCurrent = !this.config.delta;
+      let deltaCurrent = false;
       if (!pair.force) {
         try {
           const { source: saved, ...cached } = JSON.parse(await readFile(metricsPath, 'utf8'));
@@ -374,13 +374,11 @@ export class SuiteProcessor {
         } catch {
           /* Missing or invalid metrics are recomputed independently of the delta. */
         }
-        if (this.config.delta) {
-          try {
-            const saved = JSON.parse(await readFile(deltaCachePath, 'utf8'));
-            deltaCurrent = matchesSource(saved, inputs) && !!(await signature(deltaPath));
-          } catch {
-            /* The delta has its own input signature and commit marker. */
-          }
+        try {
+          const saved = JSON.parse(await readFile(deltaCachePath, 'utf8'));
+          deltaCurrent = matchesSource(saved, inputs) && !!(await signature(deltaPath));
+        } catch {
+          /* The delta has its own input signature and commit marker. */
         }
       }
       if (record && deltaCurrent) {
@@ -390,14 +388,16 @@ export class SuiteProcessor {
         }
         this.result.skipped++;
       } else {
-        const compared = await compareImages(join(this.root, pair.reference), join(this.root, pair.renderer), {
-          delta: !deltaCurrent,
-        });
+        const compare = deltaCurrent ? measureImages : compareImages;
+        const compared: { metrics: ImageMetrics; width: number; height: number; deltaImage?: Buffer } = await compare(
+          join(this.root, pair.reference),
+          join(this.root, pair.renderer),
+        );
         if (!(await stillCurrent())) {
           retry();
           return;
         }
-        if (!deltaCurrent) {
+        if (compared.deltaImage) {
           await atomicWrite(deltaPath, compared.deltaImage);
           await atomicWrite(deltaCachePath, JSON.stringify(source, null, 2) + '\n');
         }
@@ -419,7 +419,7 @@ export class SuiteProcessor {
       }
       pair.attempted = key;
       pair.force = false;
-      this.metrics[pair.key] = { ...record, ...(this.config.delta ? { deltaFile: pair.delta.split('/').pop()! } : {}) };
+      this.metrics[pair.key] = { ...record, deltaFile: pair.delta.split('/').pop()! };
       this.indexDirty = true;
     } catch (error) {
       if (!this.current(pair, epoch) || signatureKey(await this.readInputs(pair).catch(() => null)) !== key) {
