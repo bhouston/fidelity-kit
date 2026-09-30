@@ -2,12 +2,14 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { processSuite } from './core/index.js';
 import { assertViewerBuilt, createHandler, defaultCachePolicy, serve, type CachePolicy } from './server.js';
+import { watchResults } from './watch.js';
 
 export interface RunArgs {
   root: string;
   port: number;
   host: string;
   process: boolean;
+  watch?: boolean;
   maxAge?: number;
   staleWhileRevalidate?: number;
 }
@@ -31,5 +33,12 @@ export async function run(argv: RunArgs, dev: boolean) {
     staleWhileRevalidate: argv.staleWhileRevalidate ?? defaultCachePolicy.staleWhileRevalidate,
   };
   await serve(createHandler(root, { cache, dev }), argv.port, argv.host);
+  if (dev && argv.watch) {
+    await watchResults(root, (update) => {
+      if (update.computed || update.failed.length)
+        console.log(`${update.computed} computed, ${update.failed.length} failed`);
+      for (const f of update.failed) console.error(`FAILED ${f.file}: ${f.error}`);
+    });
+  }
   console.log(`Serving ${root} at http://${argv.host}:${argv.port}${dev ? ' (dev: nothing cached)' : ''}`);
 }

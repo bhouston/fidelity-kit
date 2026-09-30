@@ -18,7 +18,7 @@ If you already have a results folder in the format below:
 npx fidelity-kit dev results
 ```
 
-Open <http://localhost:3000>. `dev` processes new or changed images before starting and serves files without browser caching, so a reload shows your latest render. See the [working example](https://github.com/bhouston/fidelity-kit/tree/main/examples/demo) for a complete suite.
+Open <http://localhost:3000>. `dev` processes stale images at startup, then watches for new or changed renders and updates their metrics, deltas, and viewer index. Reload the page to see changes. Files are served without browser caching. See the [working example](https://github.com/bhouston/fidelity-kit/tree/main/examples/demo) for a complete suite.
 
 ## Adopt it in your suite
 
@@ -75,12 +75,12 @@ pnpm exec fidelity-kit dev results
 
 The CLI supports this workflow:
 
-| Command                                  | Use                                                                                                                                             |
-| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `fidelity-kit process results`           | Generate comparison metrics, optional delta images, and the viewer index. Reruns update only stale comparisons; add `--force` to recompute all. |
-| `fidelity-kit dev results`               | Process stale comparisons, then open a local viewer with caching disabled.                                                                      |
-| `fidelity-kit serve results`             | Process stale comparisons, then serve the viewer with browser and CDN caching.                                                                  |
-| `fidelity-kit build results --out site/` | Process stale comparisons and export a site for static hosting.                                                                                 |
+| Command                                  | Use                                                                                                                                                                           |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `fidelity-kit process results`           | Generate comparison metrics, optional delta images, and the viewer index. Reruns update only stale comparisons; add `--force` to recompute all or `--watch` to keep updating. |
+| `fidelity-kit dev results`               | Process stale comparisons, watch new and changed renders, and open a local viewer with caching disabled. Add `--no-watch` to disable watching.                                |
+| `fidelity-kit serve results`             | Process stale comparisons, then serve the viewer with browser and CDN caching.                                                                                                |
+| `fidelity-kit build results --out site/` | Process stale comparisons and export a site for static hosting.                                                                                                               |
 
 `process` computes PSNR, RMSE, MAE, and maximum error for each available comparison. Reference and renderer images in a pair must have the same dimensions. Both `dev` and `serve` listen on `localhost:3000` by default; use `--port` and `--host` to change that. To serve results already processed during a build, pass `--no-process`.
 
