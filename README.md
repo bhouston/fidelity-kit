@@ -40,7 +40,7 @@ results/
         my-renderer.avif
 ```
 
-Folders can have as many group levels as you need. A scene is any folder containing an image at `<output>/<renderer>.avif` for names declared in `fidelity.json`. Missing renderer images are allowed; the viewer marks them as missing. Other files, such as scene sources and textures, can live alongside the images.
+Folders can have as many group levels as you need. A scene is any folder containing an image at `<output>/<renderer>.<extension>` for names declared in `fidelity.json`. Supported input extensions are `.avif`, `.webp`, `.png`, and `.jpg`; when several files match a renderer, that order determines which one is used. Formats can be mixed across renderers and outputs. Missing renderer images are allowed; the viewer marks them as missing. Other files, such as scene sources and textures, can live alongside the images.
 
 Start with this configuration:
 
@@ -81,7 +81,9 @@ The CLI supports this workflow:
 | `fidelity-kit serve results`             | Process stale comparisons, then serve the viewer with browser and CDN caching.                                                                                       |
 | `fidelity-kit build results --out site/` | Process stale comparisons and export a site for static hosting.                                                                                                      |
 
-`process` computes PSNR, RMSE, MAE, and maximum error for each available comparison. Reference and renderer images in a pair must have the same dimensions. Both `dev` and `serve` start at `localhost:3000` and try higher ports if one is occupied; use `--port` to require a specific port and `--host` to change the bind address. The actual viewer URL is printed at startup. Comparisons run in parallel (default: one per CPU); set `--concurrency <n>` on `process`, `dev`, `serve`, or `build` to change it, or `--concurrency 1` for sequential. To serve results already processed during a build, pass `--no-process`.
+`process` computes PSNR, RMSE, MAE, and maximum error for each available comparison. Heatmaps are encoded as lossless WebP (`<renderer>.vs-<reference>.delta.webp`) for fast generation and exact false colours; source images keep their original formats. Reference and renderer images in a pair must have the same dimensions. Both `dev` and `serve` start at `localhost:3000` and try higher ports if one is occupied; use `--port` to require a specific port and `--host` to change the bind address. The actual viewer URL is printed at startup. Comparisons run in parallel (default: one per CPU); set `--concurrency <n>` on `process`, `dev`, `serve`, or `build` to change it, or `--concurrency 1` for sequential. To serve results already processed during a build, pass `--no-process`.
+
+Metrics and heatmaps retain independent input modification-time and byte-size signatures. Refreshing either artifact preserves the other when it is current. Heatmap signatures are stored in `.delta.webp.json` cache sidecars, excluded from serving and static export. The first run after upgrading generates WebP heatmaps while retaining current metrics.
 
 Static processing starts comparisons as scenes are discovered. Watch mode retains per-scene dependencies and batches changes through the same concurrency limit. It supports adding/removing scenes and reference or renderer images, and editing scene metadata. Renderer IDs, output/pass IDs, and other `fidelity.json` settings remain fixed until restart; the watcher reports configuration changes that require a restart. Generated metrics, delta images, the index, and temporary files are ignored, so processing cannot trigger a watch loop.
 

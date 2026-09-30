@@ -1,6 +1,6 @@
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
-import { imageFile } from './paths.js';
+import { imageFile, IMAGE_EXTENSIONS } from './paths.js';
 import { configSchema, sceneMetaSchema, type FidelityConfig } from './schema.js';
 import type { ProgressCallback } from './progress.js';
 
@@ -12,6 +12,8 @@ export interface SceneNode {
   hasReadme: boolean;
   /** output id -> renderer ids that have an image */
   images: Record<string, string[]>;
+  /** Selected source filenames by output and renderer; absent in legacy indexes. */
+  imageFiles?: Record<string, Record<string, string>>;
 }
 export interface GroupNode {
   path: string;
@@ -40,7 +42,39 @@ export async function readConfig(root: string): Promise<FidelityConfig> {
   return configSchema.parse(JSON.parse(await readFile(join(root, 'fidelity.json'), 'utf8')));
 }
 
-/** A directory is a scene when any `<output>/<renderer>.avif` exists in it; every other directory is a group. */
+/** Read each output directory once, then select the first supported format for each renderer. */
+async function discoverImages(dir: string, config: FidelityConfig) {
+  const images: Record<string, string[]> = {};
+  const imageFiles: Record<string, Record<string, string>> = {};
+  for (const output of config.outputs) {
+    let entries;
+    try {
+      entries = await readdir(join(dir, output.id), { withFileTypes: true });
+    } catch (error) {
+      if (isMissing(error)) continue;
+      throw error;
+    }
+    const files = new Set(
+      entries.filter((entry) => entry.isFile() || entry.isSymbolicLink()).map((entry) => entry.name),
+    );
+    const selected: Record<string, string> = {};
+    for (const renderer of config.renderers) {
+      for (const extension of IMAGE_EXTENSIONS) {
+        const file = imageFile(renderer.id, extension);
+        if (!files.has(file) || !(await stat(join(dir, output.id, file)).catch(() => null))?.isFile()) continue;
+        selected[renderer.id] = file;
+        break;
+      }
+    }
+    if (Object.keys(selected).length) {
+      images[output.id] = Object.keys(selected);
+      imageFiles[output.id] = selected;
+    }
+  }
+  return { images, imageFiles };
+}
+
+/** A directory is a scene when it contains a configured source image or scene.json. */
 export async function scanSuite(
   root: string,
   options: {
@@ -50,7 +84,6 @@ export async function scanSuite(
   } = {},
 ): Promise<Suite> {
   const config = options.config ?? (await readConfig(root));
-  const rendererIds = config.renderers.map((r) => r.id);
   let completed = 0;
   let total = 1;
   const report = () => options.onProgress?.({ phase: 'Scanning', completed, total, unit: 'directories' });
@@ -70,19 +103,21 @@ export async function scanSuite(
 
   async function visitDirectory(rel: string): Promise<GroupNode | SceneNode | null> {
     const dir = join(root, rel);
-    const images: Record<string, string[]> = {};
-    for (const o of config.outputs) {
-      const found: string[] = [];
-      for (const r of rendererIds) if (await exists(join(dir, o.id, imageFile(r)))) found.push(r);
-      if (found.length) images[o.id] = found;
-    }
+    const { images, imageFiles } = await discoverImages(dir, config);
     const hasReadme = await exists(join(dir, 'README.md'));
     // scene.json also marks scenes whose renders are all missing or failed.
     if (rel && (Object.keys(images).length || (await exists(join(dir, 'scene.json'))))) {
       const meta = sceneMetaSchema.parse(
         (await exists(join(dir, 'scene.json'))) ? JSON.parse(await readFile(join(dir, 'scene.json'), 'utf8')) : {},
       );
-      const scene = { path: rel, title: meta.title ?? rel.split('/').pop()!, tags: meta.tags, hasReadme, images };
+      const scene = {
+        path: rel,
+        title: meta.title ?? rel.split('/').pop()!,
+        tags: meta.tags,
+        hasReadme,
+        images,
+        imageFiles,
+      };
       await options.onScene?.(scene);
       return scene;
     }
@@ -125,14 +160,7 @@ function isMissing(error: unknown) {
 async function scanSceneDirectory(root: string, rel: string, config: FidelityConfig): Promise<SceneNode | null> {
   const dir = join(root, rel);
   if (!rel || !(await isDir(dir))) return null;
-  const images: Record<string, string[]> = {};
-  for (const output of config.outputs) {
-    const found: string[] = [];
-    for (const renderer of config.renderers) {
-      if (await exists(join(dir, output.id, imageFile(renderer.id)))) found.push(renderer.id);
-    }
-    if (found.length) images[output.id] = found;
-  }
+  const { images, imageFiles } = await discoverImages(dir, config);
   const metaFile = join(dir, 'scene.json');
   if (!Object.keys(images).length && !(await exists(metaFile))) return null;
   const meta = sceneMetaSchema.parse((await exists(metaFile)) ? JSON.parse(await readFile(metaFile, 'utf8')) : {});
@@ -142,6 +170,7 @@ async function scanSceneDirectory(root: string, rel: string, config: FidelityCon
     tags: meta.tags,
     hasReadme: await exists(join(dir, 'README.md')),
     images,
+    imageFiles,
   };
 }
 

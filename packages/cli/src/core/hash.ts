@@ -5,7 +5,7 @@ import { join, resolve } from 'node:path';
 import { crc32 } from 'node:zlib';
 import pLimit from 'p-limit';
 import { z } from 'zod';
-import { isDataFile } from './paths.js';
+import { isDataFile, isImageFile } from './paths.js';
 import type { ProgressCallback } from './progress.js';
 
 export const HASHES_FILE = 'image-hashes.json';
@@ -58,7 +58,7 @@ export interface HashSuiteResult {
 }
 
 /**
- * Writes `<root>/image-hashes.json` for every served `.avif`. Incremental: an entry whose size and mtimeMs are unchanged
+ * Writes `<root>/image-hashes.json` for every served image. Incremental: an entry whose size and mtimeMs are unchanged
  * is reused without reading the file. Output is sorted and timestamp-free, so unchanged files give identical bytes.
  */
 export async function hashSuite(root: string, opts: HashSuiteOptions = {}): Promise<HashSuiteResult> {
@@ -78,7 +78,7 @@ export async function hashSuite(root: string, opts: HashSuiteOptions = {}): Prom
       const rel = dir ? `${dir}/${entry.name}` : entry.name;
       if (entry.name.startsWith('.')) continue;
       if (entry.isDirectory()) pending.push(rel);
-      else if (entry.isFile() && rel.endsWith('.avif') && isDataFile(rel)) rels.push(rel);
+      else if (entry.isFile() && isImageFile(rel) && isDataFile(rel)) rels.push(rel);
     }
     scanned++;
     scanProgress();

@@ -54,7 +54,7 @@ test('persisted signatures detect older timestamps and size-only changes, and re
 test('missing outputs, malformed metrics, and old cache formats are recomputed', async () => {
   const { root, dir } = await fixture();
   await processSuite(root);
-  await rm(join(dir, 'a.vs-ref.delta.avif'));
+  await rm(join(dir, 'a.vs-ref.delta.webp'));
   expect(await processSuite(root)).toMatchObject({ computed: 1, skipped: 1 });
   const metrics = join(root, aKey);
   const saved = JSON.parse(await readFile(metrics, 'utf8'));
@@ -214,7 +214,7 @@ test('ignores all generated outputs and keeps renderer/pass configuration fixed'
   processor.notify([
     'index.json',
     aKey,
-    'one/beauty/a.vs-ref.delta.avif',
+    'one/beauty/a.vs-ref.delta.webp',
     'one/beauty/a.avif.uuid.tmp',
     'fidelity.json',
     'one/new-pass/a.avif',
@@ -258,11 +258,11 @@ test('legacy delta false still generates delta images and repairs missing deltas
   expect(await processSuite(root)).toMatchObject({ computed: 2 });
   for (const result of compare.mock.results) expect((await result.value).deltaImage.length).toBeGreaterThan(0);
   expect((await index(root)).metrics[aKey].maxError).toBe(0);
-  expect((await stat(join(root, 'one/beauty/a.vs-ref.delta.avif'))).size).toBeGreaterThan(0);
+  expect((await stat(join(root, 'one/beauty/a.vs-ref.delta.webp'))).size).toBeGreaterThan(0);
   expect(await processSuite(root)).toMatchObject({ computed: 0, skipped: 2 });
-  await rm(join(root, 'one/beauty/a.vs-ref.delta.avif'));
+  await rm(join(root, 'one/beauty/a.vs-ref.delta.webp'));
   expect(await processSuite(root)).toMatchObject({ computed: 1, skipped: 1 });
-  expect((await stat(join(root, 'one/beauty/a.vs-ref.delta.avif'))).size).toBeGreaterThan(0);
+  expect((await stat(join(root, 'one/beauty/a.vs-ref.delta.webp'))).size).toBeGreaterThan(0);
 });
 
 test('one-shot changes remove stale index records after files disappeared before startup', async () => {
@@ -284,4 +284,158 @@ test('output-directory removal invalidates its scene even without individual unl
   await processor.flush();
   expect((await index(root)).metrics).toEqual({});
   expect((await index(root)).root.scenes).toEqual([]);
+});
+
+test('metrics and heatmaps have independent input-signature caches', async () => {
+  const { root, dir } = await fixture();
+  await processSuite(root);
+  const metrics = join(root, aKey);
+  const delta = join(dir, 'a.vs-ref.delta.webp');
+  const cache = `${delta}.json`;
+  const originalMetrics = await readFile(metrics, 'utf8');
+  const originalMetricsStat = await stat(metrics);
+  const compare = vi.spyOn(comparison, 'compareImages');
+
+  await rm(delta);
+  expect(await processSuite(root)).toMatchObject({ computed: 1, skipped: 1 });
+  expect(compare).toHaveBeenLastCalledWith(expect.any(String), expect.any(String));
+  expect(await readFile(metrics, 'utf8')).toBe(originalMetrics);
+  expect((await stat(metrics)).mtimeMs).toBe(originalMetricsStat.mtimeMs);
+  expect((await sharp(delta).metadata()).format).toBe('webp');
+  const originalDelta = await readFile(delta);
+  const originalDeltaStat = await stat(delta);
+  const originalCache = await readFile(cache, 'utf8');
+  const originalCacheStat = await stat(cache);
+
+  await rm(metrics);
+  expect(await processSuite(root)).toMatchObject({ computed: 1, skipped: 1 });
+  expect(compare).toHaveBeenLastCalledWith(expect.any(String), expect.any(String));
+  expect(await readFile(delta)).toEqual(originalDelta);
+  expect((await stat(delta)).mtimeMs).toBe(originalDeltaStat.mtimeMs);
+  expect(await readFile(cache, 'utf8')).toBe(originalCache);
+  expect((await stat(cache)).mtimeMs).toBe(originalCacheStat.mtimeMs);
+
+  const saved = JSON.parse(await readFile(metrics, 'utf8'));
+  await writeFile(
+    metrics,
+    JSON.stringify({ ...saved, source: { ...saved.source, renderer: { ...saved.source.renderer, size: -1 } } }),
+  );
+  expect(await processSuite(root)).toMatchObject({ computed: 1, skipped: 1 });
+  expect(compare).toHaveBeenLastCalledWith(expect.any(String), expect.any(String));
+  expect((await stat(delta)).mtimeMs).toBe(originalDeltaStat.mtimeMs);
+
+  const currentMetrics = await readFile(metrics, 'utf8');
+  await writeFile(cache, '{}');
+  expect(await processSuite(root)).toMatchObject({ computed: 1, skipped: 1 });
+  expect(await readFile(metrics, 'utf8')).toBe(currentMetrics);
+  expect(await processSuite(root)).toMatchObject({ computed: 0, skipped: 2 });
+});
+
+test('legacy AVIF metrics stay untouched while WebP heatmaps are generated', async () => {
+  const { root, dir } = await fixture();
+  await processSuite(root);
+  const file = join(root, aKey);
+  const saved = JSON.parse(await readFile(file, 'utf8'));
+  delete saved.source.reference.path;
+  delete saved.source.renderer.path;
+  saved.source.delta = true;
+  await writeFile(file, JSON.stringify(saved));
+  const originalMetrics = await readFile(file, 'utf8');
+  const before = (await stat(file)).mtimeMs;
+  await rm(join(dir, 'a.vs-ref.delta.webp'));
+  await rm(join(dir, 'a.vs-ref.delta.webp.json'));
+  await writeFile(join(dir, 'a.vs-ref.delta.avif'), await image(0));
+  expect(await processSuite(root)).toMatchObject({ computed: 1, skipped: 1 });
+  expect(await readFile(file, 'utf8')).toBe(originalMetrics);
+  expect((await stat(file)).mtimeMs).toBe(before);
+  expect((await sharp(join(dir, 'a.vs-ref.delta.webp')).metadata()).format).toBe('webp');
+  expect((await index(root)).metrics[aKey].deltaFile).toBe('a.vs-ref.delta.webp');
+});
+
+const encoded = (format: 'avif' | 'webp' | 'png' | 'jpeg', value: number) =>
+  sharp({ create: { width: 8, height: 8, channels: 3, background: { r: value, g: value, b: value } } })
+    .toFormat(format)
+    .toBuffer();
+
+test('selects AVIF, WebP, PNG, then JPG and reselects sources during incremental processing', async () => {
+  const { root, dir } = await fixture();
+  await rm(join(dir, 'ref.avif'));
+  await writeFile(join(dir, 'ref.png'), await encoded('png', 100));
+  for (const [extension, format, value] of [
+    ['avif', 'avif', 120],
+    ['webp', 'webp', 140],
+    ['png', 'png', 160],
+    ['jpg', 'jpeg', 180],
+  ] as const)
+    await writeFile(join(dir, `a.${extension}`), await encoded(format, value));
+  const processor = await SuiteProcessor.create(root);
+  expect(await processor.initialize()).toMatchObject({ computed: 2, failed: [] });
+  for (const extension of ['avif', 'webp', 'png', 'jpg']) {
+    const data = await index(root);
+    expect(data.root.scenes[0].imageFiles.beauty).toMatchObject({ ref: 'ref.png', a: `a.${extension}` });
+    expect((await scanning.scanScene(root, 'one', processor.config))?.imageFiles).toEqual(
+      data.root.scenes[0].imageFiles,
+    );
+    await rm(join(dir, `a.${extension}`));
+    processor.notify([`one/beauty/a.${extension}`]);
+    expect(await processor.flush()).toMatchObject({ computed: extension === 'jpg' ? 0 : 1, failed: [] });
+  }
+  expect((await index(root)).metrics[aKey]).toBeUndefined();
+  await writeFile(join(dir, 'a.jpg'), await encoded('jpeg', 180));
+  processor.notify(['one/beauty/a.jpg']);
+  await processor.flush();
+  await writeFile(join(dir, 'a.webp'), await encoded('webp', 140));
+  processor.notify(['one/beauty/a.webp']);
+  expect(await processor.flush()).toMatchObject({ computed: 1, failed: [] });
+  expect((await index(root)).root.scenes[0].imageFiles.beauty.a).toBe('a.webp');
+  const compare = vi.spyOn(comparison, 'compareImages');
+  await writeFile(join(dir, 'a.png'), await encoded('png', 160));
+  processor.notify(['one/beauty/a.png']);
+  expect(await processor.flush()).toMatchObject({ computed: 0 });
+  expect(compare).not.toHaveBeenCalled();
+});
+
+test('source format changes invalidate caches even when size and mtime match', async () => {
+  const { root, dir } = await fixture();
+  await rm(join(dir, 'a.avif'));
+  const jpg = await encoded('jpeg', 180);
+  const png = await encoded('png', 160);
+  const size = Math.max(jpg.length, png.length);
+  const timestamp = new Date('2000-01-01');
+  for (const [extension, bytes] of [
+    ['jpg', jpg],
+    ['png', png],
+  ] as const) {
+    await writeFile(join(dir, `a.${extension}`), Buffer.concat([bytes, Buffer.alloc(size - bytes.length)]));
+    await utimes(join(dir, `a.${extension}`), timestamp, timestamp);
+  }
+  expect(await processSuite(root)).toMatchObject({ computed: 2 });
+  const previous = (await index(root)).metrics[aKey].maxError;
+  await rm(join(dir, 'a.png'));
+  expect(await processSuite(root)).toMatchObject({ computed: 1, skipped: 1 });
+  expect((await index(root)).metrics[aKey].maxError).toBeGreaterThan(previous);
+  expect(await processSuite(root)).toMatchObject({ computed: 0, skipped: 2 });
+});
+
+test('warm-cache discovery retains every pair in scenes with multiple outputs', async () => {
+  const { root, dir } = await fixture();
+  await rm(dir, { recursive: true });
+  const outputs = ['beauty', 'direct', 'ao'];
+  const renderers = [{ id: 'ref', reference: true }, { id: 'a' }, { id: 'b' }];
+  await writeFile(
+    join(root, 'fidelity.json'),
+    JSON.stringify({ title: 'T', renderers, outputs: outputs.map((id) => ({ id })) }),
+  );
+  const bytes = await encoded('png', 100);
+  for (let i = 0; i < 12; i++)
+    for (const output of outputs) {
+      const path = join(root, `scene-${i}`, output);
+      await mkdir(path, { recursive: true });
+      for (const renderer of renderers) await writeFile(join(path, `${renderer.id}.png`), bytes);
+    }
+  expect(await processSuite(root)).toEqual({ computed: 72, skipped: 0, failed: [] });
+  for (let i = 0; i < 5; i++) {
+    expect(await processSuite(root)).toEqual({ computed: 0, skipped: 72, failed: [] });
+    expect(Object.keys((await index(root)).metrics)).toHaveLength(72);
+  }
 });
