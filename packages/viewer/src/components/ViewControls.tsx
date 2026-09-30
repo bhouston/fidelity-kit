@@ -1,5 +1,5 @@
 import { ArrowUpDown } from 'lucide-react';
-import type { SuiteIndex } from '@fidelity-kit/core';
+import type { SuiteIndex } from 'fidelity-kit';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select';
 import { Switch } from '#/components/ui/switch';
 import { SORT_OPTIONS, validateViewSearch, type Sort, type View, type ViewSearch } from '#/lib/view';

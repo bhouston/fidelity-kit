@@ -1,24 +1,14 @@
-import { defineConfig } from 'vite';
-import { nitroV2Plugin } from '@tanstack/nitro-v2-vite-plugin';
-import { tanstackStart } from '@tanstack/react-start/plugin/vite';
-import viteReact, { reactCompilerPreset } from '@vitejs/plugin-react';
-import babel from '@rolldown/plugin-babel';
 import tailwindcss from '@tailwindcss/vite';
+import { tanstackRouter } from '@tanstack/router-plugin/vite';
+import viteReact from '@vitejs/plugin-react';
+import { defineConfig } from 'vite';
 
+// Built into the CLI package (../cli/viewer) so `fidelity-kit serve|build` can ship it.
+// For `pnpm dev`, run `fidelity-kit serve <root>` (port 3000) alongside; /data is proxied to it.
 export default defineConfig({
+  base: './',
   resolve: { tsconfigPaths: true },
-  plugins: [
-    tailwindcss(),
-    tanstackStart(),
-    babel({ presets: [reactCompilerPreset()] }),
-    viteReact(),
-    nitroV2Plugin({
-      preset: 'node-server',
-      compatibilityDate: '2025-11-07',
-      compressPublicAssets: { gzip: true, brotli: false },
-      routeRules: {
-        '/assets/**': { headers: { 'cache-control': 'public, max-age=31536000, immutable' } },
-      },
-    }),
-  ],
+  plugins: [tanstackRouter({ target: 'react', autoCodeSplitting: true }), viteReact(), tailwindcss()],
+  server: { proxy: { '/data': 'http://localhost:3000' } },
+  build: { outDir: '../cli/viewer', emptyOutDir: true },
 });

@@ -1,4 +1,4 @@
-import { processSuite } from '@fidelity-kit/core';
+import { processSuite } from '../core/index.js';
 import { defineCommand } from 'yargs-file-commands';
 
 export const command = defineCommand({

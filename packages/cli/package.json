@@ -1,20 +1,45 @@
 {
-  "name": "@fidelity-kit/cli",
+  "name": "fidelity-kit",
   "version": "0.1.0",
+  "description": "Toolkit for renderer fidelity suites: metrics + delta CLI and a viewer served from any results folder.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bhouston/fidelity-kit.git"
+  },
   "bin": {
-    "fidelity": "./dist/bin.js"
+    "fidelity-kit": "./dist/bin.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "viewer"
   ],
   "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/core/index.js",
+  "types": "./dist/core/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/core/index.d.ts",
+      "import": "./dist/core/index.js"
+    },
+    "./paths": {
+      "types": "./dist/core/paths.d.ts",
+      "import": "./dist/core/paths.js"
+    },
+    "./scan": {
+      "types": "./dist/core/scan.d.ts",
+      "import": "./dist/core/scan.js"
+    }
+  },
+  "scripts": {
+    "prepack": "cd ../.. && pnpm build"
+  },
   "dependencies": {
     "@clidoc/core": "^1.0.0",
     "@clidoc/yargs": "^1.1.0",
-    "@fidelity-kit/core": "workspace:*",
+    "sharp": "^0.35.4",
     "yargs": "^18.0.0",
-    "yargs-file-commands": "^2.1.0"
+    "yargs-file-commands": "^2.1.0",
+    "zod": "^4.0.0"
   }
 }

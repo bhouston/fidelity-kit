@@ -7,14 +7,15 @@
   "type": "module",
   "scripts": {
     "prepare": "husky",
-    "build": "tsc -b",
+    "build": "tsc -b && pnpm --filter @fidelity-kit/viewer build",
     "tsc": "tsc -b",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
     "lint": "oxlint .",
     "lint:fix": "oxlint --fix .",
     "test": "vitest run",
-    "cli": "node packages/cli/dist/bin.js"
+    "cli": "node packages/cli/dist/bin.js",
+    "viewer": "pnpm --filter @fidelity-kit/viewer dev"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.2",

@@ -11,7 +11,6 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ScenesSplatRouteImport } from './routes/scenes/$'
-import { Route as ApiFilesSplatRouteImport } from './routes/api/files/$'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -23,40 +22,31 @@ const ScenesSplatRoute = ScenesSplatRouteImport.update({
   path: '/scenes/$',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiFilesSplatRoute = ApiFilesSplatRouteImport.update({
-  id: '/api/files/$',
-  path: '/api/files/$',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/scenes/$': typeof ScenesSplatRoute
-  '/api/files/$': typeof ApiFilesSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/scenes/$': typeof ScenesSplatRoute
-  '/api/files/$': typeof ApiFilesSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/scenes/$': typeof ScenesSplatRoute
-  '/api/files/$': typeof ApiFilesSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/scenes/$' | '/api/files/$'
+  fullPaths: '/' | '/scenes/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/scenes/$' | '/api/files/$'
-  id: '__root__' | '/' | '/scenes/$' | '/api/files/$'
+  to: '/' | '/scenes/$'
+  id: '__root__' | '/' | '/scenes/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ScenesSplatRoute: typeof ScenesSplatRoute
-  ApiFilesSplatRoute: typeof ApiFilesSplatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -75,30 +65,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ScenesSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/files/$': {
-      id: '/api/files/$'
-      path: '/api/files/$'
-      fullPath: '/api/files/$'
-      preLoaderRoute: typeof ApiFilesSplatRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ScenesSplatRoute: ScenesSplatRoute,
-  ApiFilesSplatRoute: ApiFilesSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}

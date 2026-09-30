@@ -1,6 +1,6 @@
 import { Link, createFileRoute, getRouteApi, useNavigate } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
-import type { SceneNode, SuiteIndex } from '@fidelity-kit/core';
+import type { SceneNode, SuiteIndex } from 'fidelity-kit';
 import Header from '#/components/Header';
 import { Markdown } from '#/components/Markdown';
 import { ResultImage } from '#/components/ResultImage';
@@ -26,7 +26,7 @@ const root = getRouteApi('__root__');
 
 export const Route = createFileRoute('/')({
   validateSearch: validateViewSearch,
-  loader: () => getReadme({ data: '' }),
+  loader: () => getReadme(''),
   component: Index,
 });
 

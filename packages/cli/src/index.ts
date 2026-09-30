@@ -15,16 +15,16 @@ async function loadCommands() {
 export async function cliDocument(): Promise<OpenCliDocument> {
   const commands = await loadCommands();
   const docgen = createDocgenCommand(() => cliDocument());
-  return fromYargsAsync([...commands, docgen], { title: 'fidelity-kit', binary: 'fidelity', version: '0.1.0' });
+  return fromYargsAsync([...commands, docgen], { title: 'fidelity-kit', binary: 'fidelity-kit', version: '0.1.0' });
 }
 
 export async function runCli(argv = hideBin(process.argv)): Promise<void> {
   const commands = await loadCommands();
   const docgen = createDocgenCommand(() =>
-    fromYargsAsync([...commands, docgen], { title: 'fidelity-kit', binary: 'fidelity', version: '0.1.0' }),
+    fromYargsAsync([...commands, docgen], { title: 'fidelity-kit', binary: 'fidelity-kit', version: '0.1.0' }),
   );
   await yargs(argv)
-    .scriptName('fidelity')
+    .scriptName('fidelity-kit')
     .usage('$0 <command>')
     .command([...commands, docgen])
     .strictCommands()

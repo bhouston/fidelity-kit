@@ -44,8 +44,7 @@ A working example is in [`examples/demo`](../examples/demo).
 ## 2. Generate metrics and deltas
 
 ```sh
-pnpm cli process <root>          # or: fidelity process <root>
-pnpm cli process <root> --force
+npx fidelity-kit process <root>          # add --force to recompute everything
 ```
 
 For every scene, output, reference and test renderer this writes next to the images:
@@ -62,52 +61,53 @@ Image sizes of a reference and a test must match; mismatches are reported as fai
 ## 3. View it
 
 ```sh
-pnpm --filter @fidelity-kit/viewer build
-FIDELITY_ROOT=/path/to/root pnpm --filter @fidelity-kit/viewer start   # PORT=3000 by default
-# development: FIDELITY_ROOT=/path/to/root pnpm --filter @fidelity-kit/viewer dev
+npx fidelity-kit serve <root> [--port 3000] [--host localhost] [--no-process]
 ```
 
-The viewer is TanStack Start + Tailwind 4 + shadcn. It reads `index.json` (re-read when it changes) and serves images from `/api/files/…` with strong ETags and `304` revalidation. ETags are lazy: a file is hashed (CRC32) on first request and re-hashed only when its mtime or size changes.
+`serve` refreshes stale metrics first (skip with `--no-process`), then serves the viewer and the suite from one small Node server. There is nothing to configure or deploy beyond that directory.
 
-Home page: root `README.md`, tag chips, text filter, sort (name / PSNR), grouped scene rows with reference, renderers, optional delta row and metrics. Scene page: scene `README.md`, swipe comparison, delta image, full metrics. All view state (`q`, `tags`, `output`, `ref`, `deltas`, `sort`) lives in the URL.
+The viewer is a static single-page app (Vite, TanStack Router, Tailwind 4, shadcn) using hash routing, so deep links work anywhere. It fetches `/data/index.json`, `/data/**/README.md` and `/data/**/*.avif`; nothing else in the root is readable. Images carry strong ETags (lazy CRC32, re-hashed only when mtime or size changes) and revalidate with `304`.
 
-Docker: `docker build -f packages/viewer/Dockerfile -t fidelity-viewer .` then run with `-v <root>:/data -e FIDELITY_ROOT=/data`.
+Home page: root `README.md`, tag chips, text filter, sort (name / PSNR), grouped scene rows with reference, renderers, optional delta row and metrics. Scene page: scene `README.md`, swipe comparison, delta image, full metrics. All view state (`q`, `tags`, `output`, `ref`, `deltas`, `sort`) lives in the URL hash.
+
+### Static export
+
+```sh
+npx fidelity-kit build <root> --out site/
+```
+
+Writes the viewer plus the allowlisted suite files (`data/`) to `site/`, ready for GitHub Pages, S3 or any static host; no server is needed. Metrics are refreshed first unless `--no-process`.
+
+### Docker
+
+```dockerfile
+FROM node:24-slim
+RUN npm install -g fidelity-kit
+CMD ["fidelity-kit", "serve", "/data", "--host", "0.0.0.0", "--port", "8080", "--no-process"]
+```
+
+Mount the (already processed) results at `/data`.
 
 ## 4. Add it to a suite repository
 
-fidelity-kit is a pnpm workspace consumed as a git submodule:
+Either run it ad hoc with `npx fidelity-kit …`, or install it as a dev dependency and add scripts:
 
 ```sh
-git submodule add https://github.com/bhouston/fidelity-kit submodules/fidelity-kit
+pnpm add -D fidelity-kit
 ```
-
-`pnpm-workspace.yaml` of the suite repository:
-
-```yaml
-packages:
-  - packages/*
-  - submodules/fidelity-kit/packages/*
-
-allowBuilds:
-  esbuild: true
-  sharp: true
-```
-
-Root `package.json` scripts:
 
 ```json
 {
   "scripts": {
-    "build:fidelity": "pnpm -r --filter './submodules/fidelity-kit/packages/*' build",
-    "fidelity": "node submodules/fidelity-kit/packages/cli/dist/bin.js",
-    "viewer": "pnpm --filter @fidelity-kit/viewer dev"
+    "fidelity:process": "fidelity-kit process results",
+    "fidelity:serve": "fidelity-kit serve results"
   }
 }
 ```
 
-The suite repository then contains only: its renderer/scene code, its results folder, `fidelity.json`, and (optionally) READMEs. `fidelity docgen --format markdown` documents the CLI.
+The suite repository then contains only its renderer/scene code, its results folder, `fidelity.json`, and (optionally) READMEs. `fidelity-kit docgen --format markdown` documents the CLI. Until the package is published to npm, use it as a git submodule (`git submodule add https://github.com/bhouston/fidelity-kit submodules/fidelity-kit`, add `submodules/fidelity-kit/packages/*` to `pnpm-workspace.yaml`, allow builds for `sharp` and `esbuild`, then `pnpm build` inside it) and run `node submodules/fidelity-kit/packages/cli/dist/bin.js`.
 
-Pin the submodule to a commit; upgrade by bumping it.
+Programmatic use: `import { scanSuite, processSuite } from 'fidelity-kit'`.
 
 ## 5. Migrating existing suites
 
@@ -118,7 +118,7 @@ Neither existing suite needs code changes to _its renderers_, only to where imag
 Already matches: `results` is the root, passes are `outputs` (`beauty`, `direct`, `ao`), `three-gpu-pathtracer` (and `blender` when present) are `reference` renderers.
 
 1. Add `results/fidelity.json` declaring the renderers and passes.
-2. Stop writing `delta-<r>.avif` and `metrics-<r>.json`; delete the old ones and run `fidelity process results --force`. Metrics gain the `.vs-<ref>` name and the old `scene`/`pass`/`reference`/`test` fields are dropped (they are implied by the path).
+2. Stop writing `delta-<r>.avif` and `metrics-<r>.json`; delete the old ones and run `fidelity-kit process results --force`. Metrics gain the `.vs-<ref>` name and the old `scene`/`pass`/`reference`/`test` fields are dropped (they are implied by the path).
 3. Move scene descriptions from the scene registry into `<scene>/README.md` if you want them on the site.
 4. Replace `packages/viewer` with the shared viewer. ss-only features (live render route, three examples) stay as routes in the suite until the kit has an extension point for them.
 
@@ -128,7 +128,7 @@ Only the image location changes:
 
 1. Write renderer images to `<material>/beauty/<renderer>.avif` instead of `<material>/<renderer>.avif`. `materialx-glsl` is the `reference`.
 2. Renderer status JSON (`<renderer>.json`) is not part of the contract yet; it is ignored.
-3. Drop the PSNR-only `metrics.json` and its CLI command in favour of `fidelity process`.
+3. Drop the PSNR-only `metrics.json` and its CLI command in favour of `fidelity-kit process`.
 4. `.mtlx` sources and `textures/` can stay in the material folder.
 
 ## Extending

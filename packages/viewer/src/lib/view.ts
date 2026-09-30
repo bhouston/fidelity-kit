@@ -1,5 +1,5 @@
-import type { MetricsRecord, SceneNode, SuiteIndex } from '@fidelity-kit/core';
-import { deltaFile, imageFile, metricsFile } from '@fidelity-kit/core/paths';
+import type { MetricsRecord, SceneNode, SuiteIndex } from 'fidelity-kit';
+import { deltaFile, imageFile, metricsFile } from 'fidelity-kit/paths';
 
 export type Sort = 'name' | 'psnr-asc' | 'psnr-desc';
 export interface ViewSearch {
@@ -34,7 +34,7 @@ export const SORT_OPTIONS: { value: Sort; label: string }[] = [
 ];
 
 export const fileUrl = (scenePath: string, output: string, file: string) =>
-  `/api/files/${[...scenePath.split('/'), output, file].map(encodeURIComponent).join('/')}`;
+  `data/${[...scenePath.split('/'), output, file].map(encodeURIComponent).join('/')}`;
 
 export interface View {
   output: string;

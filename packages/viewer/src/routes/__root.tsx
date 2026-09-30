@@ -1,31 +1,26 @@
-import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router';
+import { Outlet, createRootRoute } from '@tanstack/react-router';
+import { useEffect } from 'react';
 import { getSuite } from '#/lib/data';
-import appCss from '../styles.css?url';
 
 export const Route = createRootRoute({
   loader: () => getSuite(),
-  head: ({ loaderData }) => ({
-    meta: [
-      { charSet: 'utf-8' },
-      { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-      { title: loaderData?.index.config.title ?? 'Fidelity' },
-    ],
-    links: [{ rel: 'stylesheet', href: appCss }],
-  }),
-  shellComponent: RootDocument,
+  component: Root,
+  errorComponent: ({ error }) => (
+    <p className="mx-auto max-w-[1120px] px-4 py-8 text-destructive sm:px-6">
+      {error instanceof Error ? error.message : String(error)}
+    </p>
+  ),
   notFoundComponent: () => <p className="mx-auto max-w-[1120px] px-4 py-8 text-muted-foreground sm:px-6">Not found.</p>,
 });
 
-function RootDocument({ children }: { children: React.ReactNode }) {
+function Root() {
+  const { index } = Route.useLoaderData();
+  useEffect(() => {
+    document.title = index.config.title;
+  }, [index.config.title]);
   return (
-    <html lang="en">
-      <head>
-        <HeadContent />
-      </head>
-      <body className="min-h-screen antialiased">
-        <main>{children}</main>
-        <Scripts />
-      </body>
-    </html>
+    <main>
+      <Outlet />
+    </main>
   );
 }

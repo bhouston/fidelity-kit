@@ -7,7 +7,8 @@ dist-ssr
 .nitro
 .tanstack
 .wrangler
-.output
+viewer
 .vinxi
 __unconfig*
 todos.json
+src/routeTree.gen.ts

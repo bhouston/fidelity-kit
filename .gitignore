@@ -7,3 +7,4 @@ coverage
 *.tsbuildinfo
 *.log
 .DS_Store
+packages/cli/viewer

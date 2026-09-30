@@ -1,6 +1,6 @@
 import { createFileRoute, getRouteApi, notFound, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
-import type { MetricsRecord } from '@fidelity-kit/core';
+import type { MetricsRecord } from 'fidelity-kit';
 import Header from '#/components/Header';
 import { Markdown } from '#/components/Markdown';
 import { ResultImage } from '#/components/ResultImage';
@@ -20,8 +20,7 @@ const root = getRouteApi('__root__');
 
 export const Route = createFileRoute('/scenes/$')({
   validateSearch: validateViewSearch,
-  loader: ({ params }) => getReadme({ data: params._splat ?? '' }),
-  head: ({ params }) => ({ meta: [{ title: params._splat ?? 'Scene' }] }),
+  loader: ({ params }) => getReadme(params._splat ?? ''),
   component: SceneDetail,
 });
 

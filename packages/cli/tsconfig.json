@@ -1,5 +1,4 @@
 {
   "extends": "../../tsconfig.node.json",
-  "compilerOptions": { "composite": true, "types": ["node"] },
-  "references": [{ "path": "../core" }]
+  "compilerOptions": { "composite": true, "types": ["node"] }
 }
