@@ -15,6 +15,7 @@ import {
   resolveInside,
 } from './core/index.js';
 import { isDataFile, isImageFile } from './core/paths.js';
+import { liveReloadPath, type LiveReload } from './live-reload.js';
 
 /** The prebuilt viewer SPA (built by `pnpm build` into packages/cli/viewer, shipped in the npm package). */
 export const viewerDir = fileURLToPath(new URL('../viewer', import.meta.url));
@@ -43,6 +44,8 @@ export interface HandlerOptions {
    * hashed: `/data/image-hashes.json` is an empty `{}` (a 404 would log a console error in the browser), `?v=` is ignored and `image-hashes.json` is not even loaded.
    */
   dev?: boolean;
+  /** Dev-only result change channel. */
+  liveReload?: LiveReload;
 }
 
 /**
@@ -54,7 +57,7 @@ export interface HandlerOptions {
  */
 export function createHandler(
   root: string,
-  { assets = viewerDir, cache = defaultCachePolicy, dev = false }: HandlerOptions = {},
+  { assets = viewerDir, cache = defaultCachePolicy, dev = false, liveReload }: HandlerOptions = {},
 ) {
   const imageCache = `public, max-age=${cache.maxAge}, stale-while-revalidate=${cache.staleWhileRevalidate}, stale-if-error=${cache.staleWhileRevalidate}`;
   const store = new HashStore();
@@ -90,6 +93,7 @@ export function createHandler(
       status: 404,
       headers: { 'Cache-Control': dev ? 'no-store' : 'no-cache' },
     });
+    if (path === liveReloadPath) return dev && liveReload ? liveReload.response(req) : notFound;
     if (path.startsWith('/data/')) {
       const rel = path.slice('/data/'.length);
       if (rel === 'image-hashes.json')
@@ -102,7 +106,19 @@ export function createHandler(
       if (!realFile || (!realFile.startsWith(realRoot + sep) && realFile !== realRoot)) return notFound;
       await loaded;
       const isImage = isImageFile(rel);
-      return send(req, full, isImage ? imageCache : undefined, isImage ? new URL(req.url).searchParams.get('v') : null);
+      // Snapshot before reading so an update during the fetch is caught by the SSE handshake.
+      const revision = liveReload?.revision();
+      const response = await send(
+        req,
+        full,
+        isImage ? imageCache : undefined,
+        isImage ? new URL(req.url).searchParams.get('v') : null,
+      );
+      if (dev && liveReload && rel === 'index.json' && response.ok) {
+        response.headers.set('X-Fidelity-Events', liveReloadPath.slice(1));
+        response.headers.set('X-Fidelity-Revision', revision!);
+      }
+      return response;
     }
     const rel = path === '/' ? 'index.html' : path.slice(1);
     const full = resolveInside(assets, rel);
@@ -131,9 +147,9 @@ function listen(handler: (req: Request) => Promise<Response>, port: number, host
     for (const [k, v] of Object.entries(nreq.headers)) if (typeof v === 'string') headers.set(k, v);
     const res =
       nreq.method === 'GET' || nreq.method === 'HEAD'
-        ? await handler(new Request(`http://${headers.get('host') ?? 'localhost'}${nreq.url}`, { headers })).catch(
-            (e) => new Response(String(e), { status: 500 }),
-          )
+        ? await handler(
+            new Request(`http://${headers.get('host') ?? 'localhost'}${nreq.url}`, { headers, method: nreq.method }),
+          ).catch((e) => new Response(String(e), { status: 500 }))
         : new Response('Method not allowed', { status: 405 });
     nres.writeHead(res.status, Object.fromEntries(res.headers));
     if (nreq.method === 'HEAD' || !res.body) return void nres.end();

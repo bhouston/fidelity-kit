@@ -21,7 +21,7 @@ If you already have a results folder in the format below:
 npx fidelity-kit dev results
 ```
 
-Open the URL printed by the command (usually <http://localhost:3000>). `dev` processes stale images at startup, then watches for new or changed renders and updates their metrics, deltas, and viewer index. Reload the page to see changes. Files are served without browser caching. See the [working example](https://github.com/bhouston/fidelity-kit/tree/main/examples/demo) for a complete suite.
+Open the URL printed by the command (usually <http://localhost:3000>). `dev` processes stale images at startup, then watches for new or changed renders and updates their metrics, deltas, and viewer index. The viewer automatically reloads after result updates settle for five seconds (using server-sent events). Files are served without browser caching. See the [working example](https://github.com/bhouston/fidelity-kit/tree/main/examples/demo) for a complete suite.
 
 ## See it in action
 
@@ -96,7 +96,7 @@ The CLI supports this workflow:
 | Command                                  | Use                                                                                                                                                                  |
 | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `fidelity-kit process results`           | Generate comparison metrics, delta images, and the viewer index. Reruns update only stale comparisons; add `--force` to recompute all or `--watch` to keep updating. |
-| `fidelity-kit dev results`               | Process stale comparisons, watch new and changed renders, and open a local viewer with caching disabled. Add `--no-watch` to disable watching.                       |
+| `fidelity-kit dev results`               | Process stale comparisons, watch new and changed renders, and open a local viewer with caching disabled. Add `--no-watch` to disable processing new renders.         |
 | `fidelity-kit serve results`             | Process stale comparisons, then serve the viewer with browser and CDN caching.                                                                                       |
 | `fidelity-kit build results --out site/` | Process stale comparisons and export a site for static hosting.                                                                                                      |
 
@@ -104,7 +104,7 @@ The CLI supports this workflow:
 
 Metrics and heatmaps retain independent input modification-time and byte-size signatures. Refreshing either artifact preserves the other when it is current. Heatmap signatures are stored in `.delta.webp.json` cache sidecars, excluded from serving and static export. The first run after upgrading generates WebP heatmaps while retaining current metrics.
 
-Static processing starts comparisons as scenes are discovered. Watch mode retains per-scene dependencies and batches changes through the same concurrency limit. It supports adding/removing scenes and reference or renderer images, and editing scene metadata. Renderer IDs, output/pass IDs, and other `fidelity.json` settings remain fixed until restart; the watcher reports configuration changes that require a restart. Generated metrics, delta images, the index, and temporary files are ignored, so processing cannot trigger a watch loop.
+Static processing starts comparisons as scenes are discovered. Watch mode retains per-scene dependencies and batches changes through the same concurrency limit. It supports adding/removing scenes and reference or renderer images, and editing scene metadata. Renderer IDs, output/pass IDs, and other `fidelity.json` settings remain fixed until restart; the watcher reports configuration changes that require a restart. Generated metrics, delta images, the index, and temporary files are ignored by the processor, so processing cannot trigger a watch loop. A separate dev-only watcher observes published `index.json` and README changes and notifies connected viewers after a five-second debounce. This also picks up results published by another process with `--no-watch`; `serve` and static exports do not open a live channel.
 
 `process`, `dev`, and `hash` show scanning and processing progress on one updating terminal line, including the remaining count and an approximate ETA. Use `--quiet` to suppress progress and summary output; errors are still reported.
 

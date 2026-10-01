@@ -2,7 +2,7 @@ import { afterEach, expect, test, vi } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { Markdown } from '../components/Markdown';
-import { getPreamble } from './data';
+import { getPreamble, getSuite } from './data';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -43,4 +43,19 @@ test('missing optional introductions do not prevent loading results', async () =
 test('network failures in optional introductions do not prevent loading results', async () => {
   vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Network unavailable')));
   expect(await getPreamble()).toBeNull();
+});
+
+test.each([true, false])('discovers live updates only when advertised by the index response (dev: %s)', async (dev) => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockImplementation(async (path: string) =>
+      path === 'data/index.json'
+        ? new Response(JSON.stringify({ root: { scenes: [], groups: [] } }), {
+            headers: dev ? { 'X-Fidelity-Events': 'data/events', 'X-Fidelity-Revision': 'boot:0' } : {},
+          })
+        : new Response('{}'),
+    ),
+  );
+  const suite = await getSuite();
+  expect(suite.liveReload).toEqual(dev ? { eventsUrl: 'data/events', revision: 'boot:0' } : null);
 });
