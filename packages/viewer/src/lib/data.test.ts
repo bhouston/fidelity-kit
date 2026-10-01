@@ -6,11 +6,11 @@ import { getPreamble } from './data';
 
 afterEach(() => vi.unstubAllGlobals());
 
-test('loads index.md and renders formatted text and links', async () => {
+test('loads README.md and renders formatted text and links', async () => {
   const fetch = vi.fn().mockResolvedValue(new Response('**Welcome** to [MaterialX](https://materialx.org/)'));
   vi.stubGlobal('fetch', fetch);
   const preamble = await getPreamble();
-  expect(fetch).toHaveBeenCalledExactlyOnceWith('data/index.md');
+  expect(fetch).toHaveBeenCalledExactlyOnceWith('data/README.md');
   // This test uses createElement because the test suite discovers .ts files, not .tsx.
   // oxlint-disable-next-line react/no-children-prop
   const html = renderToStaticMarkup(createElement(Markdown, { children: preamble! }));
@@ -21,14 +21,14 @@ test('loads index.md and renders formatted text and links', async () => {
 test.each([
   new Response('', { status: 404 }),
   new Response('<html>SPA fallback</html>', { headers: { 'Content-Type': 'text/html' } }),
-])('falls back to README when index.md is unavailable', async (response) => {
-  const fetch = vi.fn().mockResolvedValueOnce(response).mockResolvedValueOnce(new Response('Legacy intro'));
+])('missing README has no preamble', async (response) => {
+  const fetch = vi.fn().mockResolvedValueOnce(response);
   vi.stubGlobal('fetch', fetch);
-  expect(await getPreamble()).toBe('Legacy intro');
-  expect(fetch).toHaveBeenNthCalledWith(2, 'data/README.md');
+  expect(await getPreamble()).toBeNull();
+  expect(fetch).toHaveBeenCalledExactlyOnceWith('data/README.md');
 });
 
-test('an empty index.md intentionally suppresses the legacy introduction', async () => {
+test('an empty README.md has no introduction', async () => {
   const fetch = vi.fn().mockResolvedValue(new Response(''));
   vi.stubGlobal('fetch', fetch);
   expect(await getPreamble()).toBe('');

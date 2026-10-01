@@ -47,9 +47,6 @@ test('uses selected input filenames and WebP heatmaps in versioned viewer URLs',
     metrics: {
       'group/a scene/beauty/a.vs-ref.metrics.json': {
         psnr: null,
-        rmse: 0,
-        mae: 0,
-        maxError: 0,
         width: 8,
         height: 8,
         generatedAt: '',
@@ -83,4 +80,45 @@ test('uses selected input filenames and WebP heatmaps in versioned viewer URLs',
     },
   };
   expect(deltaUrl(legacy, scene, view, 'a')).toBe('data/group/a%20scene/beauty/a.vs-ref.delta.avif');
+});
+
+test('PSNR sorting uses the worst visible comparison and keeps missing metrics last', () => {
+  const items = ['a', 'b', 'identical', 'missing'].map((path) => ({
+    path,
+    title: path,
+    tags: [],
+    hasReadme: false,
+    images: { beauty: ['ref', 'a', 'b'] },
+  }));
+  const metrics = Object.fromEntries(
+    [
+      ['a', 'a', 10],
+      ['a', 'b', 80],
+      ['b', 'a', 30],
+      ['b', 'b', 20],
+      ['identical', 'a', null],
+      ['identical', 'b', null],
+    ].map(([scene, renderer, psnr]) => [
+      `${scene}/beauty/${renderer}.vs-ref.metrics.json`,
+      {
+        psnr: psnr as number | null,
+        width: 8,
+        height: 8,
+        generatedAt: '',
+      },
+    ]),
+  );
+  const suite = { ...index, metrics };
+  const sorted = (renderers: string | undefined, sort: 'psnr-asc' | 'psnr-desc' = 'psnr-asc') => {
+    const search = { renderers, sort };
+    return selectScenes(suite, items, search, resolveView(suite, search)).map((s) => s.path);
+  };
+  expect(sorted(undefined)).toEqual(['a', 'b', 'identical', 'missing']);
+  expect(sorted('b')).toEqual(['b', 'a', 'identical', 'missing']);
+  expect(sorted('b', 'psnr-desc')).toEqual(['identical', 'a', 'b', 'missing']);
+  expect(sorted('-')).toEqual(['a', 'b', 'identical', 'missing']);
+  const search = { output: 'absent', ref: 'other', sort: 'psnr-asc' as const };
+  const view = { ...resolveView(suite, {}), output: 'absent' };
+  expect(selectScenes(suite, items, search, view)).toEqual(items);
+  expect(selectScenes(suite, items, search, { ...view, output: 'beauty', ref: 'other' })).toEqual(items);
 });

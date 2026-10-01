@@ -43,9 +43,15 @@ test('scan, process, staleness, etag', async () => {
   const a = JSON.parse(await readFile(join(dir, 'a.vs-ref.metrics.json'), 'utf8'));
   const b = JSON.parse(await readFile(join(dir, 'b.vs-ref.metrics.json'), 'utf8'));
   expect(a.psnr).toBeNull();
-  expect(b.maxError).toBeGreaterThan(0);
+  expect(b.psnr).toEqual(expect.any(Number));
 
+  expect(Object.keys(a).toSorted()).toEqual(['generatedAt', 'height', 'psnr', 'source', 'width']);
+  // Existing caches retain PSNR and timestamps but lose retired metric fields without recomputing.
+  await writeFile(join(dir, 'a.vs-ref.metrics.json'), JSON.stringify({ ...a, rmse: 0, mae: 0, maxError: 0 }));
   expect(await processSuite(root)).toMatchObject({ computed: 0, skipped: 2 });
+  expect(JSON.parse(await readFile(join(dir, 'a.vs-ref.metrics.json'), 'utf8'))).toEqual(a);
+  const indexed = JSON.parse(await readFile(join(root, 'index.json'), 'utf8'));
+  expect(indexed.metrics['g1/g2/s1/beauty/a.vs-ref.metrics.json']).not.toHaveProperty('rmse');
   const future = new Date(Date.now() + 5000);
   await utimes(join(dir, 'b.avif'), future, future);
   expect(await processSuite(root)).toMatchObject({ computed: 1, skipped: 1 });
@@ -123,4 +129,21 @@ test('concurrent and sequential processing give identical results', async () => 
   const seq = strip(await readFile(join(root, 'index.json'), 'utf8'));
   expect(await processSuite(root, { force: true, concurrency: 4 })).toMatchObject({ computed: 12, failed: [] });
   expect(strip(await readFile(join(root, 'index.json'), 'utf8'))).toEqual(seq);
+});
+
+test('optional branding accepts local image paths and rejects invalid paths', async () => {
+  const { configSchema } = await import('./schema.js');
+  const { isDataFile, logoUrl } = await import('./paths.js');
+  const config = { title: 'Brand', renderers: [{ id: 'ref', reference: true }] };
+  expect(configSchema.parse(config).logo).toBeUndefined();
+  for (const logo of ['branding/my logo.svg', 'logo.ico', 'logo.png', 'logo.webp', 'logo.jpg', 'logo.avif']) {
+    expect(configSchema.parse({ ...config, logo }).logo).toBe(logo);
+    expect(isDataFile(logo)).toBe(true);
+  }
+  expect(logoUrl('branding/my logo.svg')).toBe('data/branding/my%20logo.svg');
+  for (const logo of ['../logo.svg', '/logo.png', '.private/logo.svg', 'https://example.com/logo.svg', 'logo.txt']) {
+    expect(configSchema.safeParse({ ...config, logo }).success).toBe(false);
+  }
+  expect(isDataFile('index.md')).toBe(false);
+  expect(isDataFile('README.md')).toBe(true);
 });

@@ -6,12 +6,9 @@ export interface RawImage {
   height: number;
 }
 
-/** All errors are normalized to 0–1. `psnr` is in dB over RGB 0–255, and `null` when the images are identical (infinite PSNR). */
+/** `psnr` is in dB over RGB 0–255, and `null` when the images are identical (infinite PSNR). */
 export interface ImageMetrics {
   psnr: number | null;
-  rmse: number;
-  mae: number;
-  maxError: number;
 }
 
 /** Encoding for committed result images: near-lossless (worst render ~40 dB PSNR vs PNG), full-res chroma so noise and false colour survive. */
@@ -64,17 +61,13 @@ export function compareRgb(reference: RawImage, test: RawImage): { metrics: Imag
   const n = reference.data.length;
   const delta = Buffer.alloc(n);
   let sumSq = 0;
-  let sumAbs = 0;
-  let max = 0;
   for (let p = 0; p < n; p += 3) {
     let pixelMax = 0;
     for (let c = 0; c < 3; c += 1) {
       const d = Math.abs(reference.data[p + c]! - test.data[p + c]!);
       sumSq += d * d;
-      sumAbs += d;
       if (d > pixelMax) pixelMax = d;
     }
-    if (pixelMax > max) max = pixelMax;
     const [r, g, b] = DELTA_LUT[pixelMax]!;
     delta[p] = r;
     delta[p + 1] = g;
@@ -84,9 +77,6 @@ export function compareRgb(reference: RawImage, test: RawImage): { metrics: Imag
   return {
     metrics: {
       psnr: mse === 0 ? null : 10 * Math.log10((255 * 255) / mse),
-      rmse: Math.sqrt(mse) / 255,
-      mae: sumAbs / n / 255,
-      maxError: max / 255,
     },
     delta: { data: delta, width: reference.width, height: reference.height },
   };

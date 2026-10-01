@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isLogoFile } from './paths.js';
 
 const id = z.string().regex(/^[a-z0-9][a-z0-9._-]*$/);
 const uniqueIds = <T extends { id: string }>(items: T[]) => new Set(items.map((item) => item.id)).size === items.length;
@@ -6,6 +7,16 @@ const uniqueIds = <T extends { id: string }>(items: T[]) => new Set(items.map((i
 /** `<root>/fidelity.json`. Renderer/output ids and labels are entirely up to the suite. */
 export const configSchema = z.object({
   title: z.string(),
+  logo: z
+    .string()
+    .refine(
+      (path) =>
+        path.split('/').every((part) => part.length > 0 && !part.startsWith('.')) &&
+        !/[\\:?#]/.test(path) &&
+        isLogoFile(path),
+      'logo must be a suite-relative image path (AVIF, WebP, PNG, JPG, SVG, or ICO)',
+    )
+    .optional(),
   renderers: z
     .array(
       z.object({

@@ -31,8 +31,7 @@ Create a `results` directory with a `fidelity.json` file. Put each scene in its 
 ```text
 results/
   fidelity.json
-  index.md                          optional Markdown preamble above the results
-  README.md                         fallback introduction when index.md is absent
+  README.md                         optional Markdown preamble above the results
   materials/
     brushed-metal/
       README.md                     optional scene description
@@ -70,7 +69,11 @@ For searchable scene labels, add a `scene.json` next to a scene's images:
 
 ### Results preamble
 
-Place an optional `index.md` in the results root beside `fidelity.json`. The viewer renders it below the top navigation and above the results, with Markdown headings, paragraphs, lists, emphasis, code, and links. An empty file hides the introduction. If `index.md` is absent, the root `README.md` remains the fallback; group and scene READMEs are unchanged.
+Place an optional `README.md` in the results root beside `fidelity.json`. The viewer renders it below the top navigation and above the results, with Markdown headings, paragraphs, lists, emphasis, code, and links. An empty or missing README hides the introduction. `index.md` is no longer supported; rename existing preambles to `README.md`. Group and scene READMEs are unchanged.
+
+Set `"logo": "branding/logo.svg"` in `fidelity.json` to use the same image as the browser icon and the logo at the top right of the navbar. The path is relative to the results root; AVIF, WebP, PNG, JPG, SVG, and ICO are supported. Local logo files are included in static exports. Omit `logo` to show no custom branding.
+
+PSNR sorting uses the lowest PSNR among the visible compared renderers for the selected output and reference. Hiding renderers immediately changes the ranking. Worst first puts the lowest score first; best first reverses that order. Identical images have infinite PSNR, and scenes without visible comparison metrics appear last.
 
 `dev` and `serve` expose this file, and `build` includes it in the exported site's `data/` directory. No configuration or processing step is needed to add the preamble to an existing results directory. Markdown is static content; renderer lists must be maintained in the file.
 
@@ -92,7 +95,7 @@ The CLI supports this workflow:
 | `fidelity-kit serve results`             | Process stale comparisons, then serve the viewer with browser and CDN caching.                                                                                       |
 | `fidelity-kit build results --out site/` | Process stale comparisons and export a site for static hosting.                                                                                                      |
 
-`process` computes PSNR, RMSE, MAE, and maximum error for each available comparison. Heatmaps are encoded as lossy WebP at quality 85 and effort 4 (`<renderer>.vs-<reference>.delta.webp`) to reduce file size; source images keep their original formats, and metrics are computed from the source pixels before heatmap compression. Existing cached heatmaps are retained; run `fidelity-kit process results --force` to regenerate them with this setting. Reference and renderer images in a pair must have the same dimensions. Both `dev` and `serve` start at `localhost:3000` and try higher ports if one is occupied; use `--port` to require a specific port and `--host` to change the bind address. The actual viewer URL is printed at startup. Comparisons run in parallel (default: one per CPU); set `--concurrency <n>` on `process`, `dev`, `serve`, or `build` to change it, or `--concurrency 1` for sequential. To serve results already processed during a build, pass `--no-process`.
+`process` computes only PSNR (in dB) for each available comparison. Processing also removes legacy RMSE, MAE, and maximum-error fields from cached metrics JSON and the viewer index without recomputing valid PSNR values. Heatmaps are encoded as lossy WebP at quality 85 and effort 4 (`<renderer>.vs-<reference>.delta.webp`) to reduce file size; source images keep their original formats, and metrics are computed from the source pixels before heatmap compression. Existing cached heatmaps are retained; run `fidelity-kit process results --force` to regenerate them with this setting. Reference and renderer images in a pair must have the same dimensions. Both `dev` and `serve` start at `localhost:3000` and try higher ports if one is occupied; use `--port` to require a specific port and `--host` to change the bind address. The actual viewer URL is printed at startup. Comparisons run in parallel (default: one per CPU); set `--concurrency <n>` on `process`, `dev`, `serve`, or `build` to change it, or `--concurrency 1` for sequential. To serve results already processed during a build, pass `--no-process`.
 
 Metrics and heatmaps retain independent input modification-time and byte-size signatures. Refreshing either artifact preserves the other when it is current. Heatmap signatures are stored in `.delta.webp.json` cache sidecars, excluded from serving and static export. The first run after upgrading generates WebP heatmaps while retaining current metrics.
 

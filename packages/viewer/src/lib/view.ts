@@ -48,7 +48,7 @@ export interface View {
   ref: string;
   showDeltas: boolean;
   references: string[];
-  /** every renderer except the selected reference, in config order */
+  /** Visible renderers except the selected reference, in config order. */
   compared: string[];
   label: (id: string) => string;
   /** rel path -> content hash, for versioned image URLs */
@@ -100,13 +100,13 @@ export function sceneSize(index: SuiteIndex, scene: SceneNode, v: View): { width
   return undefined;
 }
 
-/** Mean PSNR over the compared renderers (identical = 100 dB); undefined when nothing has metrics. */
+/** Lowest PSNR over visible compared renderers (identical = infinity); undefined when nothing has metrics. */
 function score(index: SuiteIndex, scene: SceneNode, v: View): number | undefined {
   const values = v.compared.flatMap((r) => {
     const m = metricsOf(index, scene, v, r);
-    return m ? [m.psnr ?? 100] : [];
+    return m ? [m.psnr ?? Infinity] : [];
   });
-  return values.length ? values.reduce((a, b) => a + b, 0) / values.length : undefined;
+  return values.length ? Math.min(...values) : undefined;
 }
 
 export function allTags(scenes: SceneNode[]): string[] {
@@ -126,7 +126,7 @@ export function selectScenes(index: SuiteIndex, scenes: SceneNode[], search: Vie
     // ponytail: scenes without metrics sort last; recomputed per render, memoize if suites reach 10k scenes
     return shown.toSorted((a, b) => {
       const [x, y] = [score(index, a, v), score(index, b, v)];
-      return x === undefined ? (y === undefined ? 0 : 1) : y === undefined ? -1 : dir * (x - y);
+      return x === undefined ? (y === undefined ? 0 : 1) : y === undefined ? -1 : x === y ? 0 : dir * (x - y);
     });
   }
   return shown.toSorted((a, b) => a.path.localeCompare(b.path));

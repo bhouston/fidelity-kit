@@ -91,7 +91,6 @@ function validMetrics(value: unknown): value is MetricsRecord {
   const r = value as MetricsRecord;
   return (
     (r.psnr === null || Number.isFinite(r.psnr)) &&
-    [r.rmse, r.mae, r.maxError].every((n) => Number.isFinite(n) && n >= 0 && n <= 1) &&
     Number.isInteger(r.width) &&
     r.width > 0 &&
     Number.isInteger(r.height) &&
@@ -366,11 +365,15 @@ export class SuiteProcessor {
         return;
       }
       let record: MetricsRecord | undefined;
+      let cleanLegacyMetrics = false;
       let deltaCurrent = false;
       if (!pair.force) {
         try {
           const { source: saved, ...cached } = JSON.parse(await readFile(metricsPath, 'utf8'));
-          if (matchesSource(saved, inputs) && validMetrics(cached)) record = cached;
+          if (matchesSource(saved, inputs) && validMetrics(cached)) {
+            record = { psnr: cached.psnr, width: cached.width, height: cached.height, generatedAt: cached.generatedAt };
+            cleanLegacyMetrics = ['rmse', 'mae', 'maxError'].some((field) => field in cached);
+          }
         } catch {
           /* Missing or invalid metrics are recomputed independently of the delta. */
         }
@@ -416,6 +419,13 @@ export class SuiteProcessor {
         }
         this.result.computed++;
         this.opts.onCompute?.(metricsPath);
+      }
+      if (cleanLegacyMetrics) {
+        await atomicWrite(metricsPath, JSON.stringify({ ...record, source }, null, 2) + '\n');
+        if (!(await stillCurrent())) {
+          retry();
+          return;
+        }
       }
       pair.attempted = key;
       pair.force = false;

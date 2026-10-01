@@ -39,7 +39,7 @@ function SceneDetail() {
 
   return (
     <>
-      <Header scenePath={scene.path} search={search} title={index.config.title}>
+      <Header logo={index.config.logo} scenePath={scene.path} search={search} title={index.config.title}>
         <ViewControls
           index={index}
           onChange={(patch) => void navigate({ replace: true, search: (prev) => ({ ...prev, ...patch }) })}
@@ -154,10 +154,6 @@ function Comparison({
           <dl className={`grid max-w-md grid-cols-2 gap-x-4 gap-y-1 p-2 font-mono text-sm ${psnrClassName(metrics)}`}>
             <dt>PSNR (dB)</dt>
             <dd>{formatMetric(metrics.psnr)}</dd>
-            <dt>RMSE</dt>
-            <dd>{formatMetric(metrics.rmse, 5)}</dd>
-            <dt>MAE</dt>
-            <dd>{formatMetric(metrics.mae, 5)}</dd>
           </dl>
         ) : (
           <p className="text-sm text-muted-foreground">No metrics yet. Run `fidelity-kit process`.</p>

@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router';
+import { logoUrl } from 'fidelity-kit/paths';
 import { Github } from 'lucide-react';
 import {
   Breadcrumb,
@@ -13,11 +14,13 @@ import type { ViewSearch } from '#/lib/view';
 /** Top nav: suite title › scene path, carrying the current view search; page controls go in `children`. */
 export default function Header({
   title,
+  logo,
   scenePath,
   search,
   children,
 }: {
   title: string;
+  logo?: string;
   scenePath?: string;
   search?: ViewSearch;
   children?: React.ReactNode;
@@ -59,6 +62,7 @@ export default function Header({
           >
             <Github className="size-4" />
           </a>
+          {logo ? <img alt={`${title} logo`} className="ml-2 h-8 max-w-32 object-contain" src={logoUrl(logo)} /> : null}
         </div>
       </div>
     </header>

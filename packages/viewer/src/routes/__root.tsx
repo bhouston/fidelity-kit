@@ -1,4 +1,5 @@
 import { Outlet, createRootRoute } from '@tanstack/react-router';
+import { logoUrl } from 'fidelity-kit/paths';
 import { useEffect } from 'react';
 import { getSuite } from '#/lib/data';
 
@@ -18,6 +19,14 @@ function Root() {
   useEffect(() => {
     document.title = index.config.title;
   }, [index.config.title]);
+  useEffect(() => {
+    if (!index.config.logo) return;
+    const icon = document.createElement('link');
+    icon.rel = 'icon';
+    icon.href = logoUrl(index.config.logo);
+    document.head.append(icon);
+    return () => icon.remove();
+  }, [index.config.logo]);
   return (
     <>
       <main>
