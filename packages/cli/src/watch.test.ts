@@ -42,7 +42,7 @@ test('a changed renderer recomputes only its pair and updates the index; new sce
   expect(progress.at(-1)).toEqual({ phase: 'Writing index', completed: 1, total: 1, unit: 'files' });
   expect(progress.find((update) => update.phase === 'Comparing' && update.completed === 1)).toBeDefined();
   const after = await index(root);
-  expect(after.metrics['one/beauty/a.vs-ref.metrics.json'].maxError).toBeGreaterThan(0);
+  expect(after.metrics['one/beauty/a.vs-ref.metrics.json'].psnr).toEqual(expect.any(Number));
   expect(after.metrics['one/beauty/b.vs-ref.metrics.json']).toEqual(before.metrics['one/beauty/b.vs-ref.metrics.json']);
   const newDir = join(root, 'two', 'beauty');
   await mkdir(newDir, { recursive: true });
@@ -63,7 +63,7 @@ test('the watcher picks up an overwritten image and survives an invalid intermed
     await new Promise<void>((resolve, reject) => {
       const deadline = setTimeout(() => reject(new Error('watch update timed out')), 6000);
       const poll = setInterval(async () => {
-        if ((await index(root)).metrics['one/beauty/a.vs-ref.metrics.json']?.maxError > 0) {
+        if ((await index(root)).metrics['one/beauty/a.vs-ref.metrics.json']?.psnr != null) {
           clearTimeout(deadline);
           clearInterval(poll);
           resolve();
@@ -134,8 +134,8 @@ test('changes during initial processing are observed and supersede the initial c
     release.resolve();
     watcher = await starting;
     await expect
-      .poll(async () => (await index(root)).metrics['one/beauty/a.vs-ref.metrics.json']?.maxError, { timeout: 6000 })
-      .toBeGreaterThan(0.3);
+      .poll(async () => (await index(root)).metrics['one/beauty/a.vs-ref.metrics.json']?.psnr, { timeout: 6000 })
+      .toBeLessThan(11);
     expect(compare).toHaveBeenCalledTimes(2);
   } finally {
     release.resolve();

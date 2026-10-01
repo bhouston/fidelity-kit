@@ -68,9 +68,9 @@ test('serves only allowlisted suite files and the viewer', async () => {
   expect(await status('/')).toBe(200);
   expect((await get('/')).headers.get('content-type')).toContain('text/html');
   expect((await get('/assets/app.js')).headers.get('cache-control')).toContain('immutable');
-  for (const ok of ['/data/index.json', '/data/index.md', '/data/README.md', '/data/s/beauty/a.avif'])
-    expect(await status(ok)).toBe(200);
+  for (const ok of ['/data/index.json', '/data/README.md', '/data/s/beauty/a.avif']) expect(await status(ok)).toBe(200);
   for (const bad of [
+    '/data/index.md',
     '/data/fidelity.json',
     '/data/s/scene.json',
     '/data/../secret.txt',
@@ -79,8 +79,8 @@ test('serves only allowlisted suite files and the viewer', async () => {
   ])
     expect(await status(bad)).toBe(404);
 
-  const preamble = await get('/data/index.md');
-  expect(await preamble.text()).toBe('# Preamble');
+  const preamble = await get('/data/README.md');
+  expect(await preamble.text()).toBe('# x');
   expect(preamble.headers.get('content-type')).not.toContain('html');
   expect(preamble.headers.get('cache-control')).toBe('no-cache');
 
@@ -272,5 +272,22 @@ test('serves, caches, and lists hashes for every supported image format', async 
   for (const name of ['a.vs-ref.delta.webp.json', 'a.webp.tmp']) {
     await writeFile(join(dir, name), '{}');
     expect((await get(`s/beauty/${name}`)).status).toBe(404);
+  }
+});
+
+test('serves branding files in dev and serve modes', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'fk-logo-'));
+  for (const [file, type] of [
+    ['logo.svg', 'image/svg+xml'],
+    ['logo.ico', 'image/x-icon'],
+    ['logo.png', 'image/png'],
+  ]) {
+    await writeFile(join(root, file!), 'logo');
+    for (const dev of [true, false]) {
+      const res = await createHandler(root, { dev })(new Request(`http://x/data/${file}`));
+      expect(res.status).toBe(200);
+      expect(res.headers.get('content-type')).toBe(type);
+      await res.body?.cancel();
+    }
   }
 });

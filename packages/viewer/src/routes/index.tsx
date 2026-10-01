@@ -59,7 +59,7 @@ function Index() {
 
   return (
     <>
-      <Header search={search} title={index.config.title}>
+      <Header logo={index.config.logo} search={search} title={index.config.title}>
         <Input
           aria-label="Filter scenes"
           className="md:w-64"
@@ -188,10 +188,6 @@ function SceneRow({
             <dl className={`grid grid-cols-2 gap-x-2 self-stretch p-2 font-mono text-xs ${psnrClassName(m)}`} key={r}>
               <dt>PSNR</dt>
               <dd className="text-right">{m ? formatMetric(m.psnr) : '–'}</dd>
-              <dt>RMSE</dt>
-              <dd className="text-right">{m ? formatMetric(m.rmse, 4) : '–'}</dd>
-              <dt>MAE</dt>
-              <dd className="text-right">{m ? formatMetric(m.mae, 4) : '–'}</dd>
             </dl>
           );
         })}

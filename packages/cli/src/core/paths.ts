@@ -11,7 +11,9 @@ export const deltaFile = (renderer: string, reference: string, extension: '.webp
 /** The only suite files the viewer may read; also what `build` exports and `hash` covers. */
 export function isDataFile(rel: string): boolean {
   if (rel.split('/').some((s) => s.startsWith('.') || s === '..')) return false;
-  return (
-    rel === 'index.md' || rel === 'index.json' || rel === 'README.md' || rel.endsWith('/README.md') || isImageFile(rel)
-  );
+  return rel === 'index.json' || rel === 'README.md' || rel.endsWith('/README.md') || isLogoFile(rel);
 }
+
+/** Supported local branding assets, independent of renderer input formats. */
+export const isLogoFile = (file: string) => isImageFile(file) || file.endsWith('.svg') || file.endsWith('.ico');
+export const logoUrl = (path: string) => `data/${path.split('/').map(encodeURIComponent).join('/')}`;

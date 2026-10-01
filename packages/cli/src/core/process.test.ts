@@ -45,7 +45,7 @@ test('persisted signatures detect older timestamps and size-only changes, and re
   const old = new Date('2000-01-01');
   await utimes(file, old, old);
   expect(await processSuite(root)).toMatchObject({ computed: 1, skipped: 1 });
-  expect((await index(root)).metrics[aKey].maxError).toBeGreaterThan(0);
+  expect((await index(root)).metrics[aKey].psnr).toEqual(expect.any(Number));
   await writeFile(file, Buffer.concat([await readFile(file), Buffer.from('padding')]));
   await utimes(file, old, old);
   expect(await processSuite(root)).toMatchObject({ computed: 1, skipped: 1 });
@@ -139,7 +139,7 @@ test('discards in-flight results and waits for a settled batch before recomputin
   processor.settle();
   expect(await processor.flush()).toMatchObject({ computed: 1 });
   expect(compare).toHaveBeenCalledTimes(2);
-  expect((await index(root)).metrics[aKey].maxError).toBeGreaterThan(0.25);
+  expect((await index(root)).metrics[aKey].psnr).toBeLessThan(13);
 });
 
 test('deleting and recreating a scene cannot publish its previous running comparison', async () => {
@@ -167,7 +167,7 @@ test('deleting and recreating a scene cannot publish its previous running compar
   await addScene(root, 'one', 170);
   processor.notify(['one/beauty/a.avif']);
   expect(await processor.flush()).toMatchObject({ computed: 2 });
-  expect((await index(root)).metrics[aKey].maxError).toBe(0);
+  expect((await index(root)).metrics[aKey].psnr).toBeNull();
 });
 
 test('streams discovery into a globally bounded queue', async () => {
@@ -257,7 +257,7 @@ test('legacy delta false still generates delta images and repairs missing deltas
   const compare = vi.spyOn(comparison, 'compareImages');
   expect(await processSuite(root)).toMatchObject({ computed: 2 });
   for (const result of compare.mock.results) expect((await result.value).deltaImage.length).toBeGreaterThan(0);
-  expect((await index(root)).metrics[aKey].maxError).toBe(0);
+  expect((await index(root)).metrics[aKey].psnr).toBeNull();
   expect((await stat(join(root, 'one/beauty/a.vs-ref.delta.webp'))).size).toBeGreaterThan(0);
   expect(await processSuite(root)).toMatchObject({ computed: 0, skipped: 2 });
   await rm(join(root, 'one/beauty/a.vs-ref.delta.webp'));
@@ -411,10 +411,10 @@ test('source format changes invalidate caches even when size and mtime match', a
     await utimes(join(dir, `a.${extension}`), timestamp, timestamp);
   }
   expect(await processSuite(root)).toMatchObject({ computed: 2 });
-  const previous = (await index(root)).metrics[aKey].maxError;
+  const previous = (await index(root)).metrics[aKey].psnr;
   await rm(join(dir, 'a.png'));
   expect(await processSuite(root)).toMatchObject({ computed: 1, skipped: 1 });
-  expect((await index(root)).metrics[aKey].maxError).toBeGreaterThan(previous);
+  expect((await index(root)).metrics[aKey].psnr).toBeLessThan(previous!);
   expect(await processSuite(root)).toMatchObject({ computed: 0, skipped: 2 });
 });
 
