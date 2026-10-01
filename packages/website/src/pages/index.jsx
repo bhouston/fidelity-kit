@@ -1,6 +1,7 @@
 import React from 'react';
 import Layout from '@theme/Layout';
 import Link from '@docusaurus/Link';
+import useBaseUrl from '@docusaurus/useBaseUrl';
 import styles from './index.module.css';
 
 const steps = [
@@ -22,6 +23,8 @@ const steps = [
 ];
 
 export default function Home() {
+  const previewImage = useBaseUrl('/img/material-fidelity-preview.webp');
+
   return (
     <Layout
       title="Renderer comparisons"
@@ -52,15 +55,45 @@ export default function Home() {
           </pre>
         </div>
       </header>
-      <main className={styles.cards}>
-        {steps.map((step, index) => (
-          <Link className={styles.card} to={step.link} key={step.title}>
-            <span>0{index + 1}</span>
-            <h2>{step.title}</h2>
-            <p>{step.body}</p>
-            <strong>Read the guide →</strong>
-          </Link>
-        ))}
+      <main>
+        <section className={styles.preview} aria-labelledby="preview-heading">
+          <div className={styles.previewInner}>
+            <div className={styles.previewCopy}>
+              <p className={styles.eyebrow}>SEE IT IN ACTION</p>
+              <h2 id="preview-heading">Explore a real comparison site</h2>
+              <p>
+                Material Fidelity uses fidelity-kit to show renderer output side by side, with visual deltas and quality
+                metrics for each scene.
+              </p>
+              <a className={styles.previewLink} href="https://material-fidelity.ben3d.ca">
+                Explore Material Fidelity →
+              </a>
+            </div>
+            <a
+              className={styles.previewImageLink}
+              href="https://material-fidelity.ben3d.ca"
+              aria-label="Explore the Material Fidelity comparison site"
+            >
+              <img
+                src={previewImage}
+                alt="Material Fidelity comparison site showing renderer images, visual deltas, and PSNR metrics for two scenes"
+                width="1844"
+                height="2104"
+                loading="lazy"
+              />
+            </a>
+          </div>
+        </section>
+        <div className={styles.cards}>
+          {steps.map((step, index) => (
+            <Link className={styles.card} to={step.link} key={step.title}>
+              <span>0{index + 1}</span>
+              <h2>{step.title}</h2>
+              <p>{step.body}</p>
+              <strong>Read the guide →</strong>
+            </Link>
+          ))}
+        </div>
       </main>
     </Layout>
   );
