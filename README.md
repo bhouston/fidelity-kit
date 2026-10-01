@@ -13,10 +13,6 @@
 
 Your renderer writes images; fidelity-kit handles the comparisons and viewer. Run the viewer locally while developing, serve the results from a container, or export a static site.
 
-## Used by
-
-- [Material Fidelity](https://material-fidelity.ben3d.ca) — a website using fidelity-kit to compare renderer output.
-
 ## Quick start
 
 If you already have a results folder in the format below:
@@ -26,6 +22,12 @@ npx fidelity-kit dev results
 ```
 
 Open the URL printed by the command (usually <http://localhost:3000>). `dev` processes stale images at startup, then watches for new or changed renders and updates their metrics, deltas, and viewer index. Reload the page to see changes. Files are served without browser caching. See the [working example](https://github.com/bhouston/fidelity-kit/tree/main/examples/demo) for a complete suite.
+
+## See it in action
+
+[Material Fidelity](https://material-fidelity.ben3d.ca) uses fidelity-kit to compare renderer output side by side, with visual deltas and PSNR metrics. Open the live site to explore the results.
+
+[![Material Fidelity comparison site showing renderer images, visual deltas, and PSNR metrics](https://raw.githubusercontent.com/bhouston/fidelity-kit/main/packages/website/static/img/material-fidelity-preview.webp)](https://material-fidelity.ben3d.ca)
 
 ## Adopt it in your suite
 
