@@ -16,6 +16,7 @@ module.exports = {
         docs: { routeBasePath: 'docs', sidebarPath: './sidebars.js' },
         blog: false,
         theme: { customCss: './src/css/custom.css' },
+        gtag: { trackingID: 'G-J7J6FSLWG4', anonymizeIP: true },
       },
     ],
   ],
