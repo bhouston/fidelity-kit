@@ -5,6 +5,7 @@
 [![Tests][tests-badge]][tests-url]
 [![Coverage][coverage-badge]][coverage-url]
 [![Discord][discord-badge]][discord-url]
+[![Docs][docs-badge]][docs-url]
 
 **Compare renderer output without building a comparison site.** fidelity-kit turns a folder of AVIF renders into image quality metrics, visual difference images, and a browsable website. Use it for rendering fidelity suites, visual regression reviews, and side-by-side comparisons of a renderer against one or more references.
 
@@ -144,6 +145,8 @@ Created by [Ben Houston](https://github.com/bhouston) and sponsored by [Land of 
 [coverage-url]: https://codecov.io/gh/bhouston/fidelity-kit
 [discord-badge]: https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white
 [discord-url]: https://discord.gg/5J5Ur3F6Z2
+[docs-badge]: https://img.shields.io/badge/Docs-Read-2b77aa
+[docs-url]: https://fidelity-kit.ben3d.ca/
 
 ### Incremental processing
 
