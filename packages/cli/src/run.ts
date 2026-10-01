@@ -1,3 +1,4 @@
+import { createLiveReload, watchLiveReload } from './live-reload.js';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { processSuite } from './core/index.js';
@@ -52,9 +53,21 @@ export async function run(argv: RunArgs, dev: boolean) {
       { concurrency: argv.concurrency, process: argv.process, onProgress: progress.update },
     );
   }
-  const server = await serve(createHandler(root, { cache, dev }), argv.port, argv.host).catch(async (error) => {
+  const liveReload = dev ? createLiveReload() : undefined;
+  let liveWatcher: Awaited<ReturnType<typeof watchLiveReload>> | undefined;
+  const server = await (async () => {
+    if (liveReload) liveWatcher = await watchLiveReload(root, liveReload);
+    return serve(createHandler(root, { cache, dev, liveReload }), argv.port, argv.host);
+  })().catch(async (error) => {
+    liveReload?.close();
+    await liveWatcher?.close();
     await watcher?.close();
     throw error;
+  });
+  server.once('close', () => {
+    liveReload?.close();
+    void liveWatcher?.close();
+    void watcher?.close();
   });
   const address = server.address();
   if (!address || typeof address === 'string') throw new Error('Could not determine the viewer port');

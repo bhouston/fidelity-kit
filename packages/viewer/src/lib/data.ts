@@ -26,7 +26,10 @@ export async function getSuite() {
   const [res, hashes] = await Promise.all([fetch('data/index.json'), getHashes()]);
   if (!res.ok) throw new Error('No index.json found. Run `fidelity-kit process <root>` first.');
   const index: SuiteIndex = await res.json();
-  return { index, hashes, scenes: [...allScenes(index.root)] };
+  const eventsUrl = res.headers.get('X-Fidelity-Events');
+  const revision = res.headers.get('X-Fidelity-Revision');
+  const liveReload = eventsUrl && revision ? { eventsUrl, revision } : null;
+  return { index, hashes, scenes: [...allScenes(index.root)], liveReload };
 }
 
 /** README.md of the suite ('' path) or a group/scene; null when absent (dev servers answer 404s with index.html). */

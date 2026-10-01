@@ -2,6 +2,7 @@ import { Outlet, createRootRoute } from '@tanstack/react-router';
 import { logoUrl } from 'fidelity-kit/paths';
 import { useEffect } from 'react';
 import { getSuite } from '#/lib/data';
+import { listenForChanges } from '#/lib/live-reload';
 
 export const Route = createRootRoute({
   loader: () => getSuite(),
@@ -15,7 +16,8 @@ export const Route = createRootRoute({
 });
 
 function Root() {
-  const { index } = Route.useLoaderData();
+  const { index, liveReload } = Route.useLoaderData();
+  useEffect(() => listenForChanges(liveReload), [liveReload]);
   useEffect(() => {
     document.title = index.config.title;
   }, [index.config.title]);
