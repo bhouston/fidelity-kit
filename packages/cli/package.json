@@ -47,6 +47,7 @@
     "@clidoc/core": "^1.0.0",
     "@clidoc/yargs": "^1.1.0",
     "chokidar": "^5.0.0",
+    "humanize-units": "^2.0.4",
     "p-limit": "^7.3.3",
     "sharp": "^0.35.4",
     "yargs": "^18.0.0",

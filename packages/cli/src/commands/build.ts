@@ -1,6 +1,8 @@
-import { cp } from 'node:fs/promises';
-import { relative, resolve } from 'node:path';
+import { cp, readdir, stat } from 'node:fs/promises';
+import { join, relative, resolve } from 'node:path';
 import { statSync } from 'node:fs';
+import { humanizeBytes } from 'humanize-units';
+import pLimit from 'p-limit';
 import { defineCommand } from 'yargs-file-commands';
 import { processSuite } from '../core/index.js';
 import { assertViewerBuilt, isDataFile, viewerDir } from '../server.js';
@@ -34,6 +36,17 @@ export const command = defineCommand({
       recursive: true,
       filter: (src) => src === root || statSync(src).isDirectory() || isDataFile(relative(root, src)),
     });
-    console.log(`Wrote static site to ${out}`);
+    const files = (await readdir(out, { recursive: true, withFileTypes: true })).filter((entry) => entry.isFile());
+    const limit = pLimit(32);
+    let bytes = 0;
+    await Promise.all(
+      files.map((entry) =>
+        limit(async () => {
+          const size = (await stat(join(entry.parentPath, entry.name))).size;
+          bytes += size;
+        }),
+      ),
+    );
+    console.log(`Build output: ${files.length} files, ${humanizeBytes(bytes, { unitSeparator: ' ' })}`);
   },
 });

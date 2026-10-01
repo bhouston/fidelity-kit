@@ -77,6 +77,9 @@ importers:
       chokidar:
         specifier: ^5.0.0
         version: 5.0.0
+      humanize-units:
+        specifier: ^2.0.4
+        version: 2.0.4
       p-limit:
         specifier: ^7.3.3
         version: 7.3.3
@@ -5209,6 +5212,10 @@ packages:
   human-signals@8.0.1:
     resolution: {integrity: sha512-eKCa6bwnJhvxj14kZk5NCPc6Hb6BdsU9DZcOnmQKSnO1VKrfV0zCvtttPZUsBvjmNDn8rpcJfpwSYnHBjc95MQ==}
     engines: {node: '>=18.18.0'}
+
+  humanize-units@2.0.4:
+    resolution: {integrity: sha512-QLc2sc/IC8HSrum31dyoGlsnaZpyIWlqCb7KVutIkoHeR2IFQTVUlouA6YJ7C5qD/gKMtAp99yhg8eFXtYPROA==}
+    engines: {node: '>=18'}
 
   husky@9.1.7:
     resolution: {integrity: sha512-5gs5ytaNjBrh5Ow3zrvdUUY+0VxIuWVL4i9irt6friV+BqdCfmV11CQTWMiBYWHbXhco+J1kHfTOUkePhCDvMA==}
@@ -14724,6 +14731,8 @@ snapshots:
   human-signals@5.0.0: {}
 
   human-signals@8.0.1: {}
+
+  humanize-units@2.0.4: {}
 
   husky@9.1.7: {}
 
