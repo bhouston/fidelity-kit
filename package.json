@@ -16,6 +16,9 @@
     "test": "vitest run",
     "cli": "node packages/cli/dist/bin.js",
     "viewer": "pnpm --filter @fidelity-kit/viewer dev",
+    "docs:generate": "pnpm build && node scripts/generate-docs.mjs",
+    "docs:build": "pnpm --filter fidelity-kit-website build",
+    "docs:dev": "pnpm --filter fidelity-kit-website dev",
     "test:coverage": "vitest run --coverage",
     "release": "semantic-release",
     "release:check": "node --test scripts/release.test.mjs"

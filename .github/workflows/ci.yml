@@ -28,6 +28,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
+      - run: pnpm docs:build
       - run: pnpm tsc
       - run: pnpm lint
       - name: Check formatting
