@@ -1,5 +1,7 @@
 # fidelity-kit
 
+[Documentation](https://fidelity-kit.ben3d.ca) · [Suite format](https://fidelity-kit.ben3d.ca/docs/suite-format) · [CLI reference](https://fidelity-kit.ben3d.ca/docs/cli)
+
 [![NPM Package][npm]][npm-url]
 [![NPM Downloads][npm-downloads]][npmtrends-url]
 [![Tests][tests-badge]][tests-url]
