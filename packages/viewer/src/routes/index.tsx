@@ -137,10 +137,13 @@ function SceneRow({
 }) {
   const compared = view.compared;
   const size = sceneSize(index, scene, view);
+  const version = view.hashes[scene.path];
   return (
     // content-visibility: off-screen rows are neither rendered nor (with reserved image sizes) requested
     <article
-      className="border-b border-border py-4 last:border-b-0"
+      className={`border-b border-border py-4 last:border-b-0 ${version ? 'reloaded' : ''}`}
+      // a live update gives the scene a new version: remounting replays the flash
+      key={version}
       style={{ contentVisibility: 'auto', containIntrinsicSize: 'auto 420px' }}
     >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
