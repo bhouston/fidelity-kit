@@ -35,7 +35,7 @@ The renderer and output names must match IDs in `fidelity.json`. Supported sourc
 }
 ```
 
-`title` and `renderers` are required. At least one renderer needs `"reference": true`; multiple references are supported. Renderer and output IDs must be unique, start with a lowercase letter or digit, and then contain only lowercase letters, digits, `.`, `_`, or `-`. `label` is optional and defaults to the ID. Renderers can also have an optional `category` string. If `outputs` is omitted, it defaults to one output named `beauty`.
+`title` and `renderers` are required. At least one renderer needs `"reference": true`; multiple references are supported. Renderer and output IDs must be unique, start with a lowercase letter or digit, and then contain only lowercase letters, digits, `.`, `_`, or `-`. `label` is optional and defaults to the ID. Renderers can also have an optional `category` string, and `"enabled": false` to hide a renderer by default (viewers can still turn it on in the Renderers menu). If `outputs` is omitted, it defaults to one output named `beauty`.
 
 ## Add scene metadata and descriptions
 

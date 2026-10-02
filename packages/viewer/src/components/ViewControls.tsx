@@ -17,19 +17,17 @@ export function ViewControls({
   const { outputs } = index.config;
   const selectable = index.config.renderers.filter((r) => r.id !== view.ref);
   const selected = new Set(view.compared);
+  const defaults = selectable.filter((r) => r.enabled !== false).map((r) => r.id);
+  // the config's `enabled` flags are the default selection, so only a differing choice goes in the URL
+  const setRenderers = (ids: Set<string>) => {
+    const chosen = selectable.filter((r) => ids.has(r.id)).map((r) => r.id);
+    onChange({ renderers: chosen.join(',') === defaults.join(',') ? undefined : chosen.join(',') || '-' });
+  };
   const toggleRenderer = (id: string) => {
     const next = new Set(selected);
     if (next.has(id)) next.delete(id);
     else next.add(id);
-    onChange({
-      renderers:
-        next.size === selectable.length
-          ? undefined
-          : selectable
-              .filter((r) => next.has(r.id))
-              .map((r) => r.id)
-              .join(',') || '-',
-    });
+    setRenderers(next);
   };
   return (
     <>
@@ -41,7 +39,7 @@ export function ViewControls({
           <div className="absolute right-0 z-50 mt-1 min-w-48 space-y-1 rounded-md border border-border bg-card p-2 shadow-lg">
             <button
               className="block w-full px-2 py-1 text-left hover:bg-muted"
-              onClick={() => onChange({ renderers: undefined })}
+              onClick={() => setRenderers(new Set(selectable.map((r) => r.id)))}
               type="button"
             >
               All renderers
