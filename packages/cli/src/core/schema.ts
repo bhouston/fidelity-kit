@@ -23,6 +23,8 @@ export const configSchema = z.object({
         id,
         label: z.string().optional(),
         reference: z.boolean().optional(),
+        /** `false` hides the renderer by default; viewers can still toggle it on. */
+        enabled: z.boolean().optional(),
         category: z.string().optional(),
       }),
     )

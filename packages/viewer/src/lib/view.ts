@@ -67,7 +67,9 @@ export function resolveView(index: SuiteIndex, search: ViewSearch, hashes: Recor
     ref,
     showDeltas: search.deltas ?? true,
     references,
-    compared: renderers.map((r) => r.id).filter((id) => id !== ref && (!selected || selected.has(id))),
+    compared: renderers
+      .filter((r) => r.id !== ref && (selected ? selected.has(r.id) : r.enabled !== false))
+      .map((r) => r.id),
     label: (id) => labels.get(id) ?? id,
     hashes,
   };

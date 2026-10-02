@@ -26,6 +26,15 @@ test('renderer selection defaults to all, persists through URL search, and prese
   expect(resolveView(index, validateViewSearch({ renderers: '-' })).compared).toEqual([]);
 });
 
+test('renderers with enabled: false are hidden by default but selectable', () => {
+  const cfg = {
+    ...index,
+    config: { ...index.config, renderers: [{ id: 'ref', reference: true }, { id: 'a', enabled: false }, { id: 'b' }] },
+  };
+  expect(resolveView(cfg, validateViewSearch({})).compared).toEqual(['b']);
+  expect(resolveView(cfg, validateViewSearch({ renderers: 'a,b' })).compared).toEqual(['a', 'b']);
+});
+
 test('deltas default to visible even with legacy configuration, with a display-only opt-out', () => {
   const legacy = { ...index, config: { ...index.config, delta: false } };
   expect(resolveView(legacy, {}).showDeltas).toBe(true);

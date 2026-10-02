@@ -1,6 +1,7 @@
 import { Link, createFileRoute, getRouteApi, useNavigate } from '@tanstack/react-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import type { SceneNode, SuiteIndex } from 'fidelity-kit';
+import { BookmarkHeading } from '#/components/BookmarkHeading';
 import Header from '#/components/Header';
 import { Markdown } from '#/components/Markdown';
 import { ResultImage } from '#/components/ResultImage';
@@ -135,23 +136,29 @@ function SceneRow({
       style={{ contentVisibility: 'auto', containIntrinsicSize: 'auto 420px' }}
     >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <h3 className="text-base font-semibold">
+        <BookmarkHeading
+          anchor={
+            <Link aria-label={`Link to ${scene.title}`} hash={scene.path} search={search} to="/">
+              #
+            </Link>
+          }
+          as="h3"
+          className="text-base font-semibold"
+          id={scene.path}
+        >
           <Link params={{ _splat: scene.path }} search={search} to="/scenes/$">
             {scene.title}
           </Link>
-        </h3>
+        </BookmarkHeading>
         {scene.tags.map((t) => (
           <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground" key={t}>
             {t}
           </span>
         ))}
       </div>
-      <Link
+      <div
         className="mt-3 grid items-center gap-x-2 gap-y-1 text-xs text-muted-foreground"
-        params={{ _splat: scene.path }}
-        search={search}
         style={{ gridTemplateColumns: `auto repeat(${compared.length + 1}, minmax(0, 1fr))` }}
-        to="/scenes/$"
       >
         <span />
         <span className="truncate text-center">{view.label(view.ref)} (reference)</span>
@@ -161,22 +168,27 @@ function SceneRow({
           </span>
         ))}
         <span className="text-right">Render</span>
-        <ResultImage alt={`${scene.title}: ${view.ref}`} size={size} src={renderUrl(scene, view, view.ref)} />
+        <SceneLink scene={scene} search={search}>
+          <ResultImage alt={`${scene.title}: ${view.ref}`} size={size} src={renderUrl(scene, view, view.ref)} />
+        </SceneLink>
         {compared.map((r) => (
-          <ResultImage alt={`${scene.title}: ${r}`} key={r} size={size} src={renderUrl(scene, view, r)} />
+          <SceneLink scene={scene} search={search} hash={`vs-${r}`} key={r}>
+            <ResultImage alt={`${scene.title}: ${r}`} size={size} src={renderUrl(scene, view, r)} />
+          </SceneLink>
         ))}
         {view.showDeltas ? (
           <>
             <span className="text-right">Delta</span>
             <span />
             {compared.map((r) => (
-              <ResultImage
-                alt={`${scene.title}: ${r} delta`}
-                key={r}
-                notApplicable={!renderUrl(scene, view, view.ref)}
-                size={size}
-                src={deltaUrl(index, scene, view, r)}
-              />
+              <SceneLink scene={scene} search={search} hash={`vs-${r}`} key={r}>
+                <ResultImage
+                  alt={`${scene.title}: ${r} delta`}
+                  notApplicable={!renderUrl(scene, view, view.ref)}
+                  size={size}
+                  src={deltaUrl(index, scene, view, r)}
+                />
+              </SceneLink>
             ))}
           </>
         ) : null}
@@ -191,7 +203,26 @@ function SceneRow({
             </dl>
           );
         })}
-      </Link>
+      </div>
     </article>
+  );
+}
+
+/** Opens the scene page, scrolled to `hash` (a renderer's comparison) when given. */
+function SceneLink({
+  scene,
+  search,
+  hash,
+  children,
+}: {
+  scene: SceneNode;
+  search: ViewSearch;
+  hash?: string;
+  children: ReactNode;
+}) {
+  return (
+    <Link hash={hash} params={{ _splat: scene.path }} search={search} to="/scenes/$">
+      {children}
+    </Link>
   );
 }

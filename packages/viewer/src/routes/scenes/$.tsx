@@ -1,6 +1,7 @@
-import { createFileRoute, getRouteApi, notFound, useNavigate } from '@tanstack/react-router';
+import { Link, createFileRoute, getRouteApi, notFound, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { MetricsRecord } from 'fidelity-kit';
+import { BookmarkHeading } from '#/components/BookmarkHeading';
 import Header from '#/components/Header';
 import { Markdown } from '#/components/Markdown';
 import { ResultImage, type ImageSize } from '#/components/ResultImage';
@@ -15,6 +16,7 @@ import {
   resolveView,
   sceneSize,
   validateViewSearch,
+  type ViewSearch,
 } from '#/lib/view';
 
 const root = getRouteApi('__root__');
@@ -52,7 +54,13 @@ function SceneDetail() {
         <section className="grid gap-4 md:grid-cols-4">
           {[view.ref, ...compared].map((r) => (
             <figure key={r}>
-              <ResultImage alt={r} size={size} src={renderUrl(scene, view, r)} />
+              {r === view.ref ? (
+                <ResultImage alt={r} size={size} src={renderUrl(scene, view, r)} />
+              ) : (
+                <Link hash={`vs-${r}`} params={{ _splat: scene.path }} search={search} to="/scenes/$">
+                  <ResultImage alt={r} size={size} src={renderUrl(scene, view, r)} />
+                </Link>
+              )}
               <figcaption className="mt-1 text-center text-sm text-muted-foreground">
                 {view.label(r)}
                 {r === view.ref ? ' (reference)' : ''}
@@ -64,11 +72,14 @@ function SceneDetail() {
           <Comparison
             delta={view.showDeltas ? deltaUrl(index, scene, view, r) : undefined}
             image={renderUrl(scene, view, r)}
+            id={`vs-${r}`}
             key={r}
             label={view.label(r)}
             metrics={metricsOf(index, scene, view, r)}
             reference={renderUrl(scene, view, view.ref)}
             refLabel={view.label(view.ref)}
+            scenePath={scene.path}
+            search={search}
             showDelta={view.showDeltas}
             size={size}
           />
@@ -79,6 +90,9 @@ function SceneDetail() {
 }
 
 function Comparison({
+  id,
+  scenePath,
+  search,
   label,
   refLabel,
   reference,
@@ -88,6 +102,9 @@ function Comparison({
   metrics,
   size,
 }: {
+  id: string;
+  scenePath: string;
+  search: ViewSearch;
   label: string;
   refLabel: string;
   reference?: string;
@@ -100,9 +117,24 @@ function Comparison({
   const [split, setSplit] = useState(50);
   return (
     <section>
-      <h2 className="mb-2 font-semibold">
-        {label} vs {refLabel}
-      </h2>
+      <BookmarkHeading
+        anchor={
+          <Link
+            aria-label={`Link to ${refLabel} vs ${label}`}
+            hash={id}
+            params={{ _splat: scenePath }}
+            search={search}
+            to="/scenes/$"
+          >
+            #
+          </Link>
+        }
+        as="h2"
+        className="mb-2 font-semibold"
+        id={id}
+      >
+        {refLabel} vs {label}
+      </BookmarkHeading>
       <div className={`grid gap-4 ${showDelta ? 'md:grid-cols-2' : ''}`}>
         <figure>
           {reference && image ? (
@@ -124,7 +156,10 @@ function Comparison({
                 width={size?.width}
                 style={{ clipPath: `inset(0 ${100 - split}% 0 0)` }}
               />
-              <div className="pointer-events-none absolute inset-y-0 w-px bg-white" style={{ left: `${split}%` }} />
+              <div
+                className="pointer-events-none absolute inset-y-0 w-[3px] -translate-x-1/2 bg-blue-500"
+                style={{ left: `${split}%` }}
+              />
               <input
                 aria-label={`Compare split for ${label}`}
                 className="absolute inset-0 h-full w-full cursor-ew-resize opacity-0"
