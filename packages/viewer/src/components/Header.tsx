@@ -33,7 +33,7 @@ export default function Header({
             <BreadcrumbItem>
               {scenePath ? (
                 <BreadcrumbLink asChild>
-                  <Link search={search} to="/">
+                  <Link search={{ ...search, scene: undefined }} to="/">
                     {title}
                   </Link>
                 </BreadcrumbLink>
