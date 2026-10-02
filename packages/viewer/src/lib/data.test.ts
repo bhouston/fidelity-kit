@@ -50,7 +50,7 @@ test.each([true, false])('discovers live updates only when advertised by the ind
     'fetch',
     vi.fn().mockImplementation(async (path: string) =>
       path === 'data/index.json'
-        ? new Response(JSON.stringify({ root: { scenes: [], groups: [] } }), {
+        ? new Response(JSON.stringify({ root: { scenes: [], groups: [] }, metrics: {} }), {
             headers: dev ? { 'X-Fidelity-Events': 'data/events', 'X-Fidelity-Revision': 'boot:0' } : {},
           })
         : new Response('{}'),
@@ -58,4 +58,35 @@ test.each([true, false])('discovers live updates only when advertised by the ind
   );
   const suite = await getSuite();
   expect(suite.liveReload).toEqual(dev ? { eventsUrl: 'data/events', revision: 'boot:0' } : null);
+});
+
+const scene = (path: string) => ({ path, title: path, tags: [], hasReadme: false, images: {} });
+
+const loadSuite = async (config: object, psnr: number) => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockImplementation(async (path: string) =>
+      path === 'data/index.json'
+        ? new Response(
+            JSON.stringify({
+              config,
+              root: { path: '', hasReadme: false, groups: [], scenes: [scene('g/a'), scene('g/b')] },
+              metrics: { 'g/a/out/psnr.json': { psnr }, 'g/b/out/psnr.json': { psnr: 1 } },
+            }),
+          )
+        : new Response('{}'),
+    ),
+  );
+  return (await getSuite()).hashes;
+};
+
+test('live updates version only the images of scenes whose JSON changed, or all of them when the config changed', async () => {
+  const baseline = await loadSuite({ title: 'x' }, 1);
+  expect(await loadSuite({ title: 'x' }, 1)).toEqual(baseline);
+  const oneScene = await loadSuite({ title: 'x' }, 2);
+  expect(oneScene['g/a']).not.toBe(baseline['g/a']);
+  expect(oneScene['g/b']).toBe(baseline['g/b']);
+  const everything = await loadSuite({ title: 'y' }, 2);
+  expect(everything['g/a']).not.toBe(oneScene['g/a']);
+  expect(everything['g/b']).not.toBe(oneScene['g/b']);
 });

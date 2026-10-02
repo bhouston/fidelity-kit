@@ -163,7 +163,7 @@ function Comparison({
               />
             </div>
           ) : (
-            <ResultImage alt={`${label} comparison`} size={size} />
+            <ResultImage alt={`${label} comparison`} size={size} unavailable />
           )}
           <figcaption className="mt-1 text-center text-sm text-muted-foreground">
             {refLabel} (left) / {label} (right) — drag to swipe
@@ -171,7 +171,7 @@ function Comparison({
         </figure>
         {showDelta ? (
           <figure>
-            <ResultImage alt={`${label} delta`} notApplicable={!reference} size={size} src={delta} />
+            <ResultImage alt={`${label} delta`} size={size} src={delta} unavailable={!reference || !image} />
             <figcaption className="mt-1 text-center text-sm text-muted-foreground">{label} delta</figcaption>
           </figure>
         ) : null}

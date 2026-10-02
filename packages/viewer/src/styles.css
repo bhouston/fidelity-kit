@@ -82,3 +82,24 @@ body {
 }
 
 @plugin '@tailwindcss/typography';
+
+/* Flash on a row whose results were just reloaded by a live update. */
+@keyframes reloaded {
+  0% {
+    background-color: oklch(0.62 0.19 260 / 0.5);
+  }
+  20% {
+    background-color: oklch(0.62 0.19 260 / 0.4);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+.reloaded {
+  animation: reloaded 0.5s ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .reloaded {
+    animation: none;
+  }
+}
