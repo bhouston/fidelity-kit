@@ -13,6 +13,8 @@ export interface ViewSearch {
   /** undefined = show delta images by default */
   deltas?: boolean;
   sort?: Sort;
+  /** Scene path: shows that scene's detail page instead of the list. */
+  scene?: string;
 }
 
 const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v : undefined);
@@ -27,6 +29,7 @@ export function validateViewSearch(s: Record<string, unknown>): ViewSearch {
     renderers: str(s.renderers),
     deltas: typeof s.deltas === 'boolean' ? s.deltas : undefined,
     sort,
+    scene: str(s.scene),
   };
 }
 

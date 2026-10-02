@@ -1,4 +1,4 @@
-import { Link, createFileRoute, getRouteApi, notFound, useNavigate } from '@tanstack/react-router';
+import { Link, getRouteApi, notFound, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { MetricsRecord } from 'fidelity-kit';
 import { BookmarkHeading } from '#/components/BookmarkHeading';
@@ -6,7 +6,6 @@ import Header from '#/components/Header';
 import { Markdown } from '#/components/Markdown';
 import { ResultImage, type ImageSize } from '#/components/ResultImage';
 import { ViewControls } from '#/components/ViewControls';
-import { getReadme } from '#/lib/data';
 import {
   deltaUrl,
   formatMetric,
@@ -15,25 +14,19 @@ import {
   renderUrl,
   resolveView,
   sceneSize,
-  validateViewSearch,
   type ViewSearch,
 } from '#/lib/view';
 
 const root = getRouteApi('__root__');
 
-export const Route = createFileRoute('/scenes/$')({
-  validateSearch: validateViewSearch,
-  loader: ({ params }) => getReadme(params._splat ?? ''),
-  component: SceneDetail,
-});
+const indexRoute = getRouteApi('/');
 
-function SceneDetail() {
-  const readme = Route.useLoaderData();
+/** Detail page for `/?scene=<path>`; rendered by the index route. */
+export function SceneDetail({ path, readme }: { path: string; readme: string | null }) {
   const { index, hashes, scenes } = root.useLoaderData();
-  const search = Route.useSearch();
-  const path = Route.useParams()._splat ?? '';
+  const search = indexRoute.useSearch();
   const scene = scenes.find((s) => s.path === path);
-  const navigate = useNavigate({ from: Route.fullPath });
+  const navigate = useNavigate({ from: '/' });
   if (!scene) throw notFound();
   const view = resolveView(index, search, hashes);
   const compared = view.compared;
@@ -57,7 +50,7 @@ function SceneDetail() {
               {r === view.ref ? (
                 <ResultImage alt={r} size={size} src={renderUrl(scene, view, r)} />
               ) : (
-                <Link hash={`vs-${r}`} params={{ _splat: scene.path }} search={search} to="/scenes/$">
+                <Link hash={`vs-${r}`} search={{ ...search, scene: scene.path }} to="/">
                   <ResultImage alt={r} size={size} src={renderUrl(scene, view, r)} />
                 </Link>
               )}
@@ -122,9 +115,8 @@ function Comparison({
           <Link
             aria-label={`Link to ${refLabel} vs ${label}`}
             hash={id}
-            params={{ _splat: scenePath }}
-            search={search}
-            to="/scenes/$"
+            search={{ ...search, scene: scenePath }}
+            to="/"
           >
             #
           </Link>

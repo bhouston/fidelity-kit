@@ -8,7 +8,8 @@ import { ResultImage } from '#/components/ResultImage';
 import { Button } from '#/components/ui/button';
 import { Input } from '#/components/ui/input';
 import { SortSelect, ViewControls } from '#/components/ViewControls';
-import { getPreamble } from '#/lib/data';
+import { SceneDetail } from '#/components/SceneDetail';
+import { getPreamble, getReadme } from '#/lib/data';
 import {
   allTags,
   deltaUrl,
@@ -28,12 +29,19 @@ const root = getRouteApi('__root__');
 
 export const Route = createFileRoute('/')({
   validateSearch: validateViewSearch,
-  loader: () => getPreamble(),
+  loaderDeps: ({ search }) => ({ scene: search.scene }),
+  // the page content: a scene's README (`?scene=`) or the suite preamble
+  loader: ({ deps }) => (deps.scene ? getReadme(deps.scene) : getPreamble()),
   component: Index,
 });
 
 function Index() {
-  const preamble = Route.useLoaderData();
+  const content = Route.useLoaderData();
+  const { scene } = Route.useSearch();
+  return scene ? <SceneDetail path={scene} readme={content} /> : <SceneList preamble={content} />;
+}
+
+function SceneList({ preamble }: { preamble: string | null }) {
   const { index, hashes, scenes } = root.useLoaderData();
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
@@ -146,7 +154,7 @@ function SceneRow({
           className="text-base font-semibold"
           id={scene.path}
         >
-          <Link params={{ _splat: scene.path }} search={search} to="/scenes/$">
+          <Link search={{ ...search, scene: scene.path }} to="/">
             {scene.title}
           </Link>
         </BookmarkHeading>
@@ -221,7 +229,7 @@ function SceneLink({
   children: ReactNode;
 }) {
   return (
-    <Link hash={hash} params={{ _splat: scene.path }} search={search} to="/scenes/$">
+    <Link hash={hash} search={{ ...search, scene: scene.path }} to="/">
       {children}
     </Link>
   );

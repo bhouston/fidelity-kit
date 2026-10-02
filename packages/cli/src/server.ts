@@ -49,7 +49,7 @@ export interface HandlerOptions {
 }
 
 /**
- * `/data/*` = the suite (allowlisted files); everything else = the viewer SPA (hash routing, so no fallback needed).
+ * `/data/*` = the suite (allowlisted files); everything else = the viewer SPA (the detail page is `/?scene=`, so no path fallback is needed).
  * Serve mode: images are shared-cacheable per `cache`; `index.json`, READMEs and `index.html` always revalidate (cheap
  * 304s) so a re-run of `process` shows up immediately; hashed `/assets/*` are immutable. Dev mode: nothing is cached.
  * Serve mode also keeps a lazy content-hash map (pre-populated from `<root>/image-hashes.json`), lists it at
