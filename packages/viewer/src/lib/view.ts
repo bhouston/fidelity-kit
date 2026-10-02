@@ -39,10 +39,13 @@ export const SORT_OPTIONS: { value: Sort; label: string }[] = [
   { value: 'psnr-desc', label: 'PSNR, best first' },
 ];
 
-/** Image URL; `?v=<hash>` (when the server knows the file's hash) lets caches keep it as immutable. */
+/**
+ * Image URL; `?v=<hash>` (when the server knows the file's hash) lets caches keep it as immutable. A live update that
+ * changed the scene versions all its files through the scene path instead.
+ */
 export const fileUrl = (scenePath: string, output: string, file: string, hashes: Record<string, string> = {}) => {
   const parts = [...scenePath.split('/'), output, file];
-  const hash = hashes[parts.join('/')];
+  const hash = hashes[parts.join('/')] ?? hashes[scenePath];
   return `data/${parts.map(encodeURIComponent).join('/')}${hash ? `?v=${encodeURIComponent(hash)}` : ''}`;
 };
 

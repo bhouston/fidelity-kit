@@ -192,7 +192,7 @@ function SceneRow({
               <SceneLink scene={scene} search={search} hash={`vs-${r}`} key={r}>
                 <ResultImage
                   alt={`${scene.title}: ${r} delta`}
-                  notApplicable={!renderUrl(scene, view, view.ref)}
+                  unavailable={!renderUrl(scene, view, view.ref) || !renderUrl(scene, view, r)}
                   size={size}
                   src={deltaUrl(index, scene, view, r)}
                 />

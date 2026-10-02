@@ -1,4 +1,4 @@
-import { Outlet, createRootRoute } from '@tanstack/react-router';
+import { Outlet, createRootRoute, useRouter } from '@tanstack/react-router';
 import { logoUrl } from 'fidelity-kit/paths';
 import { useEffect } from 'react';
 import { getSuite } from '#/lib/data';
@@ -17,7 +17,8 @@ export const Route = createRootRoute({
 
 function Root() {
   const { index, liveReload } = Route.useLoaderData();
-  useEffect(() => listenForChanges(liveReload), [liveReload]);
+  const router = useRouter();
+  useEffect(() => listenForChanges(liveReload, () => router.invalidate()), [liveReload, router]);
   useEffect(() => {
     document.title = index.config.title;
   }, [index.config.title]);

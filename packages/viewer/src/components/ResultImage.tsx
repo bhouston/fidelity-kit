@@ -11,17 +11,17 @@ export function ResultImage({
   src,
   alt,
   size,
-  notApplicable = false,
+  unavailable = false,
   className = '',
 }: {
   src?: string;
   alt: string;
   size?: ImageSize;
-  notApplicable?: boolean;
+  unavailable?: boolean;
   className?: string;
 }) {
   const style = { aspectRatio: size ? `${size.width} / ${size.height}` : '1 / 1' };
-  return src && !notApplicable ? (
+  return src && !unavailable ? (
     <img
       alt={alt}
       className={`w-full border border-border object-contain ${className}`}
@@ -35,18 +35,10 @@ export function ResultImage({
     />
   ) : (
     <div
-      className={`flex w-full items-center justify-center border border-dashed border-border text-xs font-semibold uppercase tracking-wide ${notApplicable ? 'text-muted-foreground' : 'text-destructive'} ${className}`}
+      className={`flex w-full items-center justify-center border border-dashed border-border text-xs font-semibold uppercase tracking-wide ${unavailable ? 'text-muted-foreground' : 'text-destructive'} ${className}`}
       style={style}
     >
-      {notApplicable ? (
-        <span className="text-center">
-          not
-          <br />
-          applicable
-        </span>
-      ) : (
-        'missing'
-      )}
+      {unavailable ? 'Not available' : 'missing'}
     </div>
   );
 }
