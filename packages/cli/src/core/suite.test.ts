@@ -132,17 +132,17 @@ test('concurrent and sequential processing give identical results', async () => 
 });
 
 test('optional branding accepts local image paths and rejects invalid paths', async () => {
-  const { configSchema } = await import('./schema.js');
+  const { parseConfig } = await import('./schema.js');
   const { isDataFile, logoUrl } = await import('./paths.js');
   const config = { title: 'Brand', renderers: [{ id: 'ref', reference: true }] };
-  expect(configSchema.parse(config).logo).toBeUndefined();
+  expect(parseConfig(structuredClone(config)).logo).toBeUndefined();
   for (const logo of ['branding/my logo.svg', 'logo.ico', 'logo.png', 'logo.webp', 'logo.jpg', 'logo.avif']) {
-    expect(configSchema.parse({ ...config, logo }).logo).toBe(logo);
+    expect(parseConfig({ ...structuredClone(config), logo }).logo).toBe(logo);
     expect(isDataFile(logo)).toBe(true);
   }
   expect(logoUrl('branding/my logo.svg')).toBe('data/branding/my%20logo.svg');
   for (const logo of ['../logo.svg', '/logo.png', '.private/logo.svg', 'https://example.com/logo.svg', 'logo.txt']) {
-    expect(configSchema.safeParse({ ...config, logo }).success).toBe(false);
+    expect(() => parseConfig({ ...structuredClone(config), logo })).toThrow(/logo must be a suite-relative image path/);
   }
   expect(isDataFile('index.md')).toBe(false);
   expect(isDataFile('README.md')).toBe(true);

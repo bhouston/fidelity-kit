@@ -1,42 +1,120 @@
-import { z } from 'zod';
-import { isLogoFile } from './paths.js';
+import { readFileSync } from 'node:fs';
+import { Ajv, type AnySchemaObject, type ErrorObject, type ValidateFunction } from 'ajv';
 
-const id = z.string().regex(/^[a-z0-9][a-z0-9._-]*$/);
-const uniqueIds = <T extends { id: string }>(items: T[]) => new Set(items.map((item) => item.id)).size === items.length;
+/**
+ * The published JSON Schemas in `schemas/` are the source of truth; these types mirror them. Suites can reference the
+ * same files from `$schema` for editor validation, or validate in their own tooling.
+ */
+export const schemaFiles = {
+  config: new URL('../../schemas/fidelity.schema.json', import.meta.url),
+  scene: new URL('../../schemas/scene.schema.json', import.meta.url),
+} as const;
 
 /** `<root>/fidelity.json`. Renderer/output ids and labels are entirely up to the suite. */
-export const configSchema = z.object({
-  title: z.string(),
-  logo: z
-    .string()
-    .refine(
-      (path) =>
-        path.split('/').every((part) => part.length > 0 && !part.startsWith('.')) &&
-        !/[\\:?#]/.test(path) &&
-        isLogoFile(path),
-      'logo must be a suite-relative image path (AVIF, WebP, PNG, JPG, SVG, or ICO)',
-    )
-    .optional(),
-  renderers: z
-    .array(
-      z.object({
-        id,
-        label: z.string().optional(),
-        reference: z.boolean().optional(),
-        /** `false` hides the renderer by default; viewers can still toggle it on. */
-        enabled: z.boolean().optional(),
-        category: z.string().optional(),
-      }),
-    )
-    .refine((r) => r.some((x) => x.reference), 'at least one renderer needs "reference": true')
-    .refine(uniqueIds, 'renderer ids must be unique'),
-  outputs: z
-    .array(z.object({ id, label: z.string().optional() }))
-    .min(1, 'at least one output is required')
-    .refine(uniqueIds, 'output ids must be unique')
-    .default([{ id: 'beauty' }]),
-});
-export type FidelityConfig = z.infer<typeof configSchema>;
+export type FidelityConfig = {
+  title: string;
+  logo?: string;
+  renderers: {
+    id: string;
+    label?: string;
+    reference?: boolean;
+    /** `false` hides the renderer by default; viewers can still toggle it on. */
+    enabled?: boolean;
+    category?: string;
+  }[];
+  outputs: { id: string; label?: string }[];
+};
 
 /** Optional `<scene>/scene.json`. */
-export const sceneMetaSchema = z.object({ title: z.string().optional(), tags: z.array(z.string()).default([]) });
+export type SceneMeta = { title?: string; tags: string[] };
+
+/** Something in the suite that fidelity-kit ignores; `path` is relative to the suite root. */
+export type SuiteWarning = { path: string; message: string };
+
+export class SchemaValidationError extends Error {
+  constructor(
+    readonly file: string,
+    readonly issues: string[],
+  ) {
+    super(`Invalid ${file}:\n${issues.map((issue) => `  - ${issue}`).join('\n')}`);
+    this.name = 'SchemaValidationError';
+  }
+}
+
+let ajv: Ajv | undefined;
+const validators = new Map<keyof typeof schemaFiles, ValidateFunction>();
+
+function validator(kind: keyof typeof schemaFiles): ValidateFunction {
+  let compiled = validators.get(kind);
+  if (!compiled) {
+    // `errorMessage` follows the ajv-errors convention so other Ajv users get the same friendly messages.
+    ajv ??= new Ajv({ allErrors: true, useDefaults: true, verbose: true, keywords: ['errorMessage'] });
+    compiled = ajv.compile(JSON.parse(readFileSync(schemaFiles[kind], 'utf8')) as AnySchemaObject);
+    validators.set(kind, compiled);
+  }
+  return compiled;
+}
+
+const describePath = (pointer: string) => pointer.replace(/^\//, '').replaceAll('/', '.') || '(root)';
+
+function message(error: ErrorObject): string {
+  const custom = (error.parentSchema as { errorMessage?: unknown } | undefined)?.errorMessage;
+  if (typeof custom === 'string') return custom;
+  if (error.keyword === 'required') return `missing required property "${error.params.missingProperty}"`;
+  return error.message ?? 'is invalid';
+}
+
+/**
+ * Validate parsed JSON in place: defaults are applied and unknown properties are removed with a warning, so typos are
+ * visible without breaking suites that carry extra keys. Every other violation throws.
+ */
+function validate<T>(
+  kind: keyof typeof schemaFiles,
+  file: string,
+  data: unknown,
+  onWarning?: (w: SuiteWarning) => void,
+) {
+  const check = validator(kind);
+  if (check(data)) return data as T;
+  const issues: string[] = [];
+  for (const error of check.errors ?? []) {
+    // Failed `contains` candidates are summarized by the `contains` error itself.
+    if (error.schemaPath.includes('/contains/')) continue;
+    if (error.keyword === 'additionalProperties') {
+      const property = error.params.additionalProperty as string;
+      delete (error.data as Record<string, unknown>)[property];
+      const where = error.instancePath ? `${describePath(error.instancePath)}.${property}` : property;
+      onWarning?.({ path: file, message: `unknown property "${where}" is ignored` });
+    } else {
+      issues.push(`${describePath(error.instancePath)}: ${message(error)}`);
+    }
+  }
+  if (!issues.length && check(data)) return data as T;
+  throw new SchemaValidationError(file, [...new Set(issues)]);
+}
+
+const duplicates = (items: { id: string }[]) => {
+  const seen = new Set<string>();
+  return [...new Set(items.filter(({ id }) => seen.has(id) || !seen.add(id)).map(({ id }) => id))];
+};
+
+/** Validate `fidelity.json` (already parsed). `file` names it in messages. */
+export function parseConfig(data: unknown, file = 'fidelity.json', onWarning?: (w: SuiteWarning) => void) {
+  const config = validate<FidelityConfig>('config', file, data, onWarning);
+  // JSON Schema cannot express uniqueness by property.
+  const issues = [
+    ...duplicates(config.renderers).map((id) => `renderers: renderer ids must be unique ("${id}" is repeated)`),
+    ...duplicates(config.outputs).map((id) => `outputs: output ids must be unique ("${id}" is repeated)`),
+  ];
+  if (issues.length) throw new SchemaValidationError(file, issues);
+  delete (config as { $schema?: string }).$schema;
+  delete (config as { delta?: unknown }).delta;
+  return config;
+}
+
+/** Validate a scene's `scene.json` (already parsed). `file` names it in messages. */
+export function parseSceneMeta(data: unknown, file = 'scene.json', onWarning?: (w: SuiteWarning) => void) {
+  const meta = validate<SceneMeta>('scene', file, data, onWarning);
+  delete (meta as { $schema?: string }).$schema;
+  return meta;
+}

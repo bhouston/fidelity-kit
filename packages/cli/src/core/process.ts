@@ -6,7 +6,7 @@ import pLimit from 'p-limit';
 import { compareImages, measureImages, type ImageMetrics } from './compare.js';
 import { readConfig, scanScene, scanSuite, type GroupNode, type SceneNode, type Suite } from './scan.js';
 import { deltaFile, imageFile, IMAGE_EXTENSIONS, isImageFile, metricsFile } from './paths.js';
-import type { FidelityConfig } from './schema.js';
+import type { FidelityConfig, SuiteWarning } from './schema.js';
 import type { ProgressCallback } from './progress.js';
 
 export interface MetricsRecord extends ImageMetrics {
@@ -21,6 +21,8 @@ export interface ProcessResult {
   computed: number;
   skipped: number;
   failed: { file: string; error: string }[];
+  /** Suite files and folders that were ignored, from scans performed for this result. */
+  warnings: SuiteWarning[];
 }
 export interface ProcessOptions {
   force?: boolean;
@@ -51,7 +53,7 @@ interface SceneState {
   node: SceneNode;
   pairs: Map<string, Pair>;
 }
-const emptyResult = (): ProcessResult => ({ computed: 0, skipped: 0, failed: [] });
+const emptyResult = (): ProcessResult => ({ computed: 0, skipped: 0, failed: [], warnings: [] });
 const signatureKey = (inputs: Inputs | null) => JSON.stringify(inputs);
 
 async function signature(path: string): Promise<Signature | null> {
@@ -152,8 +154,15 @@ export class SuiteProcessor {
   }
 
   static async create(root: string, opts: ProcessOptions = {}) {
-    return new SuiteProcessor(root, await readConfig(root), opts);
+    const warnings: SuiteWarning[] = [];
+    const processor = new SuiteProcessor(root, await readConfig(root, (w) => warnings.push(w)), opts);
+    processor.result.warnings.push(...warnings);
+    return processor;
   }
+
+  private warn = (warning: SuiteWarning) => {
+    this.result.warnings.push(warning);
+  };
 
   /** Only source inputs qualify. Generated deltas, metrics, index and temporary files never do. */
   sceneForInput(path: string): string | null {
@@ -212,6 +221,7 @@ export class SuiteProcessor {
       this.suite = await scanSuite(this.root, {
         config: this.config,
         onProgress: this.opts.onProgress,
+        onWarning: this.warn,
         onScene: async (scene) => {
           await this.reconcile(scene.path, scene, process);
         },
@@ -467,7 +477,7 @@ export class SuiteProcessor {
               this.suite.root.hasReadme = this.suite.hasReadme;
               this.indexDirty = true;
             } else {
-              await this.reconcile(rel, await scanScene(this.root, rel, this.config));
+              await this.reconcile(rel, await scanScene(this.root, rel, this.config, this.warn));
               // Newly inserted groups and README-only changes need current presence flags too.
               let group = this.suite.root;
               for (const part of rel.split('/')) {

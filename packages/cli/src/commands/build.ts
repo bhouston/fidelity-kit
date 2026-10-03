@@ -5,6 +5,7 @@ import { humanizeBytes } from 'humanize-units';
 import pLimit from 'p-limit';
 import { defineCommand } from 'yargs-file-commands';
 import { processSuite } from '../core/index.js';
+import { printWarnings } from '../warnings.js';
 import { assertViewerBuilt, isDataFile, viewerDir } from '../server.js';
 
 export const command = defineCommand({
@@ -26,6 +27,7 @@ export const command = defineCommand({
     const out = resolve(argv.out);
     if (argv.process) {
       const result = await processSuite(root, { concurrency: argv.concurrency });
+      printWarnings(result.warnings);
       if (result.failed.length)
         throw new Error(
           `Failed to compare ${result.failed.length} image pair(s): ${result.failed.map((f) => `${f.file}: ${f.error}`).join('; ')}`,

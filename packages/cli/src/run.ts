@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { processSuite } from './core/index.js';
 import { createProgress } from './progress.js';
+import { printWarnings } from './warnings.js';
 import { assertViewerBuilt, createHandler, defaultCachePolicy, serve, type CachePolicy } from './server.js';
 import { watchResults, type ResultsWatcher } from './watch.js';
 
@@ -28,6 +29,7 @@ export async function run(argv: RunArgs, dev: boolean) {
     const r = await processSuite(root, { concurrency: argv.concurrency, onProgress: progress.update }).finally(
       progress.finish,
     );
+    if (!argv.quiet) printWarnings(r.warnings);
     if (!argv.quiet) console.log(`${r.computed} computed, ${r.skipped} up to date, ${r.failed.length} failed`);
     if (r.failed.length)
       throw new Error(
@@ -46,6 +48,7 @@ export async function run(argv: RunArgs, dev: boolean) {
       root,
       (update) => {
         progress.finish();
+        if (!argv.quiet) printWarnings(update.warnings);
         if (!argv.quiet && (update.computed || update.failed.length))
           console.log(`${update.computed} computed, ${update.failed.length} failed`);
         for (const f of update.failed) console.error(`FAILED ${f.file}: ${f.error}`);
