@@ -1,0 +1,78 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://unpkg.com/fidelity-kit/schemas/fidelity.schema.json",
+  "title": "fidelity-kit suite configuration",
+  "description": "fidelity.json at the root of a fidelity-kit results directory. Renderer and output IDs must also be unique; that rule is checked by the CLI because JSON Schema cannot express it.",
+  "type": "object",
+  "required": ["title", "renderers"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "description": "JSON Schema reference for editor validation and completion.",
+      "type": "string"
+    },
+    "title": {
+      "description": "Suite title shown in the viewer.",
+      "type": "string"
+    },
+    "logo": {
+      "description": "Suite-relative path to a browser icon and navbar logo.",
+      "type": "string",
+      "pattern": "^(?:[^/\\\\:?#.][^/\\\\:?#]*/)*[^/\\\\:?#.][^/\\\\:?#]*\\.(?:avif|webp|png|jpg|svg|ico)$",
+      "errorMessage": "logo must be a suite-relative image path (AVIF, WebP, PNG, JPG, SVG, or ICO)"
+    },
+    "renderers": {
+      "description": "Renderers whose images live at <scene>/<output>/<renderer id>.<extension>.",
+      "type": "array",
+      "items": { "$ref": "#/definitions/renderer" },
+      "contains": {
+        "type": "object",
+        "required": ["reference"],
+        "properties": { "reference": { "const": true } }
+      },
+      "errorMessage": "at least one renderer needs \"reference\": true"
+    },
+    "outputs": {
+      "description": "Output folders inside each scene. Defaults to a single \"beauty\" output.",
+      "type": "array",
+      "items": { "$ref": "#/definitions/output" },
+      "minItems": 1,
+      "default": [{ "id": "beauty" }]
+    },
+    "delta": {
+      "description": "Legacy setting; ignored.",
+      "deprecated": true
+    }
+  },
+  "definitions": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]*$",
+      "errorMessage": "ids must start with a lowercase letter or digit and contain only lowercase letters, digits, \".\", \"_\", or \"-\""
+    },
+    "renderer": {
+      "type": "object",
+      "required": ["id"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/definitions/id", "description": "Image file name without extension." },
+        "label": { "type": "string", "description": "Display name; defaults to the id." },
+        "reference": { "type": "boolean", "description": "Compare other renderers against this one." },
+        "enabled": {
+          "type": "boolean",
+          "description": "false hides the renderer by default; viewers can still turn it on."
+        },
+        "category": { "type": "string", "description": "Optional grouping label." }
+      }
+    },
+    "output": {
+      "type": "object",
+      "required": ["id"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/definitions/id", "description": "Output folder name inside each scene." },
+        "label": { "type": "string", "description": "Display name; defaults to the id." }
+      }
+    }
+  }
+}

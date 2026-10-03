@@ -2,8 +2,10 @@ import { processSuite, type ProcessResult } from '../core/index.js';
 import { defineCommand } from 'yargs-file-commands';
 import { watchResults } from '../watch.js';
 import { createProgress } from '../progress.js';
+import { printWarnings } from '../warnings.js';
 
 function report(r: ProcessResult, quiet: boolean) {
+  if (!quiet) printWarnings(r.warnings);
   if (!quiet) console.log(`${r.computed} computed, ${r.skipped} up to date, ${r.failed.length} failed`);
   for (const f of r.failed) console.error(`FAILED ${f.file}: ${f.error}`);
   if (r.failed.length) process.exitCode = 1;

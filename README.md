@@ -64,6 +64,8 @@ Start with this configuration:
 }
 ```
 
+Add `"$schema": "https://unpkg.com/fidelity-kit/schemas/fidelity.schema.json"` to get validation and completion in editors such as VS Code. The same JSON Schemas ship in the npm package (`node_modules/fidelity-kit/schemas/fidelity.schema.json` and `scene.schema.json`, also importable as `fidelity-kit/schemas/*`), and the CLI validates with them, so other tools can check suites against exactly the same rules. Invalid files stop processing with every problem listed; unknown properties are ignored with a warning so typos are visible.
+
 Mark at least one renderer as a reference. You can declare multiple references; the viewer lets readers choose which one to compare against. Renderer and output IDs must use lowercase letters, numbers, `.`, `_`, or `-`, and start with a letter or number. `outputs` defaults to `beauty` if omitted. Every comparison generates metrics and a delta image. Legacy `delta` settings are ignored.
 
 For searchable scene labels, add a `scene.json` next to a scene's images:
@@ -71,6 +73,8 @@ For searchable scene labels, add a `scene.json` next to a scene's images:
 ```json
 { "title": "Brushed metal", "tags": ["metal", "roughness"] }
 ```
+
+`process`, `dev`, `serve`, and `build` warn about content that looks like part of the suite but is ignored: images named after a renderer outside a declared output folder, images in output folders whose name is not a renderer ID (with a hint for case mismatches), unsupported formats such as `.jpeg` or `.exr`, lower-priority formats shadowed by another file for the same renderer, output folders at the results root, scenes nested inside other scenes, and unknown `fidelity.json` or `scene.json` properties. Repeated warnings are grouped by message. Textures and other files outside output folders are reported only when they are named after a renderer. `--quiet` suppresses warnings.
 
 ### Results preamble
 

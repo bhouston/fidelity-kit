@@ -21,6 +21,7 @@
   },
   "files": [
     "dist",
+    "schemas",
     "viewer"
   ],
   "type": "module",
@@ -38,7 +39,8 @@
     "./scan": {
       "types": "./dist/core/scan.d.ts",
       "import": "./dist/core/scan.js"
-    }
+    },
+    "./schemas/*": "./schemas/*"
   },
   "scripts": {
     "prepack": "cd ../.. && pnpm build"
@@ -46,6 +48,7 @@
   "dependencies": {
     "@clidoc/core": "^1.0.0",
     "@clidoc/yargs": "^1.1.0",
+    "ajv": "^8.20.0",
     "chokidar": "^5.0.0",
     "humanize-units": "^2.0.4",
     "p-limit": "^7.3.3",

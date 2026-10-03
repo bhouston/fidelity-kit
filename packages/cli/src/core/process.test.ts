@@ -220,7 +220,7 @@ test('ignores all generated outputs and keeps renderer/pass configuration fixed'
     'one/new-pass/a.avif',
     'one/beauty/new-renderer.avif',
   ]);
-  expect(await processor.flush()).toEqual({ computed: 0, skipped: 0, failed: [] });
+  expect(await processor.flush()).toEqual({ computed: 0, skipped: 0, failed: [], warnings: [] });
   expect((await stat(join(root, 'index.json'))).mtimeMs).toBe(before);
 });
 
@@ -232,7 +232,7 @@ test('failed pairs do not spin and retry after a new input revision', async () =
   processor.notify(['one/beauty/a.avif']);
   expect((await processor.flush()).failed).toHaveLength(1);
   processor.notify(['one/beauty/a.avif']);
-  expect(await processor.flush()).toEqual({ computed: 0, skipped: 0, failed: [] });
+  expect(await processor.flush()).toEqual({ computed: 0, skipped: 0, failed: [], warnings: [] });
   await writeFile(join(dir, 'a.avif'), await image(150));
   processor.notify(['one/beauty/a.avif']);
   expect(await processor.flush()).toMatchObject({ computed: 1, failed: [] });
@@ -434,9 +434,9 @@ test('warm-cache discovery retains every pair in scenes with multiple outputs', 
       await mkdir(path, { recursive: true });
       for (const renderer of renderers) await writeFile(join(path, `${renderer.id}.png`), bytes);
     }
-  expect(await processSuite(root)).toEqual({ computed: 72, skipped: 0, failed: [] });
+  expect(await processSuite(root)).toEqual({ computed: 72, skipped: 0, failed: [], warnings: [] });
   for (let i = 0; i < 5; i++) {
-    expect(await processSuite(root)).toEqual({ computed: 0, skipped: 72, failed: [] });
+    expect(await processSuite(root)).toEqual({ computed: 0, skipped: 72, failed: [], warnings: [] });
     expect(Object.keys((await index(root)).metrics)).toHaveLength(72);
   }
 });

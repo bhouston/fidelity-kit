@@ -1,4 +1,5 @@
 {
+  "$schema": "https://unpkg.com/fidelity-kit/schemas/fidelity.schema.json",
   "title": "Demo Fidelity Suite",
   "renderers": [
     {
