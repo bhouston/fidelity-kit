@@ -4,6 +4,7 @@ import { createDocgenCommand, fromYargsAsync } from '@clidoc/yargs';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import { fileCommands } from 'yargs-file-commands';
+import { SchemaValidationError } from './core/schema.js';
 
 // Commands are the files in ./commands (process, ...).
 async function loadCommands() {
@@ -30,5 +31,15 @@ export async function runCli(argv = hideBin(process.argv)): Promise<void> {
     .strictCommands()
     .demandCommand(1)
     .help()
+    .fail((message, error, cli) => {
+      // Suite files are the user's to fix; usage help and a stack trace would bury the list of problems.
+      if (error instanceof SchemaValidationError) console.error(error.message);
+      else {
+        cli.showHelp('error');
+        console.error();
+        console.error(error ?? message);
+      }
+      process.exit(1);
+    })
     .parseAsync();
 }

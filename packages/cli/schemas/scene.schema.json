@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://unpkg.com/fidelity-kit/schemas/scene.schema.json",
+  "title": "fidelity-kit scene metadata",
+  "description": "Optional scene.json beside a scene's output folders.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "description": "JSON Schema reference for editor validation and completion.",
+      "type": "string"
+    },
+    "title": { "type": "string", "description": "Searchable scene title; defaults to the folder name." },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": [],
+      "description": "Searchable scene tags."
+    }
+  }
+}
