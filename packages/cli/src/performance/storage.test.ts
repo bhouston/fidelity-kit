@@ -1,10 +1,11 @@
 import { it, expect } from 'vitest';
 import sharp from 'sharp';
 import { RESULT_AVIF } from './capture.js';
-import { mkdtemp, readFile, rm, writeFile, stat } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, rm, writeFile, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
+  atomicWrite,
   writeRun,
   scanResults,
   safeEntryId,
@@ -15,6 +16,29 @@ import {
   writeMachine,
 } from './storage.js';
 import type { RunResult } from '../schema/index.js';
+it('rejects nested result and site directories before writing', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'performance-separate-'));
+  try {
+    await expect(buildReport(root, join(root, 'site'))).rejects.toThrow('must be separate');
+    await expect(buildReport(join(root, 'results'), root)).rejects.toThrow('must be separate');
+    expect(await readdir(root)).toEqual([]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+it('atomically replaces a file using native absolute paths without leaving temporary files', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'performance-atomic-'));
+  try {
+    const folder = join(root, 'nested folder');
+    const file = join(folder, 'index.json');
+    await atomicWrite(file, 'original');
+    await atomicWrite(file, new Uint8Array([114, 101, 112, 108, 97, 99, 101, 100]));
+    expect(await readFile(file, 'utf8')).toBe('replaced');
+    expect(await readdir(folder)).toEqual(['index.json']);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
 const result: RunResult = {
   schemaVersion: 1,
   runId: 'test',

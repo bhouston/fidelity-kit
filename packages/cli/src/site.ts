@@ -1,5 +1,5 @@
 import { cp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
-import { join, resolve, basename } from 'node:path';
+import { join, resolve, basename, sep } from 'node:path';
 import { parseRegistry, rendererUrl, type RenderingRegistry } from './registry.js';
 import { processResults, readReportIndex, atomicWrite } from './performance/storage.js';
 
@@ -56,8 +56,8 @@ export async function copyPerformance(root: string, source?: string) {
   const input = resolve(source);
   if (
     resolve(destination) === input ||
-    input.startsWith(resolve(destination) + '/') ||
-    resolve(destination).startsWith(input + '/')
+    input.startsWith(resolve(destination) + sep) ||
+    resolve(destination).startsWith(input + sep)
   )
     throw new Error('Performance source must be outside the site data directory');
   const index = await processResults(input);
@@ -69,7 +69,7 @@ export async function copyPerformance(root: string, source?: string) {
     if (current.has(file)) continue;
     const owned = resolve(destination, file);
     if (
-      owned.startsWith(resolve(destination) + '/') &&
+      owned.startsWith(resolve(destination) + sep) &&
       ['metrics.json', 'screenshot.avif', 'reference.png', 'diff.png'].includes(basename(owned))
     )
       await rm(owned, { force: true });

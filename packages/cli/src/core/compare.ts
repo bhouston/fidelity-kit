@@ -1,4 +1,5 @@
 import sharp from 'sharp';
+import { readFile } from 'node:fs/promises';
 
 export interface RawImage {
   data: Buffer;
@@ -19,7 +20,10 @@ export const DELTA_WEBP = { quality: 85, effort: 4 } as const;
 
 /** Decodes an image (path or encoded buffer) to 8-bit RGB, dropping alpha. */
 export async function readRgb(input: string | Buffer): Promise<RawImage> {
-  const { data, info } = await sharp(input)
+  // Decode an in-memory snapshot so libvips cannot retain a Windows file lock
+  // after processing, or reuse cached pixels after the source is replaced.
+  const encoded = typeof input === 'string' ? await readFile(input) : input;
+  const { data, info } = await sharp(encoded)
     .removeAlpha()
     .toColourspace('srgb')
     .raw()

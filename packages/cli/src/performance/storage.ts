@@ -1,7 +1,7 @@
 import { performanceSiteIndex } from './site-index.js';
 import { parseRegistry, performanceSuite } from '../registry.js';
 import { mkdir, readFile, readdir, writeFile, cp, rename, stat, rm } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import { assertRunResult, assertSuite, assertProcessedResult, assertNamedEntity, processRun } from '../schema/index.js';
@@ -14,7 +14,7 @@ export function safeEntryId(id: string): string {
 }
 export async function atomicWrite(file: string, data: string | Uint8Array): Promise<void> {
   await mkdir(resolve(file, '..'), { recursive: true });
-  const temp = join(resolve(file, '..'), `.${file.split('/').at(-1)}.${randomUUID()}.tmp`);
+  const temp = join(resolve(file, '..'), `.${basename(file)}.${randomUUID()}.tmp`);
   try {
     await writeFile(temp, data);
     await rename(temp, file);
@@ -254,7 +254,7 @@ export async function viewerDirectory(): Promise<string> {
 export async function buildReport(out: string, site: string): Promise<void> {
   const input = resolve(out),
     destination = resolve(site);
-  if (input === destination || destination.startsWith(input + '/') || input.startsWith(destination + '/'))
+  if (input === destination || destination.startsWith(input + sep) || input.startsWith(destination + sep))
     throw new Error('Site and result folders must be separate');
   const previous = await readReportIndex(destination);
   const index = await processResults(input);
@@ -262,7 +262,7 @@ export async function buildReport(out: string, site: string): Promise<void> {
   for (const old of previous.results ?? []) {
     if (current.has(old.metrics)) continue;
     const folder = join(destination, dirname(old.metrics));
-    if (!folder.startsWith(destination + '/')) continue;
+    if (!folder.startsWith(destination + sep)) continue;
     for (const name of ['metrics.json', 'screenshot.avif', 'reference.png', 'diff.png'])
       await rm(join(folder, name), { force: true });
   }
