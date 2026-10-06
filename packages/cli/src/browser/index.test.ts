@@ -142,3 +142,31 @@ it('convergence attachment remains a no-op without a harness or reference', asyn
   await f.reporter.convergence({} as HTMLCanvasElement);
   f.reporter.dispose();
 });
+
+it('disables per-frame GPU query instrumentation in completed-frame throughput mode', () => {
+  const f = fixture({ throughput: true });
+  expect(f.reporter.enabled).toBe(true);
+  const device = {
+    features: new Set(['timestamp-query']),
+    createQuerySet() {
+      throw new Error('Throughput must not allocate individual-frame queries');
+    },
+    createBuffer() {
+      throw new Error('Throughput must not allocate timing readbacks');
+    },
+  };
+  try {
+    const gpu = f.reporter.gpu.attach(device);
+    expect(gpu.available).toBe(false);
+    expect(gpu.begin(0)).toBeUndefined();
+    const context = {
+      getExtension() {
+        throw new Error('Throughput must not enable GL frame timers');
+      },
+    };
+    expect(f.reporter.gpu.attachWebGL(context as unknown as WebGL2RenderingContext).available).toBe(false);
+    expect(f.reporter.gpu.attachThree({ backend: { device } }).available).toBe(false);
+  } finally {
+    f.reporter.dispose();
+  }
+});

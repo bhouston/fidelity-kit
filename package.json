@@ -21,7 +21,8 @@
     "docs:dev": "pnpm --filter fidelity-kit-website dev",
     "test:coverage": "vitest run --coverage",
     "release": "semantic-release",
-    "release:check": "node --test scripts/release.test.mjs"
+    "release:check": "node --test scripts/release.test.mjs",
+    "test:browser": "node scripts/browser-contracts.mjs"
   },
   "devDependencies": {
     "@anolilab/semantic-release-pnpm": "^8.1.25",

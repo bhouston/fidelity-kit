@@ -52,3 +52,28 @@ describe('shared rendering suite', () => {
     ).toThrow('browser renderer');
   });
 });
+
+it('rejects ambiguous historical renderer identities instead of silently relabeling results', () => {
+  const renderers = structuredClone(input.renderers);
+  expect(() =>
+    parseRegistry({
+      ...input,
+      renderers: [
+        { ...renderers[0], legacyIds: ['old'] },
+        { ...renderers[1], legacyIds: ['old'] },
+      ],
+    }),
+  ).toThrow('Ambiguous');
+  expect(() =>
+    parseRegistry({ ...input, renderers: [{ ...renderers[0], legacyIds: ['native'] }, renderers[1]] }),
+  ).toThrow('Ambiguous');
+});
+it('requires the home hero to identify a registered scene and renderer', () => {
+  expect(() => parseRegistry({ ...input, home: { hero: { scene: 'missing', renderer: 'base' } } })).toThrow('hero');
+  expect(() => parseRegistry({ ...input, home: { hero: { scene: 'box', renderer: 'missing' } } })).toThrow('hero');
+  expect(parseRegistry({ ...input, home: { hero: { scene: 'box', renderer: 'native' } } }).home.hero).toEqual({
+    scene: 'box',
+    renderer: 'native',
+    output: 'beauty',
+  });
+});

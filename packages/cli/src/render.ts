@@ -14,6 +14,7 @@ export interface RenderOptions {
   renderer?: string[];
   scene?: string[];
   executablePath?: string;
+  chromeArgs?: string[];
   headful?: boolean;
   frames?: number;
 }
@@ -28,7 +29,7 @@ export async function renderSuite(options: RenderOptions) {
     ? await puppeteer.launch({
         headless: !options.headful,
         executablePath: options.executablePath,
-        args: chromeFlags('on'),
+        args: [...chromeFlags('on'), ...(options.chromeArgs ?? [])],
       })
     : undefined;
   try {

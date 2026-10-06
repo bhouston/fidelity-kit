@@ -441,11 +441,21 @@ export function createReporter(options: ReporterOptions = {}): Reporter {
     },
     gpu: {
       attach: (device, ringSize, maxPasses) =>
-        attachWebGPU(enabled ? device : { ...device, features: { has: () => false } }, ringSize, maxPasses),
+        attachWebGPU(
+          enabled && !options.throughput ? device : { ...device, features: { has: () => false } },
+          ringSize,
+          maxPasses,
+        ),
       attachWebGL: (gl, ringSize) =>
-        attachWebGL(enabled ? gl : ({ getExtension: () => null } as unknown as WebGL2RenderingContext), ringSize),
+        attachWebGL(
+          enabled && !options.throughput ? gl : ({ getExtension: () => null } as unknown as WebGL2RenderingContext),
+          ringSize,
+        ),
       attachThree: (renderer, callback) =>
-        attachThree(enabled ? renderer : {}, callback ?? ((value) => api.frameGpu(value.frame, value))),
+        attachThree(
+          enabled && !options.throughput ? renderer : {},
+          callback ?? ((value) => api.frameGpu(value.frame, value)),
+        ),
     },
   };
   const bridgeReceiver = (value: unknown) => {

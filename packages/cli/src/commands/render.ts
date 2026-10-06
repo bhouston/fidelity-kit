@@ -12,6 +12,7 @@ export const command = defineCommand({
       .option('scene', { type: 'array', string: true })
       .option('frames', { type: 'number' })
       .option('headful', { type: 'boolean', default: false })
+      .option('chrome-arg', { type: 'array', string: true, describe: 'Additional browser launch arguments' })
       .option('executable-path', { type: 'string' }),
-  handler: (argv) => renderSuite(argv),
+  handler: (argv) => renderSuite({ ...argv, chromeArgs: argv.chromeArg }),
 });

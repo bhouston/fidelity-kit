@@ -34,6 +34,11 @@ jobs:
       - name: Check formatting
         run: pnpm exec oxfmt --check .
       - run: pnpm test --coverage
+      - name: Install Chrome for render contracts
+        working-directory: packages/cli
+        run: pnpm exec puppeteer browsers install chrome
+      - name: Check real browser render contracts
+        run: pnpm test:browser
       - uses: codecov/codecov-action@v5
         if: ${{ !cancelled() && hashFiles('coverage/lcov.info') != '' }}
         with:

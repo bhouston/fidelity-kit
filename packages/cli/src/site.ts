@@ -1,7 +1,7 @@
-import { cp, mkdir, readFile, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { cp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
+import { join, resolve, basename } from 'node:path';
 import { parseRegistry, rendererUrl, type RenderingRegistry } from './registry.js';
-import { processResults } from './performance/storage.js';
+import { processResults, readReportIndex, atomicWrite } from './performance/storage.js';
 
 export interface SiteManifest {
   registry: RenderingRegistry;
@@ -54,9 +54,26 @@ export async function copyPerformance(root: string, source?: string) {
   if (!source) return;
   const destination = join(root, 'performance');
   const input = resolve(source);
-  if (resolve(destination) === input || input.startsWith(resolve(destination) + '/'))
+  if (
+    resolve(destination) === input ||
+    input.startsWith(resolve(destination) + '/') ||
+    resolve(destination).startsWith(input + '/')
+  )
     throw new Error('Performance source must be outside the site data directory');
   const index = await processResults(input);
+  const previous = await readReportIndex(destination);
+  const filesFor = (result: (typeof index.results)[number]) =>
+    [result.metrics, result.screenshot, result.reference, result.diff].filter((file): file is string => !!file);
+  const current = new Set(index.results.flatMap(filesFor));
+  for (const file of previous.results.flatMap(filesFor)) {
+    if (current.has(file)) continue;
+    const owned = resolve(destination, file);
+    if (
+      owned.startsWith(resolve(destination) + '/') &&
+      ['metrics.json', 'screenshot.avif', 'reference.png', 'diff.png'].includes(basename(owned))
+    )
+      await rm(owned, { force: true });
+  }
   await mkdir(destination, { recursive: true });
   // Index contains only public artifacts; source run traces remain in the results directory.
   for (const result of index.results)
@@ -65,11 +82,12 @@ export async function copyPerformance(root: string, source?: string) {
       await mkdir(resolve(destination, rel, '..'), { recursive: true });
       await cp(join(input, rel), join(destination, rel));
     }
-  await writeFile(join(destination, 'index.json'), JSON.stringify({ ...index, liveReload: false }, null, 2) + '\n');
+  await atomicWrite(join(destination, 'index.json'), JSON.stringify({ ...index, liveReload: false }, null, 2) + '\n');
   try {
     await cp(join(input, 'README.md'), join(destination, 'README.md'));
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    await rm(join(destination, 'README.md'), { force: true });
   }
 }
 

@@ -69,6 +69,20 @@ export function parseRegistry(value: unknown): RenderingRegistry {
     const ids = suite[key].map((item) => item.id);
     if (new Set(ids).size !== ids.length) throw new Error(`Duplicate ${key} IDs`);
   }
+  const rendererIdentities = new Map(suite.renderers.map((renderer) => [renderer.id, renderer.id]));
+  for (const renderer of suite.renderers)
+    for (const alias of renderer.legacyIds) {
+      const owner = rendererIdentities.get(alias);
+      if (owner && owner !== renderer.id) throw new Error(`Ambiguous renderer identity ${alias}`);
+      rendererIdentities.set(alias, renderer.id);
+    }
+  const hero = suite.home.hero;
+  if (
+    hero &&
+    (!suite.scenes.some((scene) => scene.id === hero.scene) ||
+      !suite.renderers.some((renderer) => renderer.id === hero.renderer))
+  )
+    throw new Error('Home hero must identify a registered renderer and scene');
   for (const [name, collection] of Object.entries(suite.performance))
     for (const entry of collection.entries) {
       const renderer = suite.renderers.find((r) => r.id === entry.renderer);
