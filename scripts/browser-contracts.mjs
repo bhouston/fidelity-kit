@@ -21,7 +21,7 @@ try {
   await access(chrome);
 } catch {
   throw new Error(
-    `Chrome not found at ${chrome}. Install it with "cd packages/cli && pnpm exec puppeteer browsers install chrome" or set CHROME_EXECUTABLE.`,
+    `Chrome not found at ${chrome}. Install it with "node scripts/install-test-browser.mjs" or set CHROME_EXECUTABLE.`,
   );
 }
 const work = await mkdtemp(join(tmpdir(), 'fidelity-cube-'));
