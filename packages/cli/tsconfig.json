@@ -1,4 +1,10 @@
 {
   "extends": "../../tsconfig.node.json",
-  "compilerOptions": { "composite": true, "types": ["node"] }
+  "compilerOptions": {
+    "composite": true,
+    "types": ["node"],
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx"
+  },
+  "exclude": ["src/performance/**/*.test.ts", "src/schema/**/*.test.ts", "src/browser/**/*.test.ts"]
 }

@@ -1,0 +1,43 @@
+{
+  "additionalProperties": false,
+  "type": "object",
+  "required": ["protocol", "protocolVersion", "runId", "seq", "type", "sentAt", "payload"],
+  "properties": {
+    "protocol": {
+      "const": "performance-kit",
+      "type": "string"
+    },
+    "protocolVersion": {
+      "const": 1,
+      "type": "number"
+    },
+    "runId": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "seq": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "type": {
+      "const": "capture",
+      "type": "string"
+    },
+    "sentAt": {
+      "minimum": 0,
+      "type": "number"
+    },
+    "payload": {
+      "additionalProperties": false,
+      "type": "object",
+      "required": ["at", "bytes"],
+      "properties": {
+        "at": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "bytes": {}
+      }
+    }
+  }
+}

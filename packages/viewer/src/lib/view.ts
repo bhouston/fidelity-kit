@@ -3,6 +3,12 @@ import { deltaFile, imageFile, metricsFile } from 'fidelity-kit/paths';
 
 export type Sort = 'name' | 'psnr-asc' | 'psnr-desc';
 export interface ViewSearch {
+  view?: 'home' | 'fidelity' | 'performance' | 'live';
+  renderer?: string;
+  machine?: string;
+  result?: string;
+  performanceSort?: string;
+  dir?: string;
   q?: string;
   /** comma-joined tag list; a scene must have all of them */
   tags?: string;
@@ -22,6 +28,14 @@ const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v : undefined);
 export function validateViewSearch(s: Record<string, unknown>): ViewSearch {
   const sort = s.sort === 'psnr-asc' || s.sort === 'psnr-desc' ? s.sort : undefined;
   return {
+    view: ['home', 'fidelity', 'performance', 'live'].includes(String(s.view))
+      ? (s.view as ViewSearch['view'])
+      : undefined,
+    renderer: str(s.renderer),
+    machine: str(s.machine),
+    result: str(s.result),
+    performanceSort: str(s.performanceSort),
+    dir: str(s.dir),
     q: str(s.q),
     tags: str(s.tags),
     output: str(s.output),
@@ -67,7 +81,11 @@ export function resolveView(index: SuiteIndex, search: ViewSearch, hashes: Recor
   const output = outputs.find((o) => o.id === search.output)?.id ?? outputs[0]!.id;
   const ref = references.includes(search.ref ?? '') ? search.ref! : references[0]!;
   const labels = new Map(renderers.map((r) => [r.id, r.label ?? r.id]));
-  const selected = search.renderers === undefined ? null : new Set(search.renderers.split(','));
+  const selected = search.renderer
+    ? new Set([search.renderer])
+    : search.renderers === undefined
+      ? null
+      : new Set(search.renderers.split(','));
   return {
     output,
     ref,

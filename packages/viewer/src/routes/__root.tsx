@@ -1,4 +1,4 @@
-import { Outlet, createRootRoute, useRouter } from '@tanstack/react-router';
+import { Link, Outlet, createRootRoute, useRouter } from '@tanstack/react-router';
 import { logoUrl } from 'fidelity-kit/paths';
 import { useEffect } from 'react';
 import { getSuite } from '#/lib/data';
@@ -32,6 +32,20 @@ function Root() {
   }, [index.config.logo]);
   return (
     <>
+      <nav aria-label="Main navigation" className="border-b border-border bg-card px-6 py-3 flex gap-6">
+        <Link to="/" search={{ view: 'home' }} className="font-semibold">
+          {index.config.title}
+        </Link>
+        <Link to="/" search={{ view: 'fidelity' }}>
+          Fidelity
+        </Link>
+        <Link to="/" search={{ view: 'performance' }}>
+          Performance
+        </Link>
+        <Link to="/" search={{ view: 'live' }}>
+          Live
+        </Link>
+      </nav>
       <main>
         <Outlet />
       </main>

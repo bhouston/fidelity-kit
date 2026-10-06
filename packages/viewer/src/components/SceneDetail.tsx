@@ -37,7 +37,16 @@ export function SceneDetail({ path, readme }: { path: string; readme: string | n
       <Header logo={index.config.logo} scenePath={scene.path} search={search} title={index.config.title}>
         <ViewControls
           index={index}
-          onChange={(patch) => void navigate({ replace: true, search: (prev) => ({ ...prev, ...patch }) })}
+          onChange={(patch) =>
+            void navigate({
+              replace: true,
+              search: (prev) => ({
+                ...prev,
+                ...patch,
+                renderer: patch.renderers !== undefined ? undefined : prev.renderer,
+              }),
+            })
+          }
           view={view}
         />
       </Header>

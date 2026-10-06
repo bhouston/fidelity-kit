@@ -1,0 +1,15 @@
+{
+  "additionalProperties": false,
+  "type": "object",
+  "required": ["id", "name"],
+  "properties": {
+    "id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "type": "string"
+    },
+    "name": {
+      "minLength": 1,
+      "type": "string"
+    }
+  }
+}

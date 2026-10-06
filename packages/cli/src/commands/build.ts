@@ -1,3 +1,4 @@
+import { prepareSite, copyPerformance } from '../site.js';
 import { cp, readdir, stat } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
 import { statSync } from 'node:fs';
@@ -19,12 +20,16 @@ export const command = defineCommand({
         describe: 'Suite results directory (contains fidelity.json)',
       })
       .option('out', { type: 'string', demandOption: true, describe: 'Output directory' })
+      .option('registry', { alias: 'suite', type: 'string', describe: 'Unified scene and renderer configuration file' })
+      .option('root-url', { type: 'string', describe: 'Render server URL override' })
+      .option('performance-root', { type: 'string', describe: 'Performance results directory' })
       .option('concurrency', { type: 'number', describe: 'Image pairs compared in parallel (default: CPU count)' })
       .option('process', { type: 'boolean', default: true, describe: 'Refresh stale metrics/deltas first' }),
   handler: async (argv) => {
     assertViewerBuilt();
     const root = resolve(argv.root);
     const out = resolve(argv.out);
+    await prepareSite(root, argv, 'deployed');
     if (argv.process) {
       const result = await processSuite(root, { concurrency: argv.concurrency });
       printWarnings(result.warnings);
@@ -38,6 +43,7 @@ export const command = defineCommand({
       recursive: true,
       filter: (src) => src === root || statSync(src).isDirectory() || isDataFile(relative(root, src)),
     });
+    await copyPerformance(`${out}/data`, argv.performanceRoot);
     const files = (await readdir(out, { recursive: true, withFileTypes: true })).filter((entry) => entry.isFile());
     const limit = pLimit(32);
     let bytes = 0;

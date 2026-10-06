@@ -1,0 +1,58 @@
+.live-main {
+  --chart-grid: var(--border);
+  --chart-load: #8b5cf640;
+  --chart-process: #0ea5e940;
+  --chart-compile: #f59e0b40;
+}
+.live-panel {
+  border: 1px solid var(--border);
+  padding: 16px;
+  background: var(--card);
+}
+.live-main select {
+  border: 1px solid var(--border);
+  padding: 8px;
+  background: var(--background);
+  max-width: 100%;
+}
+.live-viewport iframe {
+  display: block;
+  border: 0;
+  width: 1920px;
+  height: 1080px;
+  max-width: none;
+}
+.live-panel h2 {
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+.live-panel h2 small {
+  font-size: 12px;
+  color: var(--muted-foreground);
+  margin-left: 10px;
+  font-weight: normal;
+}
+.live-summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.live-panel svg {
+  width: 100%;
+  display: block;
+  margin-top: 12px;
+}
+.live-panel svg text {
+  fill: var(--muted-foreground);
+  font-size: 12px;
+}
+.live-panel table {
+  width: 100%;
+  margin-top: 12px;
+  text-align: left;
+}
+.live-panel th,
+.live-panel td {
+  border-bottom: 1px solid var(--border);
+  padding: 6px;
+}

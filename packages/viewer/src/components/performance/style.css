@@ -1,0 +1,619 @@
+.performance-report {
+  --chart-grid: #e4e4e7;
+  --chart-reference: #71717a80;
+  --chart-ready: #52525b;
+  --chart-load: #8b5cf626;
+  --chart-process: #0ea5e926;
+  --chart-compile: #f59e0b26;
+  --warning: #a16207;
+}
+@media (prefers-color-scheme: dark) {
+  .performance-report {
+    --chart-grid: #3f3f46;
+    --chart-reference: #a1a1aa80;
+    --chart-ready: #d4d4d8;
+    --warning: #fbbf24;
+  }
+}
+.performance-report .header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in oklch, var(--card) 95%, transparent);
+  padding: 12px 0;
+  box-shadow: 0 1px 2px #0000000d;
+  backdrop-filter: blur(8px);
+}
+.performance-report .header-inner {
+  max-width: 1120px;
+  margin: auto;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.performance-report .brand {
+  font-weight: 600;
+  font-size: 18px;
+  white-space: nowrap;
+}
+.performance-report .header-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  min-width: 0;
+}
+.performance-report .header-controls input {
+  width: 176px;
+}
+.performance-report .header-controls select {
+  max-width: 140px;
+}
+.performance-report .repository-link {
+  display: inline-flex;
+  color: var(--muted-foreground);
+  margin-left: 4px;
+}
+.performance-report .repository-link:hover {
+  color: var(--foreground);
+}
+.performance-report .result-count {
+  font-size: 14px;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+.performance-report input,
+.performance-report select {
+  height: 36px;
+  border: 1px solid var(--input);
+  border-radius: 0;
+  background: transparent;
+  padding: 6px 10px;
+  font-size: 14px;
+  box-shadow: 0 1px 2px #0000000d;
+}
+.performance-report input::placeholder {
+  color: var(--muted-foreground);
+}
+.performance-report select {
+  max-width: 100%;
+}
+.performance-report option {
+  background: var(--card);
+  color: var(--foreground);
+}
+.performance-report main {
+  max-width: 1120px;
+  margin: auto;
+  padding: 0 24px;
+}
+.performance-report p {
+  line-height: 1.6;
+}
+.performance-report .controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.performance-report .list-heading {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 0 4px;
+}
+.performance-report h2 {
+  font-size: 14px;
+  font-weight: 600;
+}
+.performance-report h2 small {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted-foreground);
+}
+.performance-report .legend {
+  font-size: 10px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  color: var(--muted-foreground);
+}
+.performance-report .green {
+  color: #16a34a;
+}
+.performance-report .orange {
+  color: #ea580c;
+}
+.performance-report .red {
+  color: #dc2626;
+}
+.performance-report .card {
+  padding: 20px 0;
+  border-bottom: 1px solid var(--border);
+}
+.performance-report .card-main {
+  display: grid;
+  grid-template-columns: 208px 1fr;
+  gap: 20px;
+}
+.performance-report .capture {
+  background: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.performance-report .capture img {
+  width: 100%;
+  max-height: 250px;
+  object-fit: contain;
+}
+.performance-report .capture-placeholder {
+  text-align: center;
+  font-size: 40px;
+  color: var(--muted-foreground);
+}
+.performance-report .capture-placeholder small {
+  display: block;
+  font-size: 11px;
+}
+.performance-report .card-body {
+  min-width: 0;
+}
+.performance-report .card-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 16px;
+}
+.performance-report .entry-title {
+  font-size: 16px;
+  font-weight: 600;
+  background: none;
+  border: 0;
+  padding: 0;
+  text-align: left;
+}
+.performance-report .entry-title:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.performance-report .entry-title span {
+  font-size: 16px;
+  color: var(--muted-foreground);
+  margin-left: 4px;
+}
+.performance-report .stats {
+  display: flex;
+  gap: 18px;
+  flex-shrink: 0;
+  text-align: right;
+}
+.performance-report .stats small {
+  display: block;
+  font-size: 10px;
+  color: var(--muted-foreground);
+}
+.performance-report .stats strong {
+  display: block;
+  font-size: 20px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  margin: 3px 0;
+}
+.performance-report .timeline {
+  width: 100%;
+  height: 145px;
+  display: block;
+  margin-top: 12px;
+}
+.performance-report .detail {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+.performance-report .detail-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.performance-report h3 {
+  font-size: 14px;
+  font-weight: 600;
+}
+.performance-report .detail-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+  font-size: 12px;
+}
+.performance-report .detail-grid section {
+  margin-top: 16px;
+  border-top: 1px solid var(--border);
+  min-width: 0;
+}
+.performance-report .detail-grid p {
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.performance-report table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.performance-report td,
+.performance-report th {
+  padding: 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.performance-report td:last-child {
+  font-variant-numeric: tabular-nums;
+}
+.performance-report th {
+  font-weight: 500;
+  color: var(--muted-foreground);
+}
+.performance-report .histogram {
+  height: 100px;
+  display: flex;
+  gap: 3px;
+  align-items: end;
+}
+.performance-report .histogram div {
+  flex: 1;
+}
+.performance-report .axis {
+  display: flex;
+  justify-content: space-between;
+  margin: 6px 0;
+  font-size: 10px;
+  color: var(--muted-foreground);
+}
+.performance-report .muted {
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.performance-report .warning {
+  color: var(--warning) !important;
+}
+.performance-report .error {
+  font-size: 14px;
+  color: var(--destructive);
+  padding: 12px;
+  border: 1px solid var(--border);
+}
+.performance-report .empty {
+  text-align: center;
+  padding: 32px;
+  background: var(--muted);
+  border: 1px solid var(--border);
+  color: var(--muted-foreground);
+  font-size: 14px;
+}
+.performance-report footer {
+  max-width: 1120px;
+  margin: auto;
+  padding: 32px 24px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--muted-foreground);
+}
+.performance-report footer a {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.performance-report footer a:hover {
+  color: var(--foreground);
+}
+.performance-report .script-attribution {
+  margin-top: 8px;
+  padding-left: 8px;
+  border-left: 2px solid var(--border);
+  font-size: 11px;
+  color: var(--muted-foreground);
+  overflow-wrap: anywhere;
+}
+.performance-report .script-attribution strong {
+  font-weight: 500;
+  color: var(--foreground);
+}
+.performance-report .script-attribution span {
+  display: block;
+  font-size: 10px;
+  margin-top: 3px;
+}
+@media (max-width: 1050px) {
+  .performance-report .header-inner {
+    align-items: start;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .performance-report .header-controls {
+    margin-left: 0;
+    width: 100%;
+  }
+  .performance-report .header-controls input {
+    flex: 1;
+    min-width: 150px;
+  }
+  .performance-report .card-heading {
+    flex-direction: column;
+    gap: 12px;
+  }
+  .performance-report .stats {
+    text-align: left;
+    gap: 24px;
+  }
+}
+@media (max-width: 640px) {
+  .performance-report .header-inner,
+  .performance-report main {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  .performance-report .brand {
+    font-size: 16px;
+  }
+  .performance-report .header-controls input {
+    flex: 1 1 150px;
+  }
+  .performance-report .header-controls select {
+    flex: 1 1 120px;
+    max-width: none;
+  }
+  .performance-report .list-heading {
+    flex-wrap: wrap;
+    gap: 0;
+    padding-top: 12px;
+  }
+  .performance-report .list-heading h2 {
+    margin-bottom: 8px;
+  }
+  .performance-report .legend {
+    margin-bottom: 8px;
+  }
+  .performance-report .card-main {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+  .performance-report .capture {
+    height: 180px;
+  }
+  .performance-report .capture img {
+    height: 180px;
+    width: auto;
+    max-width: 100%;
+  }
+  .performance-report .stats {
+    flex-wrap: wrap;
+    width: 100%;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .performance-report .stats strong {
+    font-size: 20px;
+  }
+  .performance-report .detail-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .performance-report .detail-heading select {
+    font-size: 12px;
+  }
+}
+
+.performance-report .preamble {
+  padding: 24px 0 4px;
+  font-size: 14px;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+.performance-report .preamble h1 {
+  font-size: 24px;
+  line-height: 1.3;
+  font-weight: 600;
+  margin: 0 0 16px;
+}
+.performance-report .preamble h2 {
+  font-size: 20px;
+  margin: 24px 0 12px;
+}
+.performance-report .preamble h3 {
+  font-size: 16px;
+  margin: 20px 0 10px;
+}
+.performance-report .preamble p {
+  margin: 12px 0;
+}
+.performance-report .preamble a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.performance-report .preamble ul,
+.performance-report .preamble ol {
+  padding-left: 24px;
+}
+.performance-report .preamble li {
+  margin: 4px 0;
+}
+.performance-report .preamble code {
+  background: var(--muted);
+  padding: 2px 4px;
+  font-size: 12px;
+}
+.performance-report .preamble pre {
+  overflow: auto;
+  background: var(--muted);
+  padding: 16px;
+}
+.performance-report .preamble pre code {
+  padding: 0;
+}
+.performance-report .preamble img {
+  max-width: 100%;
+  height: auto;
+}
+.performance-report .preamble blockquote {
+  margin: 16px 0;
+  border-left: 3px solid var(--border);
+  padding-left: 16px;
+  color: var(--muted-foreground);
+}
+.performance-report .preamble hr {
+  margin: 24px 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+@keyframes performance-reloaded {
+  0% {
+    background-color: oklch(0.62 0.19 260 / 0.5);
+  }
+  20% {
+    background-color: oklch(0.62 0.19 260 / 0.4);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+.performance-report .reloaded {
+  animation: performance-reloaded 0.5s ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .performance-report .reloaded {
+    animation: none;
+  }
+}
+
+.performance-report .timeline-container {
+  position: relative;
+}
+.performance-report .timeline-tooltip {
+  position: absolute;
+  pointer-events: none;
+  padding: 4px 8px;
+  background: var(--background);
+  color: var(--foreground);
+  border: 1px solid var(--chart-reference);
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.performance-report .card {
+  cursor: pointer;
+  scroll-margin-top: 150px;
+}
+.performance-report .result-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.performance-report .bookmark {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  opacity: 0;
+  overflow-wrap: anywhere;
+}
+.performance-report .result-name:hover .bookmark,
+.performance-report .result-name:focus-within .bookmark {
+  opacity: 1;
+}
+.performance-report .phase-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 5px;
+  border-radius: 2px;
+}
+.performance-report .phase-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+.performance-report .breadcrumbs {
+  min-width: 0;
+}
+.performance-report .breadcrumbs ol {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+.performance-report .breadcrumbs [aria-current='page'] {
+  overflow-wrap: anywhere;
+}
+.performance-report .breadcrumbs .brand {
+  white-space: normal;
+}
+.performance-report .frame-detail {
+  margin-top: 32px;
+}
+.performance-report .detail .timeline {
+  height: 240px;
+}
+@media (hover: none) {
+  .performance-report .bookmark {
+    opacity: 1;
+  }
+}
+.performance-report .card {
+  position: relative;
+}
+.performance-report .card-link {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+.performance-report .result-name {
+  position: relative;
+  z-index: 2;
+}
+
+.performance-report .convergence-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  margin-bottom: 6px;
+  border-radius: 12px;
+  background: #a855f722;
+  color: #a855f7;
+  font-size: 12px;
+  font-weight: 600;
+}
+.performance-report .capture figure {
+  margin: 8px 0 0;
+  width: 100%;
+}
+.performance-report .capture figcaption {
+  color: var(--muted-foreground);
+  font-size: 11px;
+  text-align: center;
+}
+.performance-report .convergence-summary {
+  color: var(--muted-foreground);
+  font-size: 12px;
+  margin: 6px 0 0;
+}
+
+.performance-report .convergence-capture {
+  flex-direction: column;
+  padding: 8px;
+}
+.performance-report .convergence-capture img {
+  max-height: 120px;
+}

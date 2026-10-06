@@ -1,3 +1,4 @@
+import { prepareSite, copyPerformance, watchPerformance } from './site.js';
 import { createLiveReload, watchLiveReload } from './live-reload.js';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -9,6 +10,9 @@ import { watchResults, type ResultsWatcher } from './watch.js';
 
 export interface RunArgs {
   root: string;
+  registry?: string;
+  rootUrl?: string;
+  performanceRoot?: string;
   port?: number;
   host: string;
   process: boolean;
@@ -23,6 +27,10 @@ export interface RunArgs {
 export async function run(argv: RunArgs, dev: boolean) {
   assertViewerBuilt();
   const root = resolve(argv.root);
+  await prepareSite(root, argv, dev ? 'development' : 'deployed');
+  await copyPerformance(root, argv.performanceRoot);
+  const performanceWatcher =
+    dev && argv.watch && argv.performanceRoot ? await watchPerformance(root, argv.performanceRoot) : undefined;
   const watching = dev && argv.watch;
   const progress = createProgress(dev ? 'dev' : 'serve', argv.quiet || !dev);
   if (argv.process && !watching) {
@@ -65,12 +73,14 @@ export async function run(argv: RunArgs, dev: boolean) {
     liveReload?.close();
     await liveWatcher?.close();
     await watcher?.close();
+    await performanceWatcher?.close();
     throw error;
   });
   server.once('close', () => {
     liveReload?.close();
     void liveWatcher?.close();
     void watcher?.close();
+    void performanceWatcher?.close();
   });
   const address = server.address();
   if (!address || typeof address === 'string') throw new Error('Could not determine the viewer port');

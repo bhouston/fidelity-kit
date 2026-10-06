@@ -1,3 +1,6 @@
+type SiteManifest = { registry: RenderingRegistry; rendererUrl: string };
+
+import type { RenderingRegistry } from 'fidelity-kit/registry';
 import type { GroupNode, SceneNode, SuiteIndex } from 'fidelity-kit';
 
 function* allScenes(g: GroupNode): Generator<SceneNode> {
@@ -54,11 +57,34 @@ export async function getSuite() {
   if (!res.ok) throw new Error('No index.json found. Run `fidelity-kit process <root>` first.');
   const index: SuiteIndex = await res.json();
   const scenes = [...allScenes(index.root)];
-  bumpChangedScenes(index, scenes);
+
   const eventsUrl = res.headers.get('X-Fidelity-Events');
   const revision = res.headers.get('X-Fidelity-Revision');
   const liveReload = eventsUrl && revision ? { eventsUrl, revision } : null;
-  return { index, hashes: { ...hashes, ...sceneVersions }, scenes, liveReload };
+  let site: SiteManifest | null = null;
+  try {
+    const response = await fetch('data/site.json');
+    const candidate =
+      response.ok && !response.headers.get('content-type')?.includes('html')
+        ? ((await response.json()) as Partial<SiteManifest>)
+        : null;
+    if (
+      candidate?.registry &&
+      Array.isArray(candidate.registry.scenes) &&
+      Array.isArray(candidate.registry.renderers) &&
+      typeof candidate.rendererUrl === 'string'
+    )
+      site = candidate as SiteManifest;
+  } catch {
+    /* Live configuration is optional for existing fidelity results. */
+  }
+  if (site)
+    for (const scene of scenes) {
+      const definition = site.registry.scenes.find((item) => (item.path ?? item.id) === scene.path);
+      if (definition) scene.title = definition.name;
+    }
+  bumpChangedScenes(index, scenes);
+  return { site, index, hashes: { ...hashes, ...sceneVersions }, scenes, liveReload };
 }
 
 /** README.md of the suite ('' path) or a group/scene; null when absent (dev servers answer 404s with index.html). */
