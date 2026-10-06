@@ -9,6 +9,8 @@ export type SessionReporter = Pick<
 export interface RenderSession {
   canvas: HTMLCanvasElement;
   accumulated?(): number;
+  /** Resize live rendering after completed GPU work; captures and benchmarks keep their configured size. */
+  resize?(width: number, height: number): void;
   draw(deltaSeconds?: number): void;
   complete(): Promise<unknown>;
   dispose(): void;
@@ -19,6 +21,7 @@ export type SessionFactory = (
   host: HTMLElement,
   interactive: boolean,
 ) => Promise<RenderSession>;
+const viewportSize = () => ({ width: Math.max(1, window.innerWidth), height: Math.max(1, window.innerHeight) });
 export const hostProtocol = 'fidelity-kit-host-v1';
 /** The project supplies one session factory, shared by captures, benchmarks and interactive rendering. */
 export async function mountRenderHost(createSession: SessionFactory): Promise<void> {
@@ -35,6 +38,8 @@ export async function mountRenderHost(createSession: SessionFactory): Promise<vo
     enabled: mode === 'live' || mode === 'capture' ? false : undefined,
   });
   const automated = reporter.enabled;
+  const responsive = !automated && mode === 'live' && query.get('fidelityKitViewport') === 'responsive';
+  let size = viewportSize();
   if (!automated && mode !== 'live' && mode !== 'capture') throw new Error('No render host mode selected');
   const telemetry = createLiveTelemetry(
     (data) => send('setup', data),
@@ -56,6 +61,7 @@ export async function mountRenderHost(createSession: SessionFactory): Promise<vo
     const params = automated
       ? reporter.params
       : (JSON.parse(query.get('fidelityKitParams') ?? '{}') as Record<string, unknown>);
+    if (responsive) Object.assign(params, size);
     session = await createSession(params, automated ? reporter : telemetry.reporter, document.body, mode === 'live');
     if (stopped) {
       session.dispose();
@@ -104,6 +110,13 @@ export async function mountRenderHost(createSession: SessionFactory): Promise<vo
     const tick = async (time: number) => {
       if (stopped || (automated && !reporter.running)) return;
       try {
+        if (responsive && session!.resize) {
+          const next = viewportSize();
+          if (next.width !== size.width || next.height !== size.height) {
+            session!.resize(next.width, next.height);
+            size = next;
+          }
+        }
         session!.draw((time - previous) / 1000);
         previous = time;
         // Keep one live frame in flight so a slow adapter cannot accumulate queued GPU work.

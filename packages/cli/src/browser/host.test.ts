@@ -60,6 +60,35 @@ afterEach(() => {
 });
 
 describe('shared render host contracts', () => {
+  it('sizes responsive live sessions to the iframe viewport and resizes between completed frames', async () => {
+    locationFor('live', { width: 1920, height: 1080 });
+    location.search += '&fidelityKitViewport=responsive';
+    Object.assign(window, { innerWidth: 900, innerHeight: 500 });
+    const rendered = session();
+    rendered.resize = vi.fn();
+    await mountRenderHost(async (params) => {
+      expect(params).toEqual({ width: 900, height: 500 });
+      return rendered;
+    });
+    Object.assign(window, { innerWidth: 600, innerHeight: 400 });
+    await tick(16);
+    expect(rendered.resize).toHaveBeenCalledExactlyOnceWith(600, 400);
+    await tick(32);
+    expect(rendered.resize).toHaveBeenCalledOnce();
+    hide();
+  });
+
+  it('preserves configured capture dimensions even with the responsive flag', async () => {
+    locationFor('capture', { width: 1920, height: 1080, frames: 1 });
+    location.search += '&fidelityKitViewport=responsive';
+    Object.assign(window, { innerWidth: 900, innerHeight: 500 });
+    await mountRenderHost(async (params) => {
+      expect(params).toMatchObject({ width: 1920, height: 1080 });
+      return session();
+    });
+    hide();
+  });
+
   it('awaits GPU completion for each capture advance before making the image available', async () => {
     locationFor('capture', { frames: 3 });
     const rendered = session();
