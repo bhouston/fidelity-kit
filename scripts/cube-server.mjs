@@ -1,9 +1,9 @@
 import { createRequire } from 'node:module';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
 import cliPackage from '../packages/cli/package.json' with { type: 'json' };
 const require = createRequire(new URL('../packages/viewer/package.json', import.meta.url));
-const { createServer } = await import(require.resolve('vite'));
+const { createServer } = await import(pathToFileURL(require.resolve('vite')).href);
 export async function createCubeServer() {
   const server = await createServer({
     configFile: false,
