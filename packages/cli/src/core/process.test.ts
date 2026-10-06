@@ -17,6 +17,21 @@ const image = (v: number) =>
     .avif({ lossless: true })
     .toBuffer();
 const index = async (root: string) => JSON.parse(await readFile(join(root, 'index.json'), 'utf8'));
+const webpImage = async (value: number) =>
+  sharp({ create: { width: 8, height: 8, channels: 3, background: { r: value, g: value, b: value } } })
+    .webp({ lossless: true })
+    .toBuffer();
+test('image decoding releases source files and observes their replacement', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'fk-image-replace-'));
+  roots.push(root);
+  const file = join(root, 'image.webp');
+  await writeFile(file, await webpImage(10));
+  expect((await comparison.readRgb(file)).data[0]).toBe(10);
+  await rm(file);
+  await writeFile(file, await webpImage(200));
+  expect((await comparison.readRgb(file)).data[0]).toBe(200);
+  await rm(file);
+});
 async function addScene(root: string, scene: string, value = 100) {
   const dir = join(root, scene, 'beauty');
   await mkdir(dir, { recursive: true });
@@ -301,7 +316,7 @@ test('metrics and heatmaps have independent input-signature caches', async () =>
   expect(compare).toHaveBeenCalledTimes(1);
   expect(await readFile(metrics, 'utf8')).toBe(originalMetrics);
   expect((await stat(metrics)).mtimeMs).toBe(originalMetricsStat.mtimeMs);
-  expect((await sharp(delta).metadata()).format).toBe('webp');
+  expect((await sharp(await readFile(delta)).metadata()).format).toBe('webp');
   const originalDelta = await readFile(delta);
   const originalDeltaStat = await stat(delta);
   const originalCache = await readFile(cache, 'utf8');
@@ -349,7 +364,7 @@ test('legacy AVIF metrics stay untouched while WebP heatmaps are generated', asy
   expect(await processSuite(root)).toMatchObject({ computed: 1, skipped: 1 });
   expect(await readFile(file, 'utf8')).toBe(originalMetrics);
   expect((await stat(file)).mtimeMs).toBe(before);
-  expect((await sharp(join(dir, 'a.vs-ref.delta.webp')).metadata()).format).toBe('webp');
+  expect((await sharp(await readFile(join(dir, 'a.vs-ref.delta.webp'))).metadata()).format).toBe('webp');
   expect((await index(root)).metrics[aKey].deltaFile).toBe('a.vs-ref.delta.webp');
 });
 

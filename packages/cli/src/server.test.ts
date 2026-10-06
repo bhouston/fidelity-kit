@@ -113,10 +113,21 @@ test('does not serve allowlisted paths through symlinks outside the suite', asyn
   await mkdir(root);
   await mkdir(assets);
   await writeFile(join(assets, 'index.html'), '<html>');
-  await writeFile(join(dir, 'secret.txt'), 'secret');
-  await symlink(join(dir, 'secret.txt'), join(root, 'README.md'));
+  let escapedPath = 'README.md';
+  if (process.platform === 'win32') {
+    // Directory junctions exercise realpath containment without requiring the
+    // Windows privilege needed to create a file symbolic link.
+    const outside = join(dir, 'outside');
+    await mkdir(outside);
+    await writeFile(join(outside, 'README.md'), 'secret');
+    await symlink(outside, join(root, 'linked'), 'junction');
+    escapedPath = 'linked/README.md';
+  } else {
+    await writeFile(join(dir, 'secret.txt'), 'secret');
+    await symlink(join(dir, 'secret.txt'), join(root, 'README.md'));
+  }
   const handler = createHandler(root, { assets });
-  expect((await handler(new Request('http://x/data/README.md'))).status).toBe(404);
+  expect((await handler(new Request(`http://x/data/${escapedPath}`))).status).toBe(404);
 });
 
 test('dev mode serves everything fresh: no validators, no caching, conditionals ignored', async () => {

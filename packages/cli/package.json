@@ -17,9 +17,10 @@
     "url": "git+https://github.com/bhouston/fidelity-kit.git"
   },
   "bin": {
-    "fidelity-kit": "./dist/bin.js"
+    "fidelity-kit": "./bin.js"
   },
   "files": [
+    "bin.js",
     "dist",
     "schemas",
     "viewer"
@@ -40,7 +41,59 @@
       "types": "./dist/core/scan.d.ts",
       "import": "./dist/core/scan.js"
     },
-    "./schemas/*": "./schemas/*"
+    "./schemas/*": "./schemas/*",
+    "./schema": {
+      "types": "./dist/schema/index.d.ts",
+      "import": "./dist/schema/index.js"
+    },
+    "./schema/derive": {
+      "types": "./dist/schema/derive.d.ts",
+      "import": "./dist/schema/derive.js"
+    },
+    "./schema/process": {
+      "types": "./dist/schema/process.d.ts",
+      "import": "./dist/schema/process.js"
+    },
+    "./schema/colorScales": {
+      "types": "./dist/schema/colorScales.d.ts",
+      "import": "./dist/schema/colorScales.js"
+    },
+    "./browser": {
+      "types": "./dist/browser/index.d.ts",
+      "import": "./dist/browser/index.js"
+    },
+    "./browser/three": {
+      "types": "./dist/browser/three.d.ts",
+      "import": "./dist/browser/three.js"
+    },
+    "./browser/gpu": {
+      "types": "./dist/browser/gpu.d.ts",
+      "import": "./dist/browser/gpu.js"
+    },
+    "./runner": {
+      "types": "./dist/performance/core.d.ts",
+      "import": "./dist/performance/core.js"
+    },
+    "./browser/host": {
+      "types": "./dist/browser/host.d.ts",
+      "import": "./dist/browser/host.js"
+    },
+    "./browser/telemetry": {
+      "types": "./dist/browser/telemetry.d.ts",
+      "import": "./dist/browser/telemetry.js"
+    },
+    "./render": {
+      "types": "./dist/render.d.ts",
+      "import": "./dist/render.js"
+    },
+    "./charts": {
+      "types": "./dist/charts.d.ts",
+      "import": "./dist/charts.js"
+    },
+    "./registry": {
+      "types": "./dist/registry.d.ts",
+      "import": "./dist/registry.js"
+    }
   },
   "scripts": {
     "prepack": "cd ../.. && pnpm build"
@@ -48,13 +101,22 @@
   "dependencies": {
     "@clidoc/core": "^1.0.0",
     "@clidoc/yargs": "^1.1.0",
+    "@sinclair/typebox": "^0.34.41",
     "ajv": "^8.20.0",
     "chokidar": "^5.0.0",
     "humanize-units": "^2.0.4",
     "p-limit": "^7.3.3",
+    "puppeteer": "^24.40.0",
+    "react": "^19.2.5",
     "sharp": "^0.35.4",
+    "ulid": "^3.0.2",
     "yargs": "^18.0.0",
     "yargs-file-commands": "^2.1.0",
     "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "@types/react": "^19.2.14",
+    "@types/yargs": "^17.0.35"
   }
 }

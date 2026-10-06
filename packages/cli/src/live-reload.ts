@@ -78,7 +78,13 @@ export async function watchLiveReload(root: string, liveReload: LiveReload) {
   const base = resolve(root);
   const relevant = (path: string) => {
     const rel = relative(base, path).split(sep).join('/');
-    return rel === 'index.json' || rel === 'README.md' || rel.endsWith('/README.md');
+    return (
+      rel === 'index.json' ||
+      rel === 'site.json' ||
+      rel === 'performance/index.json' ||
+      rel === 'README.md' ||
+      rel.endsWith('/README.md')
+    );
   };
   const watcher = watch(base, {
     ignoreInitial: true,

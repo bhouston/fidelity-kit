@@ -24,6 +24,9 @@ export const command = defineCommand({
         default: defaultCachePolicy.staleWhileRevalidate,
         describe: 'Seconds a stale image may be served while it refreshes in the background',
       })
+      .option('registry', { alias: 'suite', type: 'string', describe: 'Unified scene and renderer configuration file' })
+      .option('root-url', { type: 'string', describe: 'Render server URL override' })
+      .option('performance-root', { type: 'string', describe: 'Performance results directory' })
       .option('concurrency', { type: 'number', describe: 'Image pairs compared in parallel (default: CPU count)' })
       .option('process', { type: 'boolean', default: true, describe: 'Refresh stale metrics/deltas before serving' }),
   handler: (argv) => run(argv, false),

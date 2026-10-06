@@ -165,3 +165,20 @@ Created by [Ben Houston](https://github.com/bhouston) and sponsored by [Land of 
 [discord-url]: https://discord.gg/5J5Ur3F6Z2
 [docs-badge]: https://img.shields.io/badge/Docs-Read-2b77aa
 [docs-url]: https://fidelity-kit.ben3d.ca/
+
+## Unified rendering suites
+
+A single `fidelity-kit` package provides fidelity image processing, performance benchmarks, browser reporting, and a unified React/Tailwind/shadcn/TanStack site. `fidelity-kit/registry` validates the renderer/scene registry; `fidelity-kit/browser/host` mounts a project-provided session factory for captures, benchmarks, and live interaction. `fidelity-kit/runner` exposes performance orchestration and processing without changing historical result formats.
+
+```sh
+fidelity-kit render --registry registry.json --root-url http://127.0.0.1:5173/ --out fidelity-results
+fidelity-kit benchmark --registry registry.json --collection default --machine workstation --out performance-results
+fidelity-kit dev fidelity-results --registry registry.json --performance-root performance-results
+fidelity-kit build fidelity-results --registry registry.json --performance-root performance-results --out site
+```
+
+Configure `renderServer.developmentUrl`, `renderServer.deployedUrl`, and `entry`. The root URL is independently overridable for any environment. The static site may embed a render server hosted on another origin; messages are checked against that origin, iframe source, and a fresh session token. A deployed endpoint is required for static builds. The home page shows the results README, configured fidelity hero, and the three section links. Live mode fixes the canvas at 1920 × 1080, publishes local telemetry without recording results, and requires Start Benchmark to apply selection changes.
+
+External renderers use an argv command producer with `{job}` (JSON job) and `{output}` (absolute artifact path) substitutions. Browser renderers are the canonical path for fidelity/performance/live parity; native diagnostic backends can remain project tools. Performance collections explicitly opt in renderer/scene pairs. References remain machine independent; performance and convergence measurements retain the machine dimension.
+
+Automated throughput benchmarks disable vsync and frame-rate limits, warm up for one second, then count GPU-completed frames over the configured sustained window. Bounded batches include the full render pipeline and drain GPU work before publication and teardown. Individual frame timings are retained only when reading historical results; new throughput runs do not collect them. Live UI telemetry remains interactive and unpersisted.

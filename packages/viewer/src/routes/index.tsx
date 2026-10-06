@@ -1,5 +1,7 @@
+import { HomePage } from '#/components/HomePage';
+
 import { Link, createFileRoute, getRouteApi, useNavigate } from '@tanstack/react-router';
-import { useEffect, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import type { SceneNode, SuiteIndex } from 'fidelity-kit';
 import { BookmarkHeading } from '#/components/BookmarkHeading';
 import Header from '#/components/Header';
@@ -25,11 +27,17 @@ import {
   type ViewSearch,
 } from '#/lib/view';
 
+const PerformancePage = lazy(() =>
+  import('#/components/performance/main').then((module) => ({ default: module.PerformancePage })),
+);
+const LivePage = lazy(() => import('#/components/LivePage').then((module) => ({ default: module.LivePage })));
 const root = getRouteApi('__root__');
 
 export const Route = createFileRoute('/')({
   validateSearch: validateViewSearch,
-  loaderDeps: ({ search }) => ({ scene: search.scene }),
+  loaderDeps: ({ search }) => ({
+    scene: search.view === 'fidelity' || (!search.view && search.scene) ? search.scene : undefined,
+  }),
   // the page content: a scene's README (`?scene=`) or the suite preamble
   loader: ({ deps }) => (deps.scene ? getReadme(deps.scene) : getPreamble()),
   component: Index,
@@ -37,7 +45,20 @@ export const Route = createFileRoute('/')({
 
 function Index() {
   const content = Route.useLoaderData();
-  const { scene } = Route.useSearch();
+  const { scene, view } = Route.useSearch();
+  if (view === 'live')
+    return (
+      <Suspense fallback={<p className="p-6">Loading live viewer…</p>}>
+        <LivePage />
+      </Suspense>
+    );
+  if (view === 'performance')
+    return (
+      <Suspense fallback={<p className="p-6">Loading performance results…</p>}>
+        <PerformancePage />
+      </Suspense>
+    );
+  if ((!view && !scene) || view === 'home') return <HomePage readme={content} />;
   return scene ? <SceneDetail path={scene} readme={content} /> : <SceneList preamble={content} />;
 }
 
@@ -157,7 +178,7 @@ function SceneRow({
           className="text-base font-semibold"
           id={scene.path}
         >
-          <Link search={{ ...search, scene: scene.path }} to="/">
+          <Link search={{ ...search, view: 'fidelity', scene: scene.path }} to="/">
             {scene.title}
           </Link>
         </BookmarkHeading>
@@ -232,7 +253,16 @@ function SceneLink({
   children: ReactNode;
 }) {
   return (
-    <Link hash={hash} search={{ ...search, scene: scene.path }} to="/">
+    <Link
+      hash={hash}
+      search={{
+        ...search,
+        view: 'fidelity',
+        scene: scene.path,
+        renderer: hash?.startsWith('vs-') ? hash.slice(3) : undefined,
+      }}
+      to="/"
+    >
       {children}
     </Link>
   );

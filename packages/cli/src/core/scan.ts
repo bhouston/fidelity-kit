@@ -222,7 +222,13 @@ export async function scanSuite(
             });
     }
     const children = entries
-      .filter((e) => e.isDirectory() && !e.name.startsWith('.') && !outputIds.has(e.name))
+      .filter(
+        (e) =>
+          e.isDirectory() &&
+          !e.name.startsWith('.') &&
+          !outputIds.has(e.name) &&
+          !(rel === '' && e.name === 'performance'),
+      )
       .toSorted((a, b) => a.name.localeCompare(b.name));
     total += children.length;
     report();

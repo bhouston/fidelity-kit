@@ -25,6 +25,7 @@ export async function runCli(argv = hideBin(process.argv)): Promise<void> {
     fromYargsAsync([...commands, docgen], { title: 'fidelity-kit', binary: 'fidelity-kit', version: '0.1.0' }),
   );
   await yargs(argv)
+    .parserConfiguration({ 'duplicate-arguments-array': true })
     .scriptName('fidelity-kit')
     .usage('$0 <command>')
     .command([...commands, docgen])

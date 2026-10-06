@@ -2,9 +2,13 @@ packages:
   - packages/*
 
 overrides:
+  basic-ftp: '>=6.2.1'
+  tinypool: '>=2.1.2'
+  source-map-js: '>=1.2.2'
   conventional-changelog-conventionalcommits: 9.3.1
 
 allowBuilds:
   core-js: false
   esbuild: true
+  puppeteer: false
   sharp: true

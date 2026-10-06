@@ -11,7 +11,13 @@ export const deltaFile = (renderer: string, reference: string, extension: '.webp
 /** The only suite files the viewer may read; also what `build` exports and `hash` covers. */
 export function isDataFile(rel: string): boolean {
   if (rel.split('/').some((s) => s.startsWith('.') || s === '..')) return false;
-  return rel === 'index.json' || rel === 'README.md' || rel.endsWith('/README.md') || isLogoFile(rel);
+  if (rel.startsWith('performance/'))
+    return /^(?:performance\/index\.json|performance\/README\.md|performance\/[^/]+\/[^/]+\/[^/]+\/(?:metrics\.json|screenshot\.avif|reference\.png|diff\.png))$/.test(
+      rel,
+    );
+  return (
+    rel === 'site.json' || rel === 'index.json' || rel === 'README.md' || rel.endsWith('/README.md') || isLogoFile(rel)
+  );
 }
 
 /** Supported local branding assets, independent of renderer input formats. */

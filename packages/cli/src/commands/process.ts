@@ -1,3 +1,4 @@
+import { processResults } from '../performance/storage.js';
 import { processSuite, type ProcessResult } from '../core/index.js';
 import { defineCommand } from 'yargs-file-commands';
 import { watchResults } from '../watch.js';
@@ -21,6 +22,7 @@ export const command = defineCommand({
         demandOption: true,
         describe: 'Suite results directory (contains fidelity.json)',
       })
+      .option('performance-root', { type: 'string', describe: 'Also process machine-specific performance results' })
       .option('concurrency', { type: 'number', describe: 'Image pairs compared in parallel (default: CPU count)' })
       .option('quiet', { type: 'boolean', default: false, describe: 'Suppress progress and summary output' })
       .option('force', { type: 'boolean', default: false, describe: 'Recompute even when up to date' })
@@ -30,6 +32,7 @@ export const command = defineCommand({
         describe: 'Keep metrics, deltas, and index updated as results change',
       }),
   handler: async (argv) => {
+    if (argv.performanceRoot) await processResults(argv.performanceRoot);
     const progress = createProgress('process', argv.quiet);
     const options = {
       force: argv.force,

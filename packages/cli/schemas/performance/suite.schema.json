@@ -1,0 +1,192 @@
+{
+  "additionalProperties": false,
+  "$id": "https://unpkg.com/fidelity-kit/schemas/performance/suite.schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "name", "entries"],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "schemaVersion": {
+      "const": 1,
+      "type": "number"
+    },
+    "name": {
+      "type": "string"
+    },
+    "phaseColors": {
+      "type": "object",
+      "patternProperties": {
+        "^(.*)$": {
+          "minLength": 1,
+          "type": "string"
+        }
+      }
+    },
+    "defaults": {
+      "additionalProperties": false,
+      "type": "object",
+      "properties": {
+        "order": {
+          "anyOf": [
+            {
+              "const": "interleaved",
+              "type": "string"
+            },
+            {
+              "const": "sequential",
+              "type": "string"
+            }
+          ]
+        },
+        "initTimeoutMs": {
+          "exclusiveMinimum": 0,
+          "type": "number"
+        },
+        "capture": {
+          "type": "boolean"
+        },
+        "vsync": {
+          "anyOf": [
+            {
+              "const": "on",
+              "type": "string"
+            },
+            {
+              "const": "off",
+              "type": "string"
+            }
+          ]
+        },
+        "networkProfile": {
+          "minLength": 1,
+          "type": "string"
+        }
+      }
+    },
+    "networkProfiles": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["name", "latencyMs", "downloadBytesPerSec", "uploadBytesPerSec"],
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "latencyMs": {
+            "minimum": 0,
+            "type": "number"
+          },
+          "downloadBytesPerSec": {
+            "anyOf": [
+              {
+                "const": -1,
+                "type": "number"
+              },
+              {
+                "exclusiveMinimum": 0,
+                "type": "number"
+              }
+            ]
+          },
+          "uploadBytesPerSec": {
+            "anyOf": [
+              {
+                "const": -1,
+                "type": "number"
+              },
+              {
+                "exclusiveMinimum": 0,
+                "type": "number"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "entries": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "name", "renderer", "scene", "url", "durationMs"],
+        "properties": {
+          "id": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "renderer": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": ["id", "name"],
+            "properties": {
+              "id": {
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+                "type": "string"
+              },
+              "name": {
+                "minLength": 1,
+                "type": "string"
+              }
+            }
+          },
+          "scene": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": ["id", "name"],
+            "properties": {
+              "id": {
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+                "type": "string"
+              },
+              "name": {
+                "minLength": 1,
+                "type": "string"
+              }
+            }
+          },
+          "url": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "durationMs": {
+            "exclusiveMinimum": 0,
+            "type": "number"
+          },
+          "params": {
+            "type": "object",
+            "patternProperties": {
+              "^(.*)$": {}
+            }
+          },
+          "reference": {
+            "additionalProperties": false,
+            "type": "object",
+            "required": ["image"],
+            "properties": {
+              "image": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "intervalMs": {
+                "minimum": 16,
+                "type": "number"
+              },
+              "targetPsnr": {
+                "minimum": 0,
+                "type": "number"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
