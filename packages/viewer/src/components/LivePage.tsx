@@ -62,11 +62,12 @@ export function LivePage() {
     const url = new URL(site.rendererUrl);
     const token = crypto.randomUUID();
     url.searchParams.set('fidelityKitMode', 'live');
+    url.searchParams.set('fidelityKitViewport', 'responsive');
     url.searchParams.set('fidelityKitOrigin', location.origin);
     url.searchParams.set('fidelityKitSession', token);
     url.searchParams.set(
       'fidelityKitParams',
-      JSON.stringify({ ...rendererParams(site.registry, renderer, scene), width: 1920, height: 1080, seed: 1 }),
+      JSON.stringify({ ...rendererParams(site.registry, renderer, scene), seed: 1 }),
     );
     setSetup(undefined);
     setFrames([]);
@@ -114,7 +115,7 @@ export function LivePage() {
           <h2>{active ? `${active.scene} / ${active.renderer}` : '3D view'}</h2>
           <output>{status}</output>
         </div>
-        <div className="live-viewport overflow-auto">
+        <div className="live-viewport">
           {active ? (
             <iframe
               key={active.token}
@@ -122,18 +123,16 @@ export function LivePage() {
               title="Live 3D scene"
               sandbox="allow-scripts allow-same-origin allow-pointer-lock"
               src={active.url}
-              width="1920"
-              height="1080"
               allow="cross-origin-isolated; fullscreen"
             />
           ) : (
-            <div className="aspect-video flex items-center justify-center bg-muted/20">
+            <div className="h-full flex items-center justify-center bg-muted/20">
               Click Start Benchmark to load the scene.
             </div>
           )}
         </div>
         <p className="mt-3 text-sm text-muted-foreground">
-          1920 × 1080 · Drag to orbit, scroll to zoom. Click the view, then use WASD or arrow keys to move.
+          Fits the window ? Drag to orbit, scroll to zoom. Click the view, then use WASD or arrow keys to move.
         </p>
       </section>
       <FrameChart frames={frames} />

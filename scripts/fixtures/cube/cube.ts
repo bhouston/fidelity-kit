@@ -100,6 +100,12 @@ const createCube: SessionFactory = async (params, reporter, host) => {
     canvas,
     draw,
     complete,
+    resize(width, height) {
+      canvas.width = width;
+      canvas.height = height;
+      gl.viewport(0, 0, width, height);
+      gl.uniform1f(gl.getUniformLocation(program, 'aspect'), width / height);
+    },
     dispose() {
       state.disposed = true;
       gl.deleteBuffer(buffer);

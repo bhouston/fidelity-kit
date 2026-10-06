@@ -15,12 +15,17 @@
   background: var(--background);
   max-width: 100%;
 }
+.live-viewport {
+  width: 100%;
+  height: max(240px, calc(100dvh - 340px));
+  overflow: hidden;
+}
 .live-viewport iframe {
   display: block;
   border: 0;
-  width: 1920px;
-  height: 1080px;
-  max-width: none;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
 }
 .live-panel h2 {
   font-weight: 600;
