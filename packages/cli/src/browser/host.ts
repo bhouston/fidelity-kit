@@ -101,13 +101,16 @@ export async function mountRenderHost(createSession: SessionFactory): Promise<vo
       return;
     }
     let previous = performance.now();
-    const tick = (time: number) => {
+    const tick = async (time: number) => {
       if (stopped || (automated && !reporter.running)) return;
       try {
         session!.draw((time - previous) / 1000);
         previous = time;
-        animation = requestAnimationFrame(tick);
+        // Keep one live frame in flight so a slow adapter cannot accumulate queued GPU work.
+        await session!.complete();
+        if (!stopped) animation = requestAnimationFrame(tick);
       } catch (error) {
+        if (stopped) return;
         if (automated) reporter.fail(error);
         send('error', String(error));
         stop();

@@ -45,10 +45,13 @@ beforeEach(() => {
       hide = listener;
     },
   });
-  vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
-    tick = callback;
-    return 1;
-  });
+  vi.stubGlobal(
+    'requestAnimationFrame',
+    vi.fn((callback: FrameRequestCallback) => {
+      tick = callback;
+      return 1;
+    }),
+  );
   vi.stubGlobal('cancelAnimationFrame', vi.fn());
 });
 afterEach(() => {
@@ -146,6 +149,49 @@ describe('shared render host contracts', () => {
     expect(rendered.dispose).toHaveBeenCalledOnce();
     expect(messages).toEqual([]);
     expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('waits for the live frame to finish before scheduling another frame and does not restart after unload', async () => {
+    locationFor('live');
+    const rendered = session();
+    let finish!: () => void;
+    rendered.complete = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    await mountRenderHost(async () => rendered);
+    tick(16);
+    expect(rendered.draw).toHaveBeenCalledOnce();
+    expect(requestAnimationFrame).toHaveBeenCalledOnce();
+    finish();
+    await Promise.resolve();
+    expect(requestAnimationFrame).toHaveBeenCalledTimes(2);
+
+    tick(32);
+    expect(rendered.draw).toHaveBeenCalledTimes(2);
+    expect(requestAnimationFrame).toHaveBeenCalledTimes(2);
+    hide();
+    finish();
+    await Promise.resolve();
+    expect(requestAnimationFrame).toHaveBeenCalledTimes(2);
+    expect(rendered.dispose).toHaveBeenCalledOnce();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('reports a failed live GPU completion and stops scheduling frames', async () => {
+    locationFor('live');
+    const rendered = session();
+    rendered.complete = vi.fn(async () => {
+      throw new Error('GPU completion failed');
+    });
+    await mountRenderHost(async () => rendered);
+    tick(16);
+    await Promise.resolve();
+    expect(messages.at(-1)).toMatchObject({ kind: 'error', data: 'Error: GPU completion failed' });
+    expect(requestAnimationFrame).toHaveBeenCalledOnce();
+    expect(rendered.dispose).toHaveBeenCalledOnce();
   });
 
   it.each([{ frames: 0 }, { frames: 1.5 }, { samples: -1 }])(
