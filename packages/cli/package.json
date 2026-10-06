@@ -114,6 +114,8 @@
     "zod": "^4.0.0"
   },
   "devDependencies": {
-    "@types/react": "^19.2.14"
+    "@types/node": "^25.6.0",
+    "@types/react": "^19.2.14",
+    "@types/yargs": "^17.0.35"
   }
 }
