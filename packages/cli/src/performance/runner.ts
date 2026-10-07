@@ -29,6 +29,8 @@ export interface RunOptions {
   machineName?: string;
   renderer?: string[];
   scene?: string[];
+  renderers?: string;
+  scenes?: string;
   headful?: boolean;
   live?: boolean;
   host?: string;

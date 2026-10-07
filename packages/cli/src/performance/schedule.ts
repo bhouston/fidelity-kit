@@ -1,16 +1,28 @@
+import { selectNames } from '../select.js';
 import type { Entry, Suite } from '../schema/index.js';
 export interface ScheduledRun {
   entry: Entry;
 }
 export function scheduleSuite(
   suite: Suite,
-  options: { renderer?: string[]; scene?: string[]; seed?: number } = {},
+  options: { renderer?: string[]; scene?: string[]; renderers?: string; scenes?: string; seed?: number } = {},
 ): ScheduledRun[] {
   if (options.seed !== undefined && !Number.isFinite(options.seed)) throw new Error('seed must be finite');
+  const rendererNames = [...new Set(suite.entries.map((entry) => entry.renderer.id))];
+  const sceneNames = [...new Set(suite.entries.map((entry) => entry.scene.id))];
+  const rendererIds = options.renderer?.length
+    ? selectNames(rendererNames, options.renderer.join(','), 'renderer')
+    : undefined;
+  const sceneIds = options.scene?.length ? selectNames(sceneNames, options.scene.join(','), 'scene') : undefined;
+  const rendererGlobs =
+    options.renderers === undefined ? undefined : selectNames(rendererNames, options.renderers, 'renderer');
+  const sceneGlobs = options.scenes === undefined ? undefined : selectNames(sceneNames, options.scenes, 'scene');
   const entries = suite.entries.filter(
     (entry) =>
-      (!options.renderer?.length || options.renderer.includes(entry.renderer.id)) &&
-      (!options.scene?.length || options.scene.includes(entry.scene.id)),
+      (!rendererIds || rendererIds.includes(entry.renderer.id)) &&
+      (!sceneIds || sceneIds.includes(entry.scene.id)) &&
+      (!rendererGlobs || rendererGlobs.includes(entry.renderer.id)) &&
+      (!sceneGlobs || sceneGlobs.includes(entry.scene.id)),
   );
   let state = options.seed ?? 1;
   const shuffle = (values: Entry[]) => {

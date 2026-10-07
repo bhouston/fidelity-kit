@@ -14,8 +14,14 @@ const command: CommandModule = {
       .option('new-run', { type: 'boolean', describe: 'Start a new dated run without prompting' })
       .option('session', { type: 'string', describe: 'Add to an existing YYYY-MM-DD-HH-MM run, or latest' })
       .option('machine-name', { type: 'string', describe: 'Human-readable machine description saved to machine.json' })
-      .option('renderer', { type: 'array', string: true, describe: 'Include these renderer configuration IDs' })
-      .option('scene', { type: 'array', string: true, describe: 'Include these scene IDs' })
+      .option('renderer', {
+        type: 'array',
+        string: true,
+        describe: 'Renderer ID glob(s), repeatable or comma separated',
+      })
+      .option('scene', { type: 'array', string: true, describe: 'Scene ID glob(s), repeatable or comma separated' })
+      .option('renderers', { type: 'string', describe: 'Renderer ID glob(s), comma separated; intersects --renderer' })
+      .option('scenes', { type: 'string', describe: 'Scene ID glob(s), comma separated; intersects --scene' })
       .option('headful', { type: 'boolean', default: false })
       .option('live', { type: 'boolean', default: false })
       .option('host', { type: 'string', default: 'localhost' })
@@ -53,6 +59,8 @@ const command: CommandModule = {
       machineName: args.machineName as string | undefined,
       renderer: args.renderer as string[] | undefined,
       scene: args.scene as string[] | undefined,
+      renderers: args.renderers as string | undefined,
+      scenes: args.scenes as string | undefined,
       headful: args.headful as boolean,
       live: args.live as boolean,
       host: args.host as string,

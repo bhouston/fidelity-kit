@@ -219,3 +219,16 @@ remain readable and appear as **Undated**. Processing and static exports include
 
 Low-level `writeRun` and `processResult` callers can pass the session as the final argument;
 omitting it retains the legacy undated layout for compatibility.
+
+### Benchmark filters
+
+`benchmark --renderer 'three-*' --scene 'model-*-w'` matches workload IDs using the
+same glob matcher as `render`. Filters accept exact IDs, `*`, `?`, character classes,
+brace alternatives, comma-separated patterns, and repeated options. Renderer and scene
+filters intersect; matching workloads run once in collection order (or seeded order).
+Unmatched patterns fail before Chrome launches and list available IDs in the collection.
+
+The plural aliases `--renderers` and `--scenes` accept comma-separated globs, as in
+`render`; when combined with singular options, their selections intersect. Filters
+select workloads already defined in the performance collection; they do not generate
+new renderer/scene combinations.
