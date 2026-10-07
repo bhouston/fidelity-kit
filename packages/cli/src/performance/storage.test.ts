@@ -1,4 +1,4 @@
-import { it, expect } from 'vitest';
+import { it, expect, vi } from 'vitest';
 import sharp from 'sharp';
 import { RESULT_AVIF } from './capture.js';
 import { mkdtemp, readFile, readdir, rm, writeFile, stat } from 'node:fs/promises';
@@ -262,6 +262,75 @@ it('rejects machine metadata or recorded machine IDs that do not match their fol
     await writeFile(file, JSON.stringify(metrics));
     await expect(processResults(root)).rejects.toThrow('Result metadata does not match');
   } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+it('retains independent dated sessions alongside legacy results through processing and publishing', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'benchmark-history-'));
+  const site = await mkdtemp(join(tmpdir(), 'benchmark-history-site-'));
+  try {
+    const { benchmarkSession, sessionDate } = await import('./storage.js');
+    const older = benchmarkSession(new Date('2026-10-05T12:34:56.789Z'));
+    const newer = benchmarkSession(new Date('2026-10-06T12:34:56.789Z'));
+    expect(sessionDate(newer)).toBe('2026-10-06T12:34:00.000Z');
+    expect(() => sessionDate('../invalid')).toThrow();
+    expect(() => sessionDate('2026-02-30-12-00')).toThrow();
+    await writeRun(root, 'mac', structuredClone(result));
+    await writeRun(root, 'mac', { ...structuredClone(result), runId: 'older' }, undefined, undefined, older);
+    await writeRun(root, 'mac', { ...structuredClone(result), runId: 'newer' }, undefined, undefined, newer);
+    const index = await processResults(root);
+    expect(index.results).toHaveLength(3);
+    expect((await scanResults(root)).runs.map((item) => item.result.runId).toSorted()).toEqual([
+      'newer',
+      'older',
+      'test',
+    ]);
+    await processResult(root, 'mac', 'test', 'cube', undefined, newer);
+    expect((await readReportIndex(root)).results).toEqual(index.results);
+    await buildReport(root, site);
+    for (const item of index.results) {
+      expect(await readFile(join(site, 'data/performance', item.metrics), 'utf8')).toBe(
+        await readFile(join(root, item.metrics), 'utf8'),
+      );
+    }
+    expect(index.results.filter((item) => item.session).map((item) => item.recordedAt)).toEqual([
+      '2026-10-05T12:34:00.000Z',
+      '2026-10-06T12:34:00.000Z',
+    ]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(site, { recursive: true, force: true });
+  }
+});
+
+it('asks whether to resume the latest run and requires an explicit choice without a terminal', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-10-06T12:34:56.789Z'));
+  const root = await mkdtemp(join(tmpdir(), 'benchmark-choice-'));
+  try {
+    const { chooseBenchmarkSession, sessionDate } = await import('./storage.js');
+    const session = await chooseBenchmarkSession(root, 'mac');
+    expect(session).toMatch(/^\d{4}-\d{2}-\d{2}-\d{2}-\d{2}$/);
+    expect(sessionDate(session)).toMatch(/:00\.000Z$/);
+    await expect(chooseBenchmarkSession(root, 'mac')).rejects.toThrow('Choose --new-run');
+    let asked = '';
+    expect(
+      await chooseBenchmarkSession(root, 'mac', {}, async (latest) => {
+        asked = latest;
+        return 'existing';
+      }),
+    ).toBe(session);
+    expect(asked).toBe(session);
+    expect(await chooseBenchmarkSession(root, 'mac', { session: 'latest' })).toBe(session);
+    expect(await chooseBenchmarkSession(root, 'mac', { session })).toBe(session);
+    await expect(chooseBenchmarkSession(root, 'mac', { session: '2020-01-01-12-00' })).rejects.toThrow(
+      'does not exist',
+    );
+    await expect(chooseBenchmarkSession(root, 'mac', { session, newRun: true })).rejects.toThrow('either');
+    await expect(chooseBenchmarkSession(root, 'mac', {}, async () => 'new')).rejects.toThrow('already started');
+  } finally {
+    vi.useRealTimers();
     await rm(root, { recursive: true, force: true });
   }
 });

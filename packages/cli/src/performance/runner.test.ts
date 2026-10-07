@@ -90,7 +90,10 @@ describe('runner lifecycle', () => {
       expect(result.results).toHaveLength(2);
       expect(launch).toHaveBeenCalledTimes(2);
       expect(launch.mock.calls[0]![0].args).toContain('--use-angle=vulkan');
-      const raw = JSON.parse(await readFile(join(result.out, 'bench/test/cube/metrics.json'), 'utf8'));
+      const index = JSON.parse(await readFile(join(result.out, 'index.json'), 'utf8'));
+      expect(new Set(index.results.map((item: { session: string }) => item.session)).size).toBe(1);
+      expect(index.results[0].recordedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+      const raw = JSON.parse(await readFile(join(result.out, index.results[0].metrics), 'utf8'));
       expect(raw.environment.host.machineId).toBe('bench');
       expect(JSON.parse(await readFile(join(result.out, 'bench/machine.json'), 'utf8'))).toEqual({
         id: 'bench',
@@ -140,7 +143,9 @@ describe('runner lifecycle', () => {
       expect(timeout.results[0].status).toBe('timeout');
       expect(timeout.results[0].reporter.frames).toEqual([]);
       expect(
-        JSON.parse(await readFile(join(timeout.out, defaultMachineId(), 'test/cube/metrics.json'), 'utf8')).status,
+        JSON.parse(
+          await readFile(join(timeout.out, defaultMachineId(), timeout.session, 'test/cube/metrics.json'), 'utf8'),
+        ).status,
       ).toBe('timeout');
     } finally {
       fixture.environment = {};

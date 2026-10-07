@@ -77,6 +77,7 @@ export function readRoute(url: URL) {
     result: url.searchParams.get('result'),
     query: url.searchParams.get('q') ?? '',
     machine: url.searchParams.get('machine') ?? '',
+    session: url.searchParams.get('session') ?? '',
     renderer: url.searchParams.get('renderer') ?? '',
     scene: url.searchParams.get('scene') ?? '',
   };
@@ -101,4 +102,16 @@ export function timeTicks(maxTime: number, plotWidth: number) {
     ticks.push(maxTime);
   }
   return ticks;
+}
+
+/** Dated sessions newest first, with legacy undated results last. */
+export function benchmarkSessions(items: { session?: string; recordedAt?: string }[]): string[] {
+  const dates = new Map(items.map((item) => [item.session ?? '', item.recordedAt ?? '']));
+  return [...dates.keys()].toSorted(
+    (a, b) => (dates.get(b) ?? '').localeCompare(dates.get(a) ?? '') || b.localeCompare(a),
+  );
+}
+export function selectBenchmarkSession(items: { session?: string; recordedAt?: string }[], selected: string): string {
+  const sessions = benchmarkSessions(items);
+  return sessions.includes(selected) && selected !== '' ? selected : (sessions[0] ?? '');
 }

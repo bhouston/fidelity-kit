@@ -53,7 +53,9 @@ export async function startServer(options: {
           (path) =>
             path !== 'README.md' &&
             path !== 'index.json' &&
-            (path.split('/').length < 3 || /^[^/]+\/machine\.json$/.test(path)),
+            (path.split('/').length < 3 ||
+              /^\d{4}-/.test(path.split('/')[1] ?? '') ||
+              /^[^/]+\/machine\.json$/.test(path)),
         );
       const triples = new Set(
         paths
@@ -221,8 +223,9 @@ export async function startServer(options: {
         return;
       }
       const isResult =
-        /^\/[^/]+\/[^/]+\/[^/]+\/(?:raw\.json|metrics\.json|screenshot\.avif|reference\.png|diff\.png)$/.test(path) ||
-        path === '/README.md';
+        /^\/[^/]+\/(?:\d{4}-\d{2}-\d{2}-\d{2}-\d{2}\/)?[^/]+\/[^/]+\/(?:raw\.json|metrics\.json|screenshot\.avif|reference\.png|diff\.png)$/.test(
+          path,
+        ) || path === '/README.md';
       const reporter = path.startsWith('/reporter/');
       const root = resolve(
         reporter
