@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { mkdtemp, writeFile, readFile, rm, access } from 'node:fs/promises';
+import { mkdtemp, writeFile, readFile, rm, access, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createRequire } from 'node:module';
@@ -41,6 +41,7 @@ const execute = (args) =>
     { maxBuffer: 16 * 1024 * 1024 },
   );
 let browser;
+let historyServer;
 try {
   const registry = {
     schemaVersion: 1,
@@ -128,7 +129,9 @@ try {
     '--executable-path',
     chrome,
   ]);
-  const metrics = JSON.parse(await readFile(join(work, 'performance/contract/cube/cube/metrics.json'), 'utf8'));
+  const history = JSON.parse(await readFile(join(work, 'performance/index.json'), 'utf8'));
+  assert.match(history.results[0].session, /^\d{4}-\d{2}-\d{2}-\d{2}-\d{2}$/);
+  const metrics = JSON.parse(await readFile(join(work, 'performance', history.results[0].metrics), 'utf8'));
   assert.equal(metrics.status, 'ok');
   assert.equal(metrics.config.vsync, 'off');
   assert.ok(metrics.throughput.elapsed >= 5);
@@ -138,6 +141,92 @@ try {
   assert.equal(metrics.statistics.intervalCount, 0);
   assert.ok(metrics.environment.chromeFlags.includes('--disable-gpu-vsync'));
   assert.ok(metrics.environment.chromeFlags.includes('--disable-frame-rate-limit'));
+  // Verify actual dropdown behavior, historical detail URLs, restart choice, and live refresh.
+  const performanceRoot = join(work, 'performance');
+  const olderSession = '2000-01-01-00-00';
+  const historicalFolder = join(performanceRoot, 'contract', olderSession, 'cube/cube');
+  await mkdir(historicalFolder, { recursive: true });
+  const historical = structuredClone(metrics);
+  historical.runId = 'historical';
+  historical.entry.renderer.name = 'Historical cube';
+  historical.screenshot = false;
+  await writeFile(join(historicalFolder, 'metrics.json'), JSON.stringify(historical));
+  const otherFolder = join(performanceRoot, 'other', '2001-01-01-00-00', 'cube/cube');
+  await mkdir(otherFolder, { recursive: true });
+  const other = structuredClone(historical);
+  other.environment.host.machineId = 'other';
+  other.entry.renderer.name = 'Other machine cube';
+  await writeFile(join(otherFolder, 'metrics.json'), JSON.stringify(other));
+  await assert.rejects(
+    execute(['benchmark', '--registry', registryFile, '--out', performanceRoot, '--machine', 'contract']),
+    /Choose --new-run or --session/,
+  );
+  const { startServer } = await import('../packages/cli/dist/performance/server.js');
+  historyServer = await startServer({ out: performanceRoot, host: '127.0.0.1', port: 0, watchResults: true });
+  browser = await puppeteer.launch({ executablePath: chrome, headless: true, args: ['--no-sandbox'] });
+  const viewer = await browser.newPage();
+  await viewer.goto(historyServer.url + '/?view=performance');
+  const selector = 'select[aria-label="Benchmark date-times"]';
+  await viewer.waitForSelector(selector);
+  await viewer.waitForFunction(() => document.querySelectorAll('.card-heading').length === 1);
+  assert.match(await viewer.$eval('.card-heading', (element) => element.textContent), /WebGL cube/);
+  const options = await viewer.$$eval('select[aria-label="Benchmark date-times"] option', (elements) =>
+    elements.map((element) => element.textContent),
+  );
+  assert.ok(options.includes(olderSession + ' UTC'));
+  await viewer.select(selector, olderSession);
+  await viewer.waitForFunction(() => document.querySelector('.card-heading')?.textContent.includes('Historical cube'));
+  await viewer.waitForFunction(
+    (session) => new URL(location.href).searchParams.get('session') === session,
+    {},
+    olderSession,
+  );
+  await viewer.click('.card-heading a');
+  await viewer.waitForFunction(() => new URL(location.href).searchParams.has('result'));
+  const detailUrl = viewer.url();
+  await viewer.reload();
+  await viewer.waitForFunction(() => document.querySelector('h1')?.textContent.includes('Historical cube'));
+  assert.equal(new URL(detailUrl).searchParams.get('session'), olderSession);
+  // A resumed run retains history and only replaces the remeasured workload.
+  await execute([
+    'benchmark',
+    '--registry',
+    registryFile,
+    '--out',
+    performanceRoot,
+    '--machine',
+    'contract',
+    '--session',
+    'latest',
+    '--allow-software',
+    '--executable-path',
+    chrome,
+  ]);
+  const resumed = JSON.parse(await readFile(join(performanceRoot, 'index.json'), 'utf8'));
+  assert.equal(resumed.results.length, 3);
+  assert.ok(resumed.results.some((result) => result.session === history.results[0].session));
+  assert.equal(JSON.parse(await readFile(join(historicalFolder, 'metrics.json'), 'utf8')).runId, 'historical');
+  await viewer.waitForFunction(() => document.querySelector('h1')?.textContent.includes('Historical cube'));
+  await viewer.goto(historyServer.url + '/?view=performance');
+  await viewer.waitForSelector(selector);
+  await viewer.waitForFunction(() => document.querySelector('.card-heading')?.textContent.includes('WebGL cube'));
+  await viewer.select(selector, olderSession);
+  await viewer.waitForFunction(() => document.querySelector('.card-heading')?.textContent.includes('Historical cube'));
+  await viewer.select('select[aria-label="Machines"]', 'other');
+  await viewer.waitForFunction(() =>
+    document.querySelector('.card-heading')?.textContent.includes('Other machine cube'),
+  );
+  assert.equal(await viewer.$eval(selector, (element) => element.value), '__latest');
+  await viewer.select('select[aria-label="Machines"]', 'contract');
+  await viewer.waitForFunction(() => document.querySelector('.card-heading')?.textContent.includes('WebGL cube'));
+  const newestSession = '2099-01-01-00-00';
+  const newestFolder = join(performanceRoot, 'contract', newestSession, 'cube/cube');
+  await mkdir(newestFolder, { recursive: true });
+  const newest = structuredClone(historical);
+  newest.entry.renderer.name = 'Newest cube';
+  await writeFile(join(newestFolder, 'metrics.json'), JSON.stringify(newest));
+  await viewer.waitForFunction(() => document.querySelector('.card-heading')?.textContent.includes('Newest cube'));
+  await viewer.close();
   registry.renderers[0].params = { failSetup: true };
   await writeFile(registryFile, JSON.stringify(registry));
   await assert.rejects(
@@ -146,10 +235,11 @@ try {
   );
   await assert.rejects(access(join(work, 'failure/cube/beauty/cube.avif')));
   console.log(
-    'Passed cube contracts: cross-origin live telemetry without persistence, visible GPU rendering, disposal, exact completed capture frames, render CLI, sustained GPU-completed throughput without frame timing, surfaced setup failures.',
+    'Passed cube contracts: cross-origin live telemetry without persistence, visible GPU rendering, disposal, exact completed capture frames, render CLI, sustained GPU-completed throughput without frame timing, surfaced setup failures, dated benchmark dropdowns, historical detail URLs, resumed runs, and live session refresh.',
   );
 } finally {
   await browser?.close();
+  await historyServer?.close();
   await renderer.close();
   parent.closeAllConnections();
   await new Promise((done) => parent.close(done));

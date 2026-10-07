@@ -11,6 +11,8 @@ const command: CommandModule = {
         type: 'string',
         describe: 'Machine folder ID inside --out (defaults to a slug of the host name)',
       })
+      .option('new-run', { type: 'boolean', describe: 'Start a new dated run without prompting' })
+      .option('session', { type: 'string', describe: 'Add to an existing YYYY-MM-DD-HH-MM run, or latest' })
       .option('machine-name', { type: 'string', describe: 'Human-readable machine description saved to machine.json' })
       .option('renderer', { type: 'array', string: true, describe: 'Include these renderer configuration IDs' })
       .option('scene', { type: 'array', string: true, describe: 'Include these scene IDs' })
@@ -53,6 +55,8 @@ const command: CommandModule = {
       collection: args.collection as string | undefined,
       out: args.out as string,
       machine: args.machine as string | undefined,
+      newRun: args.newRun as boolean | undefined,
+      session: args.session as string | undefined,
       machineName: args.machineName as string | undefined,
       renderer: args.renderer as string[] | undefined,
       scene: args.scene as string[] | undefined,

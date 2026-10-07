@@ -97,6 +97,7 @@ it('roundtrips shareable sort, detail and filter URLs and defaults invalid optio
     direction: 'worstFirst',
     query: 'cube',
     machine: 'm',
+    session: '',
     renderer: 'a',
     scene: 'b',
   });
@@ -164,4 +165,19 @@ it('uses shared horizontal geometry: ten seconds ends two-thirds across a fiftee
     expect(ticks.at(-1)).toBe(end);
     expect(ticks.length).toBeLessThanOrEqual(14);
   }
+});
+
+it('selects the newest benchmark session and preserves historical selections', async () => {
+  const { benchmarkSessions, selectBenchmarkSession } = await import('./report.js');
+  const items = [
+    { session: 'old', recordedAt: '2026-10-05T12:00:00.000Z' },
+    {},
+    { session: 'new', recordedAt: '2026-10-06T12:00:00.000Z' },
+    { session: 'old', recordedAt: '2026-10-05T12:00:00.000Z' },
+  ];
+  expect(benchmarkSessions(items)).toEqual(['new', 'old', '']);
+  expect(selectBenchmarkSession(items, '')).toBe('new');
+  expect(selectBenchmarkSession(items, 'missing')).toBe('new');
+  expect(selectBenchmarkSession(items, 'old')).toBe('old');
+  expect(selectBenchmarkSession([], '')).toBe('');
 });

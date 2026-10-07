@@ -19,6 +19,8 @@ import {
   timeTicks,
   resultId,
   readRoute,
+  benchmarkSessions,
+  selectBenchmarkSession,
   type SortKey,
   type SortDirection,
 } from './report.js';
@@ -27,6 +29,8 @@ import './style.css';
 type Point = [seconds: number, milliseconds: number];
 type ResultReference = {
   machine: NamedEntity;
+  session?: string;
+  recordedAt?: string;
   renderer: NamedEntity;
   scene: NamedEntity;
   metrics: string;
@@ -515,7 +519,7 @@ function Card({
     <article className="card" id={id} ref={ref}>
       <a
         className="card-link"
-        href={detailUrl(id)}
+        href={detailUrl(id, item)}
         aria-label={`View details for ${entryTitle(r)}`}
         onClick={(e) => {
           if (!e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) {
@@ -565,7 +569,7 @@ function Card({
               <div className="result-name">
                 <a
                   className="entry-title"
-                  href={detailUrl(id)}
+                  href={detailUrl(id, item)}
                   onClick={(e) => {
                     if (e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) {
                       e.preventDefault();
@@ -582,6 +586,8 @@ function Card({
                     const url = new URL(location.href);
                     url.hash = id;
                     history.replaceState(history.state, '', url);
+                    url.searchParams.set('machine', item.machine.id);
+                    url.searchParams.set('session', item.session ?? '__legacy');
                     try {
                       await navigator.clipboard.writeText(url.href);
                       setCopied(true);
@@ -660,9 +666,12 @@ function listUrl() {
   url.hash = '';
   return url.href;
 }
-function detailUrl(id: string) {
+function detailUrl(id: string, item: ResultReference) {
   const url = new URL(location.href);
   url.searchParams.set('result', id);
+  url.searchParams.set('machine', item.machine.id);
+  if (item.session) url.searchParams.set('session', item.session);
+  else url.searchParams.set('session', '__legacy');
   url.hash = '';
   return url.href;
 }
@@ -684,12 +693,6 @@ export function PerformancePage() {
       pendingScroll.current = null;
     } else if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView();
   }, []);
-  const navigate = (id: string) => {
-    void routeNavigate({
-      search: (previous) => ({ ...previous, view: 'performance', result: id, machine, renderer, scene }),
-    });
-    window.scrollTo(0, 0);
-  };
   const back = () =>
     void routeNavigate({ search: (previous) => ({ ...previous, view: 'performance', result: undefined }) });
   const [items, setItems] = useState<RecordItem[]>([]),
@@ -698,11 +701,28 @@ export function PerformancePage() {
     [query, setQuery] = useState(initial.query),
     [sort, setSort] = useState<SortKey>(initial.sort),
     [machine, setMachine] = useState(initial.machine),
+    [session, setSession] = useState(initial.session),
     [renderer, setRenderer] = useState(initial.renderer),
     [scene, setScene] = useState(initial.scene),
     [live, setLive] = useState(false),
     [revisions, setRevisions] = useState<Record<string, number>>({}),
     [captureEpoch, setCaptureEpoch] = useState(0);
+  const navigate = (id: string) => {
+    setMachine(activeMachine?.id ?? '');
+    setSession(activeSession || '__legacy');
+    void routeNavigate({
+      search: (previous) => ({
+        ...previous,
+        view: 'performance',
+        result: id,
+        machine: activeMachine?.id,
+        session: activeSession || (session === '__legacy' ? '__legacy' : undefined),
+        renderer,
+        scene,
+      }),
+    });
+    window.scrollTo(0, 0);
+  };
   useEffect(() => {
     let active = true;
     let snapshotRequest = 0;
@@ -850,6 +870,7 @@ export function PerformancePage() {
           const event = JSON.parse(message.data) as {
             type?: string;
             machineId?: string;
+            session?: string;
             rendererId?: string;
             sceneId?: string;
           };
@@ -858,9 +879,10 @@ export function PerformancePage() {
             typeof event.machineId === 'string' &&
             typeof event.rendererId === 'string' &&
             typeof event.sceneId === 'string'
-          )
-            void updateResult(event.machineId, event.rendererId, event.sceneId);
-          else if (event.type === 'readmeChanged') void readIntroduction();
+          ) {
+            if (event.session) void refresh(true);
+            else void updateResult(event.machineId, event.rendererId, event.sceneId);
+          } else if (event.type === 'readmeChanged') void readIntroduction();
           else if (event.type === 'indexChanged') {
             void refresh(seenSnapshotEvent);
             void readIntroduction();
@@ -890,7 +912,11 @@ export function PerformancePage() {
   const activeMachine =
     machines.find((item) => item.id === machine) ??
     machines.toSorted((a, b) => (resultCounts.get(b.id)?.length ?? 0) - (resultCounts.get(a.id)?.length ?? 0))[0];
-  const machineItems = items.filter((item) => item.machine.id === activeMachine?.id);
+  const historyItems = items.filter((item) => item.machine.id === activeMachine?.id);
+  const sessions = benchmarkSessions(historyItems);
+  const activeSession =
+    session === '__legacy' && sessions.includes('') ? '' : selectBenchmarkSession(historyItems, session);
+  const machineItems = historyItems.filter((item) => (item.session ?? '') === activeSession);
   const renderers = [
     ...new Map(machineItems.map((item) => [item.result.entry.renderer.id, item.result.entry.renderer])).values(),
   ].toSorted((a, b) => a.name.localeCompare(b.name));
@@ -923,6 +949,7 @@ export function PerformancePage() {
       setDirection(route.direction);
       setQuery(route.query);
       setMachine(route.machine);
+      setSession(route.session);
       setRenderer(route.renderer);
       setScene(route.scene);
       pendingScroll.current = history.state?.scroll ?? null;
@@ -946,11 +973,12 @@ export function PerformancePage() {
         performanceSort: sort,
         dir: direction,
         machine: machine || undefined,
+        session: session || undefined,
         renderer: renderer || undefined,
         scene: scene || undefined,
       }),
     });
-  }, [sort, direction, query, machine, renderer, scene, routeNavigate]);
+  }, [sort, direction, query, machine, session, renderer, scene, routeNavigate]);
   useEffect(() => {
     if (!selected && items.length) {
       const frame = requestAnimationFrame(scrollList);
@@ -1021,16 +1049,40 @@ export function PerformancePage() {
               <option value="bestFirst">Best first</option>
               <option value="worstFirst">Worst first</option>
             </select>
-            {machines.length > 1 && (
+            {machines.length > 0 && (
               <select
                 aria-label="Machines"
                 title="Machines"
                 value={activeMachine?.id ?? ''}
-                onChange={(e) => setMachine(e.target.value)}
+                onChange={(e) => {
+                  setMachine(e.target.value);
+                  setSession('');
+                }}
               >
                 {machines.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.name}
+                  </option>
+                ))}
+              </select>
+            )}
+            {sessions.length > 0 && (
+              <select
+                aria-label="Benchmark date-times"
+                title="Benchmark date-times"
+                value={
+                  session === '__legacy' && sessions.includes('')
+                    ? '__legacy'
+                    : sessions.includes(session) && session
+                      ? session
+                      : '__latest'
+                }
+                onChange={(e) => setSession(e.target.value === '__latest' ? '' : e.target.value)}
+              >
+                <option value="__latest">Latest ({sessions[0] ? sessions[0] + ' UTC' : 'Undated'})</option>
+                {sessions.map((id) => (
+                  <option key={id} value={id || '__legacy'}>
+                    {id ? id + ' UTC' : 'Undated'}
                   </option>
                 ))}
               </select>

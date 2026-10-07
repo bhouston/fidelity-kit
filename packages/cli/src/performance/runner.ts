@@ -1,5 +1,6 @@
+import { createInterface } from 'node:readline/promises';
 import { loadReference } from './convergence.js';
-import { readFile, mkdir } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { cpus, hostname, platform, release } from 'node:os';
 import { execFile } from 'node:child_process';
@@ -11,7 +12,7 @@ import type { RunResult, Environment } from '../schema/index.js';
 import { configureNetwork, resolveNetworkProfile } from './network.js';
 import { harnessRun } from './harness.js';
 import { chromeFlags, isSoftwareAdapter, scheduleSuite } from './schedule.js';
-import { loadSuite, safeEntryId, writeRun, atomicWrite, writeMachine } from './storage.js';
+import { loadSuite, safeEntryId, writeRun, atomicWrite, writeMachine, chooseBenchmarkSession } from './storage.js';
 import { startServer } from './server.js';
 export interface RunOptions {
   suite: string;
@@ -20,6 +21,10 @@ export interface RunOptions {
   out: string;
   /** Results folder for this benchmark machine; defaults to a slug of the host name. */
   machine?: string;
+  /** Resume an existing dated run, or `latest`. */
+  session?: string;
+  /** Start a new run without an interactive prompt. */
+  newRun?: boolean;
   /** Display name saved in `<machine>/machine.json`, such as "MacBook Air M3". */
   machineName?: string;
   renderer?: string[];
@@ -65,7 +70,7 @@ export function defaultMachineId(name = hostname()): string {
       .replace(/^[^a-z0-9]+|-+$/g, '') || 'local'
   );
 }
-export async function runSuite(options: RunOptions): Promise<{ out: string; results: RunResult[] }> {
+export async function runSuite(options: RunOptions): Promise<{ out: string; session: string; results: RunResult[] }> {
   for (const [name, value] of [
     ['width', options.width],
     ['height', options.height],
@@ -88,7 +93,28 @@ export async function runSuite(options: RunOptions): Promise<{ out: string; resu
   for (const { entry } of schedule) safeEntryId(entry.id);
   const out = resolve(options.out);
   const machineId = safeEntryId(options.machine ?? defaultMachineId());
-  await mkdir(join(out, machineId), { recursive: true });
+  const ask =
+    process.stdin.isTTY && process.stdout.isTTY
+      ? async (latest: string): Promise<'new' | 'existing'> => {
+          const prompt = createInterface({ input: process.stdin, output: process.stdout });
+          try {
+            for (;;) {
+              const answer = (
+                await prompt.question(
+                  `Latest run: ${latest} UTC. Create a [n]ew run or [a]dd to the existing run? [n/a] `,
+                )
+              )
+                .trim()
+                .toLowerCase();
+              if (['n', 'new'].includes(answer)) return 'new';
+              if (['a', 'add', 'existing'].includes(answer)) return 'existing';
+            }
+          } finally {
+            prompt.close();
+          }
+        }
+      : undefined;
+  const session = await chooseBenchmarkSession(out, machineId, options, ask);
   if (options.machineName) await writeMachine(out, { id: machineId, name: options.machineName });
   if (options.vsync === 'on' || suite.defaults?.vsync === 'on')
     throw new Error('Throughput benchmarks require vsync off');
@@ -119,7 +145,7 @@ export async function runSuite(options: RunOptions): Promise<{ out: string; resu
         port: options.rendererPort ?? 4401,
         rendererRoot: options.rendererRoot,
       });
-    console.log(`Results: ${join(out, machineId)}`);
+    console.log(`Results: ${join(out, machineId, session)}`);
     if (options.live) console.log(`Benchmark monitor (while running): ${server.url}/?view=performance`);
     const launch = async () => {
       browser = await puppeteer.launch({
@@ -196,7 +222,7 @@ export async function runSuite(options: RunOptions): Promise<{ out: string; resu
       url.searchParams.set('performanceKitOrigin', new URL(server.url).origin);
       const reference = entry.reference ? await loadReference(entry.reference.image, options.suite) : undefined;
       if (entry.reference && reference) {
-        const file = `${machineId}/${entry.renderer.id}/${entry.scene.id}/reference.png`;
+        const file = `${machineId}/${session}/${entry.renderer.id}/${entry.scene.id}/reference.png`;
         await atomicWrite(join(out, file), reference);
         url.searchParams.set(
           'performanceKitReference',
@@ -307,9 +333,15 @@ export async function runSuite(options: RunOptions): Promise<{ out: string; resu
       } as RunResult;
       await page.close();
       if (suite.phaseColors) Object.assign(result.config, { phaseColors: suite.phaseColors });
-      await writeRun(out, machineId, result, capture ? Uint8Array.from(capture.bytes) : undefined, reference);
+      await writeRun(out, machineId, result, capture ? Uint8Array.from(capture.bytes) : undefined, reference, session);
       results.push(result);
-      server.publish({ type: 'resultChanged', machineId, rendererId: entry.renderer.id, sceneId: entry.scene.id });
+      server.publish({
+        type: 'resultChanged',
+        session,
+        machineId,
+        rendererId: entry.renderer.id,
+        sceneId: entry.scene.id,
+      });
       if (i + 1 < schedule.length) await new Promise((done) => setTimeout(done, options.cooldownMs ?? 2000));
     }
   } finally {
@@ -318,5 +350,5 @@ export async function runSuite(options: RunOptions): Promise<{ out: string; resu
     await server.close();
   }
   if (options.failOnError !== false && results.some((result) => result.status !== 'ok')) process.exitCode = 1;
-  return { out, results };
+  return { out, session, results };
 }

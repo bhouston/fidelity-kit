@@ -197,3 +197,25 @@ fidelity-kit render --registry registry.json --out results --missing-only --rend
 All three filters are optional and combine to restrict the renderer/scene pairs. `--renderers` and `--scenes` match registry IDs using quoted globs; comma-separated patterns select their union in registry order. Every pattern must match at least one ID. The singular `--renderer` and `--scene` options still select exact IDs and intersect with the glob filters. By default, rendering selects all scenes and enabled renderers; an explicit renderer selection can include disabled renderers.
 
 `--missing-only` preserves existing `<scene.path or scene.id>/beauty/<renderer.id>.avif` outputs for browser and external renderers. It checks for existence rather than freshness or image validity. When every selected output exists, no browser or external render job starts. Omit it to regenerate selected images.
+
+### Benchmark history
+
+Each `fidelity-kit benchmark` invocation reserves a unique UTC date-time session under
+`performance-results/<machine>/<YYYY-MM-DD-HH-MM>/<renderer>/<scene>/`.
+The timestamp is the UTC start time, with minute precision. All workloads share the session.
+When dated runs already exist, the CLI asks whether to create a new run or add to the latest
+one. Use `--new-run` or `--session latest` (or `--session YYYY-MM-DD-HH-MM`) to bypass the
+prompt; these options are required when restarting without an interactive terminal.
+Adding to a run keeps its original timestamp, adds missing workloads, and replaces only
+workloads measured again. Two new runs cannot share the same machine and start minute;
+resume that run or wait until the next minute. Earlier sessions retain their metrics
+and screenshots. `machine.json` stays directly inside the machine folder.
+
+In the Performance viewer, choose a machine and then a **Benchmark date-times** value.
+**Latest** follows the newest session; selecting a specific date-time pins that session,
+including in shareable detail URLs (`session=<session-id>`). Changing machines defaults
+to the newest session for that machine. Timestamps display in UTC. Older undated folders
+remain readable and appear as **Undated**. Processing and static exports include all sessions.
+
+Low-level `writeRun` and `processResult` callers can pass the session as the final argument;
+omitting it retains the legacy undated layout for compatibility.

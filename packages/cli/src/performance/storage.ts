@@ -39,6 +39,9 @@ export async function loadSuite(file: string, collection?: string): Promise<Suit
 }
 export interface ResultReference {
   machine: NamedEntity;
+  /** Path-safe UTC date-time of the benchmark invocation; absent for legacy data. */
+  session?: string;
+  recordedAt?: string;
   renderer: NamedEntity;
   scene: NamedEntity;
   metrics: string;
@@ -75,10 +78,13 @@ async function loadMetrics(root: string, prefix: string): Promise<ProcessedResul
   }
   if (result === undefined) return undefined;
   assertProcessedResult(result);
-  const machineId = prefix.split('/')[0];
+  const parts = prefix.split('/');
+  const machineId = parts[0];
+  const session = parts.length === 4 ? parts[1] : undefined;
+  if (session) sessionDate(session);
   const recordedMachine = result.environment?.host.machineId;
   if (
-    `${machineId}/${result.entry.renderer.id}/${result.entry.scene.id}` !== prefix ||
+    [machineId, ...(session ? [session] : []), result.entry.renderer.id, result.entry.scene.id].join('/') !== prefix ||
     (recordedMachine !== undefined && recordedMachine !== machineId)
   )
     throw new Error(`Result metadata does not match its folder: ${prefix}`);
@@ -102,19 +108,86 @@ export async function writeMachine(root: string, machine: NamedEntity): Promise<
   safeEntryId(machine.id);
   await atomicWrite(join(root, machine.id, 'machine.json'), `${JSON.stringify(machine, null, 2)}\n`);
 }
+/** UTC start time with minute precision, safe on Windows. */
+export function benchmarkSession(date = new Date()): string {
+  return date.toISOString().slice(0, 16).replace('T', '-').replace(':', '-');
+}
+export function sessionDate(session: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}-\d{2}-\d{2}$/.test(session)) throw new Error(`Invalid benchmark session: ${session}`);
+  const iso = `${session.slice(0, 10)}T${session.slice(11, 13)}:${session.slice(14, 16)}:00.000Z`;
+  if (!Number.isFinite(Date.parse(iso)) || benchmarkSession(new Date(iso)) !== session)
+    throw new Error(`Invalid benchmark session: ${session}`);
+  return iso;
+}
+export async function chooseBenchmarkSession(
+  root: string,
+  machineId: string,
+  options: { session?: string; newRun?: boolean } = {},
+  ask?: (latest: string) => Promise<'new' | 'existing'>,
+): Promise<string> {
+  if (options.session && options.newRun) throw new Error('Choose either --new-run or --session');
+  const machine = join(root, safeEntryId(machineId));
+  const sessions = (await directories(machine))
+    .map((entry) => entry.name)
+    .filter((name) => {
+      try {
+        sessionDate(name);
+        return true;
+      } catch {
+        return false;
+      }
+    })
+    .toSorted()
+    .toReversed();
+  let selected = options.session;
+  if (!selected && !options.newRun && sessions.length) {
+    if (!ask) throw new Error('Existing benchmark runs found. Choose --new-run or --session latest (or a date-time).');
+    if ((await ask(sessions[0]!)) === 'existing') selected = sessions[0];
+  }
+  if (selected) {
+    const session = selected === 'latest' ? sessions[0] : selected;
+    if (!session || !sessions.includes(session)) throw new Error(`Benchmark session does not exist: ${selected}`);
+    sessionDate(session);
+    return session;
+  }
+  const session = benchmarkSession();
+  await mkdir(machine, { recursive: true });
+  try {
+    await mkdir(join(machine, session));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'EEXIST')
+      throw new Error(
+        `A run already started at ${session}. Add to it with --session ${session}, or start a new run in the next minute.`,
+        { cause: error },
+      );
+    throw error;
+  }
+  return session;
+}
 export async function scanResults(root: string): Promise<{ runs: ResultRecord[] }> {
   const runs: ResultRecord[] = [];
-  for (const machine of await directories(root))
-    for (const renderer of await directories(join(root, machine.name)))
-      for (const scene of await directories(join(root, machine.name, renderer.name))) {
-        const prefix = `${machine.name}/${renderer.name}/${scene.name}`;
-        const result = await loadMetrics(root, prefix);
-        if (result) runs.push({ result, file: `${prefix}/metrics.json` });
+  const scan = async (prefix: string, depth: number): Promise<void> => {
+    if (depth === 3 || depth === 4) {
+      const result = await loadMetrics(root, prefix);
+      if (result) {
+        runs.push({ result, file: `${prefix}/metrics.json` });
+        return;
       }
+    }
+    if (depth < 4)
+      for (const directory of await directories(join(root, prefix)))
+        await scan(prefix ? `${prefix}/${directory.name}` : directory.name, depth + 1);
+  };
+  await scan('', 0);
   return { runs };
 }
-async function referenceFor(root: string, machine: NamedEntity, result: ProcessedResult): Promise<ResultReference> {
-  const prefix = `${safeEntryId(machine.id)}/${safeEntryId(result.entry.renderer.id)}/${safeEntryId(result.entry.scene.id)}`;
+async function referenceFor(
+  root: string,
+  machine: NamedEntity,
+  result: ProcessedResult,
+  prefix: string,
+): Promise<ResultReference> {
+  const session = prefix.split('/').length === 4 ? prefix.split('/')[1] : undefined;
   let screenshot: string | undefined;
   try {
     if (result.screenshot && (await stat(join(root, prefix, 'screenshot.avif'))).isFile())
@@ -124,6 +197,7 @@ async function referenceFor(root: string, machine: NamedEntity, result: Processe
   }
   return {
     machine,
+    ...(session ? { session, recordedAt: sessionDate(session) } : {}),
     renderer: result.entry.renderer,
     scene: result.entry.scene,
     metrics: `${prefix}/metrics.json`,
@@ -155,7 +229,7 @@ export async function processResults(
   for (const { result, file } of (await scanResults(root)).runs) {
     const machineId = file.split('/')[0]!;
     if (!machines.has(machineId)) machines.set(machineId, await readMachine(root, machineId!));
-    index.results.push(await referenceFor(root, machines.get(machineId)!, result));
+    index.results.push(await referenceFor(root, machines.get(machineId)!, result, dirname(file).split(sep).join('/')));
   }
   await saveIndex(root, index, onWrite);
   return index;
@@ -166,13 +240,24 @@ export async function processResult(
   rendererId: string,
   sceneId: string,
   onWrite?: (file: string, contents: string) => void,
+  session?: string,
 ): Promise<void> {
-  const prefix = `${safeEntryId(machineId!)}/${safeEntryId(rendererId!)}/${safeEntryId(sceneId!)}`;
+  if (session) sessionDate(session);
+  const prefix = [
+    safeEntryId(machineId!),
+    ...(session ? [session] : []),
+    safeEntryId(rendererId!),
+    safeEntryId(sceneId!),
+  ].join('/');
   const result = await loadMetrics(root, prefix);
-  const reference = result ? await referenceFor(root, await readMachine(root, machineId!), result) : undefined;
+  const reference = result ? await referenceFor(root, await readMachine(root, machineId!), result, prefix) : undefined;
   const index = await readReportIndex(root);
   index.results = index.results.filter(
-    (item) => item.machine.id !== machineId || item.renderer.id !== rendererId || item.scene.id !== sceneId,
+    (item) =>
+      item.machine.id !== machineId ||
+      item.renderer.id !== rendererId ||
+      item.scene.id !== sceneId ||
+      item.session !== session,
   );
   if (reference) index.results.push(reference);
   await saveIndex(root, index, onWrite);
@@ -193,12 +278,15 @@ export async function writeRun(
   result: RunResult,
   png?: Uint8Array,
   reference?: Uint8Array,
+  session?: string,
 ): Promise<string> {
   assertRunResult(result);
+  if (session) sessionDate(session);
   if (result.environment) result.environment.host.machineId = machineId;
   const folder = join(
     root,
     safeEntryId(machineId!),
+    ...(session ? [session] : []),
     safeEntryId(result.entry.renderer.id),
     safeEntryId(result.entry.scene.id),
   );
@@ -235,7 +323,7 @@ export async function writeRun(
   const metrics = processRun(result);
   assertProcessedResult(metrics);
   await atomicWrite(file, `${JSON.stringify(metrics, null, 2)}\n`);
-  await processResult(root, machineId, result.entry.renderer.id, result.entry.scene.id);
+  await processResult(root, machineId, result.entry.renderer.id, result.entry.scene.id, undefined, session);
   return file;
 }
 export async function viewerDirectory(): Promise<string> {

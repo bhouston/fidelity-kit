@@ -6,6 +6,7 @@ export interface ViewSearch {
   view?: 'home' | 'fidelity' | 'performance' | 'live';
   renderer?: string;
   machine?: string;
+  session?: string;
   result?: string;
   performanceSort?: string;
   dir?: string;
@@ -33,6 +34,7 @@ export function validateViewSearch(s: Record<string, unknown>): ViewSearch {
       : undefined,
     renderer: str(s.renderer),
     machine: str(s.machine),
+    session: str(s.session),
     result: str(s.result),
     performanceSort: str(s.performanceSort),
     dir: str(s.dir),
