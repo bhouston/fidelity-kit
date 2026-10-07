@@ -23,7 +23,7 @@ describe('benchmark scheduling', () => {
       'a',
       'c',
     ]);
-    expect(scheduleSuite(suite, { scene: ['other'] })).toEqual([]);
+    expect(() => scheduleSuite(suite, { scene: ['other'] })).toThrow('No scene matches');
   });
   it('rejects invalid shuffle seeds', () => {
     expect(() => scheduleSuite(suite, { seed: Infinity })).toThrow('finite');
@@ -47,4 +47,22 @@ describe('benchmark scheduling', () => {
     expect(chromeFlags('off')).toContain('--disable-frame-rate-limit');
     expect(chromeFlags('on')).not.toContain('--disable-gpu-vsync');
   });
+});
+
+it('matches benchmark globs, unions repeated patterns, and intersects renderer and scene filters', () => {
+  const mixed: Suite = {
+    ...suite,
+    entries: [...suite.entries, { ...suite.entries[0], id: 'room-a', scene: { id: 'room-w', name: 'Room' } }],
+  };
+  expect(scheduleSuite(mixed, { renderer: ['{a,c}'], scene: ['cu*'] }).map((run) => run.entry.id)).toEqual(['a', 'c']);
+  expect(scheduleSuite(mixed, { renderer: ['a', 'b,c'], scene: ['*-w'] }).map((run) => run.entry.id)).toEqual([
+    'room-a',
+  ]);
+  expect(
+    scheduleSuite(mixed, { renderer: ['[ab]'], renderers: 'b,c', scenes: 'cube' }).map((run) => run.entry.id),
+  ).toEqual(['b']);
+  expect(scheduleSuite(mixed, { renderer: ['*'], scene: ['cube,room-w'] })).toHaveLength(4);
+  expect(() => scheduleSuite(mixed, { renderer: ['a', 'typo*'] })).toThrow('No renderer matches "typo*"');
+  expect(() => scheduleSuite(mixed, { scenes: 'missing*' })).toThrow('No scene matches');
+  expect(() => scheduleSuite(mixed, { renderers: ' , ' })).toThrow('No renderer glob supplied');
 });
