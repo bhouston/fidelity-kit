@@ -182,3 +182,18 @@ Configure `renderServer.developmentUrl`, `renderServer.deployedUrl`, and `entry`
 External renderers use an argv command producer with `{job}` (JSON job) and `{output}` (absolute artifact path) substitutions. Browser renderers are the canonical path for fidelity/performance/live parity; native diagnostic backends can remain project tools. Performance collections explicitly opt in renderer/scene pairs. References remain machine independent; performance and convergence measurements retain the machine dimension.
 
 Automated throughput benchmarks disable vsync and frame-rate limits, warm up for one second, then count GPU-completed frames over the configured sustained window. Bounded batches include the full render pipeline and drain GPU work before publication and teardown. Individual frame timings are retained only when reading historical results; new throughput runs do not collect them. Live UI telemetry remains interactive and unpersisted.
+
+## Capture a rendering registry
+
+For suites with a rendering registry, start the configured browser render server separately, then capture images:
+
+```sh
+fidelity-kit render --registry registry.json --out results
+fidelity-kit render --registry registry.json --out results --missing-only
+fidelity-kit render --registry registry.json --out results --renderers "gpu-*" --scenes "box-*"
+fidelity-kit render --registry registry.json --out results --missing-only --renderers "gpu-*,native" --scenes "box-*"
+```
+
+All three filters are optional and combine to restrict the renderer/scene pairs. `--renderers` and `--scenes` match registry IDs using quoted globs; comma-separated patterns select their union in registry order. Every pattern must match at least one ID. The singular `--renderer` and `--scene` options still select exact IDs and intersect with the glob filters. By default, rendering selects all scenes and enabled renderers; an explicit renderer selection can include disabled renderers.
+
+`--missing-only` preserves existing `<scene.path or scene.id>/beauty/<renderer.id>.avif` outputs for browser and external renderers. It checks for existence rather than freshness or image validity. When every selected output exists, no browser or external render job starts. Omit it to regenerate selected images.
