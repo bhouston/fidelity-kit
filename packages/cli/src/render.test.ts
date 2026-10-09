@@ -180,3 +180,14 @@ it('shares policy overrides with browser and external jobs and honours producer 
   });
   await expect(renderSuite({ ...options, captureParams: { scene: 'other' } })).rejects.toThrow('cannot override scene');
 });
+
+it('rejects CPU overrides for scenes requiring GPU export before running jobs', async () => {
+  await writeFile(
+    options.registry,
+    JSON.stringify({ ...registry, scenes: registry.scenes.map((s) => ({ ...s, externalCaptureLane: 'gpu' })) }),
+  );
+  await expect(renderSuite({ ...options, renderers: 'native', scenes: 'sphere', externalLane: 'cpu' })).rejects.toThrow(
+    'requires the gpu export lane',
+  );
+  expect(puppeteer.launch).not.toHaveBeenCalled();
+});

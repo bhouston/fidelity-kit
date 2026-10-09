@@ -26,6 +26,7 @@ export interface RenderOptions {
   frames?: number;
   /** Project-owned capture policy overrides, excluding identity and viewport settings. */
   captureParams?: Record<string, unknown>;
+  externalLane?: 'cpu' | 'gpu';
 }
 /** Fidelity has no machine dimension; every browser capture uses the same host as performance and live. */
 export async function renderSuite(options: RenderOptions) {
@@ -82,7 +83,17 @@ export async function renderSuite(options: RenderOptions) {
     await runCaptureLanes(
       jobs,
       ({ renderer, scene }) => {
-        const lane = renderer.kind === 'browser' ? 'gpu' : (scene.externalCaptureLane ?? renderer.captureLane ?? 'gpu');
+        if (
+          renderer.kind === 'external' &&
+          options.externalLane &&
+          scene.externalCaptureLane &&
+          options.externalLane !== scene.externalCaptureLane
+        )
+          throw new Error(`Scene ${scene.id} requires the ${scene.externalCaptureLane} export lane`);
+        const lane =
+          renderer.kind === 'browser'
+            ? 'gpu'
+            : (options.externalLane ?? scene.externalCaptureLane ?? renderer.captureLane ?? 'gpu');
         return lane === 'either' ? ['cpu', 'gpu'] : [lane];
       },
       async ({ renderer, scene, file }, lane) => {
