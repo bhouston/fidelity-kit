@@ -72,6 +72,8 @@ function SceneList({ preamble }: { preamble: string | null }) {
   const shown = selectScenes(index, scenes, search, view);
   const [q, setQ] = useState(search.q ?? '');
   const tags = allTags(scenes);
+  const families = [...new Set(scenes.map((s) => s.category ?? 'Other'))];
+  const selectedFamilies = new Set(search.groups?.split(',') ?? families);
   const active = search.tags?.split(',') ?? [];
 
   useEffect(() => {
@@ -98,6 +100,36 @@ function SceneList({ preamble }: { preamble: string | null }) {
           type="text"
           value={q}
         />
+        {families.length > 1 && (
+          <details className="relative text-sm">
+            <summary className="cursor-pointer rounded border border-input px-3 py-2">
+              Scene families ({selectedFamilies.size}/{families.length})
+            </summary>
+            <div className="absolute z-50 mt-1 max-h-[65dvh] overflow-y-auto rounded border border-border bg-card p-2 shadow-lg">
+              <button type="button" className="px-2 py-1" onClick={() => update({ groups: undefined })}>
+                All
+              </button>
+              <button type="button" className="px-2 py-1" onClick={() => update({ groups: '-' })}>
+                None
+              </button>
+              {families.map((family) => (
+                <label key={family} className="flex items-center gap-2 px-2 py-1">
+                  <input
+                    type="checkbox"
+                    checked={selectedFamilies.has(family)}
+                    onChange={() => {
+                      const next = new Set(selectedFamilies);
+                      if (next.has(family)) next.delete(family);
+                      else next.add(family);
+                      update({ groups: next.size === families.length ? undefined : [...next].join(',') || '-' });
+                    }}
+                  />
+                  {family}
+                </label>
+              ))}
+            </div>
+          </details>
+        )}
         <SortSelect onChange={(sort) => update({ sort })} value={search.sort ?? 'name'} />
         <ViewControls index={index} onChange={update} view={view} />
         <span className="shrink-0 text-sm text-muted-foreground">
@@ -143,7 +175,7 @@ function SceneList({ preamble }: { preamble: string | null }) {
   );
 }
 
-const groupOf = (s?: SceneNode) => (s ? s.path.split('/').slice(0, -1).join(' / ') : undefined);
+const groupOf = (s?: SceneNode) => (s ? (s.category ?? s.path.split('/').slice(0, -1).join(' / ')) : undefined);
 
 function SceneRow({
   index,

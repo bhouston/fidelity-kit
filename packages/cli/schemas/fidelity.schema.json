@@ -24,24 +24,62 @@
     "renderers": {
       "description": "Renderers whose images live at <scene>/<output>/<renderer id>.<extension>.",
       "type": "array",
-      "items": { "$ref": "#/definitions/renderer" },
+      "items": {
+        "$ref": "#/definitions/renderer"
+      },
       "contains": {
         "type": "object",
         "required": ["reference"],
-        "properties": { "reference": { "const": true } }
+        "properties": {
+          "reference": {
+            "const": true
+          }
+        }
       },
       "errorMessage": "at least one renderer needs \"reference\": true"
     },
     "outputs": {
       "description": "Output folders inside each scene. Defaults to a single \"beauty\" output.",
       "type": "array",
-      "items": { "$ref": "#/definitions/output" },
+      "items": {
+        "$ref": "#/definitions/output"
+      },
       "minItems": 1,
-      "default": [{ "id": "beauty" }]
+      "default": [
+        {
+          "id": "beauty"
+        }
+      ]
     },
     "delta": {
       "description": "Legacy setting; ignored.",
       "deprecated": true
+    },
+    "comparisonPresets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "renderers"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "#/definitions/id"
+          },
+          "name": {
+            "type": "string"
+          },
+          "renderers": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/definitions/id"
+            }
+          },
+          "ref": {
+            "$ref": "#/definitions/id"
+          }
+        }
+      }
     }
   },
   "definitions": {
@@ -55,14 +93,26 @@
       "required": ["id"],
       "additionalProperties": false,
       "properties": {
-        "id": { "$ref": "#/definitions/id", "description": "Image file name without extension." },
-        "label": { "type": "string", "description": "Display name; defaults to the id." },
-        "reference": { "type": "boolean", "description": "Compare other renderers against this one." },
+        "id": {
+          "$ref": "#/definitions/id",
+          "description": "Image file name without extension."
+        },
+        "label": {
+          "type": "string",
+          "description": "Display name; defaults to the id."
+        },
+        "reference": {
+          "type": "boolean",
+          "description": "Compare other renderers against this one."
+        },
         "enabled": {
           "type": "boolean",
           "description": "false hides the renderer by default; viewers can still turn it on."
         },
-        "category": { "type": "string", "description": "Optional grouping label." }
+        "category": {
+          "type": "string",
+          "description": "Optional grouping label."
+        }
       }
     },
     "output": {
@@ -70,8 +120,14 @@
       "required": ["id"],
       "additionalProperties": false,
       "properties": {
-        "id": { "$ref": "#/definitions/id", "description": "Output folder name inside each scene." },
-        "label": { "type": "string", "description": "Display name; defaults to the id." }
+        "id": {
+          "$ref": "#/definitions/id",
+          "description": "Output folder name inside each scene."
+        },
+        "label": {
+          "type": "string",
+          "description": "Display name; defaults to the id."
+        }
       }
     }
   }

@@ -1,3 +1,4 @@
+import { GroupedOptions } from './GroupedOptions';
 // oxlint-disable react/iframe-missing-sandbox -- Trusted renderers need scripts and their real origin for GPU access and checked telemetry.
 import { getRouteApi, useNavigate } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
@@ -86,21 +87,13 @@ export function LivePage() {
         <label className="flex flex-col gap-2">
           Scene
           <select aria-label="Scene" value={scene} onChange={(e) => setScene(e.target.value)}>
-            {site.registry.scenes.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
+            <GroupedOptions items={site.registry.scenes} />
           </select>
         </label>
         <label className="flex flex-col gap-2">
           Renderer
           <select aria-label="Renderer" value={renderer} onChange={(e) => setRenderer(e.target.value)}>
-            {renderers.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name}
-              </option>
-            ))}
+            <GroupedOptions items={renderers} />
           </select>
         </label>
         <Button onClick={start} disabled={!renderer || !scene}>

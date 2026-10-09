@@ -21,6 +21,7 @@ export const registrySchema = z.object({
         kind: z.enum(['browser', 'external']).default('browser'),
         reference: z.boolean().default(false),
         enabled: z.boolean().default(true),
+        category: z.string().min(1).optional(),
         params,
         command: z.array(z.string()).optional(),
       }),
@@ -31,6 +32,8 @@ export const registrySchema = z.object({
       z.object({
         ...identity,
         path: z.string().optional(),
+        category: z.string().min(1).optional(),
+        tags: z.array(z.string()).optional(),
         params,
         fidelity: z
           .object({
@@ -42,6 +45,9 @@ export const registrySchema = z.object({
       }),
     )
     .min(1),
+  comparisonPresets: z
+    .array(z.object({ id, name: z.string().min(1), renderers: z.array(id), ref: id.optional() }))
+    .optional(),
   performance: z
     .record(
       z.string(),
@@ -76,6 +82,14 @@ export function parseRegistry(value: unknown): RenderingRegistry {
       if (owner && owner !== renderer.id) throw new Error(`Ambiguous renderer identity ${alias}`);
       rendererIdentities.set(alias, renderer.id);
     }
+  for (const preset of suite.comparisonPresets ?? []) {
+    if (preset.renderers.some((rendererId) => !suite.renderers.some((r) => r.id === rendererId)))
+      throw new Error(`Unknown renderer in preset ${preset.id}`);
+    if (preset.ref && !suite.renderers.some((r) => r.id === preset.ref && r.reference))
+      throw new Error(`Invalid reference in preset ${preset.id}`);
+  }
+  if (new Set(suite.comparisonPresets?.map((p) => p.id)).size !== (suite.comparisonPresets?.length ?? 0))
+    throw new Error('Duplicate comparison preset IDs');
   const hero = suite.home.hero;
   if (
     hero &&

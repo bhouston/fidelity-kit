@@ -36,6 +36,8 @@ jobs:
       - run: pnpm test --coverage
       - name: Install Chrome for render contracts
         run: node scripts/install-test-browser.mjs
+      - name: Check grouped selection UI
+        run: node scripts/selection-browser.mjs
       - name: Check real browser render contracts
         run: pnpm test:browser
       - uses: codecov/codecov-action@v5

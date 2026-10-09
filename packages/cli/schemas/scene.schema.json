@@ -10,12 +10,21 @@
       "description": "JSON Schema reference for editor validation and completion.",
       "type": "string"
     },
-    "title": { "type": "string", "description": "Searchable scene title; defaults to the folder name." },
+    "title": {
+      "type": "string",
+      "description": "Searchable scene title; defaults to the folder name."
+    },
     "tags": {
       "type": "array",
-      "items": { "type": "string" },
+      "items": {
+        "type": "string"
+      },
       "default": [],
       "description": "Searchable scene tags."
+    },
+    "category": {
+      "type": "string",
+      "description": "Scene family shown in grouped selectors."
     }
   }
 }
