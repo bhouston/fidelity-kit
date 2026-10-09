@@ -14,8 +14,14 @@ export const command = defineCommand({
       .option('scenes', { type: 'string', describe: 'Scene ID glob(s), comma separated' })
       .option('missing-only', { type: 'boolean', default: false, describe: 'Skip existing images' })
       .option('frames', { type: 'number' })
+      .option('capture-params', { type: 'string', describe: 'JSON project capture policy overrides' })
       .option('headful', { type: 'boolean', default: false })
       .option('chrome-arg', { type: 'array', string: true, describe: 'Additional browser launch arguments' })
       .option('executable-path', { type: 'string' }),
-  handler: (argv) => renderSuite({ ...argv, chromeArgs: argv.chromeArg }),
+  handler: (argv) =>
+    renderSuite({
+      ...argv,
+      captureParams: argv.captureParams ? JSON.parse(argv.captureParams) : undefined,
+      chromeArgs: argv.chromeArg,
+    }),
 });

@@ -157,3 +157,26 @@ it('reports unmatched patterns before rendering and rejects empty intersections'
   );
   expect(puppeteer.launch).not.toHaveBeenCalled();
 });
+
+it('shares policy overrides with browser and external jobs and honours producer lanes', async () => {
+  await writeFile(
+    options.registry,
+    JSON.stringify({
+      ...registry,
+      renderers: registry.renderers.map((r) => (r.id === 'native' ? { ...r, captureLane: 'cpu' } : r)),
+    }),
+  );
+  await renderSuite({
+    ...options,
+    scenes: 'sphere',
+    renderers: 'gpu-base,native',
+    captureParams: { samples: 256, noiseThreshold: 0.005 },
+  });
+  expect(captures[0]).toMatchObject({ samples: 256, noiseThreshold: 0.005 });
+  expect(JSON.parse(await readFile(output('sphere', 'native'), 'utf8'))).toMatchObject({
+    samples: 256,
+    noiseThreshold: 0.005,
+    captureLane: 'cpu',
+  });
+  await expect(renderSuite({ ...options, captureParams: { scene: 'other' } })).rejects.toThrow('cannot override scene');
+});
