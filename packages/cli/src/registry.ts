@@ -24,6 +24,7 @@ export const registrySchema = z.object({
         category: z.string().min(1).optional(),
         params,
         command: z.array(z.string()).optional(),
+        captureLane: z.enum(['cpu', 'gpu', 'either']).optional(),
       }),
     )
     .min(1),
@@ -32,6 +33,7 @@ export const registrySchema = z.object({
       z.object({
         ...identity,
         path: z.string().optional(),
+        externalCaptureLane: z.enum(['cpu', 'gpu']).optional(),
         category: z.string().min(1).optional(),
         tags: z.array(z.string()).optional(),
         params,
@@ -90,6 +92,9 @@ export function parseRegistry(value: unknown): RenderingRegistry {
   }
   if (new Set(suite.comparisonPresets?.map((p) => p.id)).size !== (suite.comparisonPresets?.length ?? 0))
     throw new Error('Duplicate comparison preset IDs');
+  for (const renderer of suite.renderers)
+    if (renderer.kind === 'browser' && renderer.captureLane && renderer.captureLane !== 'gpu')
+      throw new Error('Browser captures require the GPU lane');
   const hero = suite.home.hero;
   if (
     hero &&

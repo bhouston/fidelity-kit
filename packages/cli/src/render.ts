@@ -7,6 +7,7 @@ import { promisify } from 'node:util';
 import puppeteer from 'puppeteer';
 import sharp from 'sharp';
 import { parseRegistry, rendererParams, rendererUrl } from './registry.js';
+import { runCaptureLanes } from './capture-lanes.js';
 import { chromeFlags } from './performance/schedule.js';
 
 export interface RenderOptions {
@@ -23,9 +24,14 @@ export interface RenderOptions {
   chromeArgs?: string[];
   headful?: boolean;
   frames?: number;
+  /** Project-owned capture policy overrides, excluding identity and viewport settings. */
+  captureParams?: Record<string, unknown>;
+  externalLane?: 'cpu' | 'gpu';
 }
 /** Fidelity has no machine dimension; every browser capture uses the same host as performance and live. */
 export async function renderSuite(options: RenderOptions) {
+  for (const key of ['renderer', 'scene', 'width', 'height', 'frames'])
+    if (key in (options.captureParams ?? {})) throw new Error(`Capture parameters cannot override ${key}`);
   const suite = parseRegistry(JSON.parse(await readFile(resolve(options.registry), 'utf8')));
   const sceneIds =
     options.scenes === undefined
@@ -74,56 +80,76 @@ export async function renderSuite(options: RenderOptions) {
       })
     : undefined;
   try {
-    for (const { renderer, scene, file } of jobs) {
-      await mkdir(dirname(file), { recursive: true });
-      const params = {
-        seed: 1,
-        ...rendererParams(suite, renderer.id, scene.id),
-        width: scene.fidelity.width,
-        height: scene.fidelity.height,
-        frames: options.frames ?? scene.fidelity.frames,
-      };
-      console.log(`${scene.id} / ${renderer.id}`);
-      if (renderer.kind === 'external') {
-        const job = {
-          renderer: renderer.id,
-          scenes: [scene.id],
-          outDir: resolve(options.out),
-          samples: typeof renderer.params.samples === 'number' ? renderer.params.samples : params.frames,
-          width: params.width,
-          height: params.height,
+    await runCaptureLanes(
+      jobs,
+      ({ renderer, scene }) => {
+        if (
+          renderer.kind === 'external' &&
+          options.externalLane &&
+          scene.externalCaptureLane &&
+          options.externalLane !== scene.externalCaptureLane
+        )
+          throw new Error(`Scene ${scene.id} requires the ${scene.externalCaptureLane} export lane`);
+        const lane =
+          renderer.kind === 'browser'
+            ? 'gpu'
+            : (options.externalLane ?? scene.externalCaptureLane ?? renderer.captureLane ?? 'gpu');
+        return lane === 'either' ? ['cpu', 'gpu'] : [lane];
+      },
+      async ({ renderer, scene, file }, lane) => {
+        await mkdir(dirname(file), { recursive: true });
+        const params: Record<string, unknown> & { width: number; height: number; frames: number } = {
+          seed: 1,
+          ...rendererParams(suite, renderer.id, scene.id),
+          ...options.captureParams,
+          width: scene.fidelity.width,
+          height: scene.fidelity.height,
+          frames: options.frames ?? scene.fidelity.frames,
         };
-        const [command, ...args] = renderer.command!;
-        await promisify(execFile)(
-          command!,
-          args.map((arg) => arg.replaceAll('{job}', JSON.stringify(job)).replaceAll('{output}', file)),
-          { maxBuffer: 16 * 1024 * 1024 },
-        );
-        continue;
-      }
-      const page = await browser!.newPage();
-      try {
-        await page.setViewport({ width: params.width, height: params.height, deviceScaleFactor: 1 });
-        const url = rendererUrl(suite, 'development', options.rootUrl);
-        url.searchParams.set('fidelityKitMode', 'capture');
-        url.searchParams.set('fidelityKitParams', JSON.stringify(params));
-        await page.goto(url.href, { waitUntil: 'domcontentloaded', timeout: 60000 });
-        await page.waitForFunction(() => '__fidelityKitCapture' in window || '__fidelityKitError' in window, {
-          timeout: 300000,
-        });
-        await page.evaluate(() => {
-          const error = (window as unknown as { __fidelityKitError?: string }).__fidelityKitError;
-          if (error) throw new Error(error);
-        });
-        const canvas = await page.$('canvas');
-        if (!canvas) throw new Error('Render host did not produce a canvas');
-        // Compositor readback works after GPU completion, including canvases without preserved drawing buffers.
-        const image = await canvas.screenshot({ type: 'png' });
-        await sharp(image).avif({ quality: 90, chromaSubsampling: '4:4:4' }).toFile(file);
-      } finally {
-        await page.close();
-      }
-    }
+        console.log(`${scene.id} / ${renderer.id}`);
+        if (renderer.kind === 'external') {
+          const job = {
+            ...params,
+            captureLane: lane,
+            renderer: renderer.id,
+            scenes: [scene.id],
+            outDir: resolve(options.out),
+            samples: typeof params.samples === 'number' ? params.samples : params.frames,
+            width: params.width,
+            height: params.height,
+          };
+          const [command, ...args] = renderer.command!;
+          await promisify(execFile)(
+            command!,
+            args.map((arg) => arg.replaceAll('{job}', JSON.stringify(job)).replaceAll('{output}', file)),
+            { maxBuffer: 16 * 1024 * 1024 },
+          );
+          return;
+        }
+        const page = await browser!.newPage();
+        try {
+          await page.setViewport({ width: params.width, height: params.height, deviceScaleFactor: 1 });
+          const url = rendererUrl(suite, 'development', options.rootUrl);
+          url.searchParams.set('fidelityKitMode', 'capture');
+          url.searchParams.set('fidelityKitParams', JSON.stringify(params));
+          await page.goto(url.href, { waitUntil: 'domcontentloaded', timeout: 60000 });
+          await page.waitForFunction(() => '__fidelityKitCapture' in window || '__fidelityKitError' in window, {
+            timeout: 300000,
+          });
+          await page.evaluate(() => {
+            const error = (window as unknown as { __fidelityKitError?: string }).__fidelityKitError;
+            if (error) throw new Error(error);
+          });
+          const canvas = await page.$('canvas');
+          if (!canvas) throw new Error('Render host did not produce a canvas');
+          // Compositor readback works after GPU completion, including canvases without preserved drawing buffers.
+          const image = await canvas.screenshot({ type: 'png' });
+          await sharp(image).avif({ quality: 90, chromaSubsampling: '4:4:4' }).toFile(file);
+        } finally {
+          await page.close();
+        }
+      },
+    );
   } finally {
     await browser?.close();
   }
