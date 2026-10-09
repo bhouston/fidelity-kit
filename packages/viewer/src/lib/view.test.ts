@@ -131,3 +131,13 @@ test('PSNR sorting uses the worst visible comparison and keeps missing metrics l
   expect(selectScenes(suite, items, search, view)).toEqual(items);
   expect(selectScenes(suite, items, search, { ...view, output: 'beauty', ref: 'other' })).toEqual(items);
 });
+
+test('scene family union combines with tag filters and survives URLs', () => {
+  const grouped = scenes.map((s, i) => ({ ...s, category: i ? 'Models' : 'Diagnostics', tags: ['glass'] }));
+  const search = validateViewSearch({ groups: 'Models,Diagnostics', tags: 'glass' });
+  expect(selectScenes(index, grouped, search, resolveView(index, search))).toHaveLength(2);
+  expect(selectScenes(index, grouped, { groups: 'Models' }, resolveView(index, {})).map((s) => s.path)).toEqual([
+    'partial',
+  ]);
+  expect(selectScenes(index, grouped, { groups: '-' }, resolveView(index, {}))).toEqual([]);
+});

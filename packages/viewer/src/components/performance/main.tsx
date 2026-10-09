@@ -1,3 +1,4 @@
+import { GroupedOptions } from '../GroupedOptions';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { humanizeBytes } from 'humanize-units';
@@ -1094,19 +1095,23 @@ export function PerformancePage() {
               onChange={(e) => setRenderer(e.target.value)}
             >
               <option value="">All renderers</option>
-              {renderers.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
-                </option>
-              ))}
+              <GroupedOptions
+                items={renderers.map((item) => ({
+                  ...item,
+                  category: suiteData.site?.registry.renderers.find(
+                    (r) => r.id === item.id || r.legacyIds.includes(item.id),
+                  )?.category,
+                }))}
+              />
             </select>
             <select aria-label="Scenes" title="Scenes" value={scene} onChange={(e) => setScene(e.target.value)}>
               <option value="">All scenes</option>
-              {scenes.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
-                </option>
-              ))}
+              <GroupedOptions
+                items={scenes.map((item) => ({
+                  ...item,
+                  category: suiteData.site?.registry.scenes.find((s) => s.id === item.id)?.category,
+                }))}
+              />
             </select>
             <span className="result-count">
               {cards.length}/{machineItems.length}

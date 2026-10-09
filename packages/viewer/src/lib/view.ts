@@ -13,6 +13,8 @@ export interface ViewSearch {
   q?: string;
   /** comma-joined tag list; a scene must have all of them */
   tags?: string;
+  /** Comma-separated scene families; matches any selected family. */
+  groups?: string;
   output?: string;
   ref?: string;
   /** Comma-separated compared renderer ids; omitted means all. `-` means no compared renderers. */
@@ -40,6 +42,7 @@ export function validateViewSearch(s: Record<string, unknown>): ViewSearch {
     dir: str(s.dir),
     q: str(s.q),
     tags: str(s.tags),
+    groups: str(s.groups),
     output: str(s.output),
     ref: str(s.ref),
     renderers: str(s.renderers),
@@ -144,10 +147,12 @@ export function allTags(scenes: SceneNode[]): string[] {
 export function selectScenes(index: SuiteIndex, scenes: SceneNode[], search: ViewSearch, v: View): SceneNode[] {
   const q = search.q?.toLowerCase();
   const tags = search.tags?.split(',') ?? [];
+  const groups = search.groups?.split(',');
   const shown = scenes.filter(
     (s) =>
       (!q || s.path.toLowerCase().includes(q) || s.title.toLowerCase().includes(q)) &&
-      tags.every((t) => s.tags.includes(t)),
+      tags.every((t) => s.tags.includes(t)) &&
+      (!groups || groups.includes(s.category ?? 'Other')),
   );
   if (search.sort === 'psnr-asc' || search.sort === 'psnr-desc') {
     const dir = search.sort === 'psnr-asc' ? 1 : -1;
@@ -157,7 +162,7 @@ export function selectScenes(index: SuiteIndex, scenes: SceneNode[], search: Vie
       return x === undefined ? (y === undefined ? 0 : 1) : y === undefined ? -1 : x === y ? 0 : dir * (x - y);
     });
   }
-  return shown.toSorted((a, b) => a.path.localeCompare(b.path));
+  return shown.toSorted((a, b) => (a.category ?? '').localeCompare(b.category ?? '') || a.path.localeCompare(b.path));
 }
 
 export const formatMetric = (n: number | null | undefined, digits = 2) =>

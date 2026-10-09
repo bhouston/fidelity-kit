@@ -9,6 +9,7 @@ export interface SceneNode {
   /** Slash-joined path from the root, e.g. `surfaces/standard_surface/brass`. */
   path: string;
   title: string;
+  category?: string;
   tags: string[];
   hasReadme: boolean;
   /** output id -> renderer ids that have an image */
@@ -201,6 +202,7 @@ export async function scanSuite(
         path: rel,
         title: meta.title ?? rel.split('/').pop()!,
         tags: meta.tags,
+        ...(meta.category ? { category: meta.category } : {}),
         hasReadme,
         images,
         imageFiles,
@@ -282,6 +284,7 @@ async function scanSceneDirectory(
     path: rel,
     title: meta.title ?? rel.split('/').pop()!,
     tags: meta.tags,
+    ...(meta.category ? { category: meta.category } : {}),
     hasReadme: await exists(join(dir, 'README.md')),
     images,
     imageFiles,

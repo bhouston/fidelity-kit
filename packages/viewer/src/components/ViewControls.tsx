@@ -1,3 +1,4 @@
+import { RendererSelection } from './RendererSelection';
 import { ArrowUpDown } from 'lucide-react';
 import type { SuiteIndex } from 'fidelity-kit';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '#/components/ui/select';
@@ -21,37 +22,27 @@ export function ViewControls({
   // the config's `enabled` flags are the default selection, so only a differing choice goes in the URL
   const setRenderers = (ids: Set<string>) => {
     const chosen = selectable.filter((r) => ids.has(r.id)).map((r) => r.id);
-    onChange({ renderers: chosen.join(',') === defaults.join(',') ? undefined : chosen.join(',') || '-' });
-  };
-  const toggleRenderer = (id: string) => {
-    const next = new Set(selected);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    setRenderers(next);
+    onChange({
+      renderer: undefined,
+      renderers: chosen.join(',') === defaults.join(',') ? undefined : chosen.join(',') || '-',
+    });
   };
   return (
     <>
       {selectable.length > 0 ? (
-        <details className="relative shrink-0 text-sm">
-          <summary className="cursor-pointer rounded-md border border-input px-3 py-2">
-            Renderers ({selected.size}/{selectable.length})
-          </summary>
-          <div className="absolute right-0 z-50 mt-1 min-w-48 space-y-1 rounded-md border border-border bg-card p-2 shadow-lg">
-            <button
-              className="block w-full px-2 py-1 text-left hover:bg-muted"
-              onClick={() => setRenderers(new Set(selectable.map((r) => r.id)))}
-              type="button"
-            >
-              All renderers
-            </button>
-            {selectable.map((r) => (
-              <label className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 hover:bg-muted" key={r.id}>
-                <input checked={selected.has(r.id)} onChange={() => toggleRenderer(r.id)} type="checkbox" />
-                {r.label ?? r.id}
-              </label>
-            ))}
-          </div>
-        </details>
+        <RendererSelection
+          renderers={selectable}
+          selected={selected}
+          onChange={setRenderers}
+          presets={index.config.comparisonPresets}
+          onPreset={(preset) => {
+            const ref = preset.ref ?? view.ref;
+            const ids = index.config.renderers
+              .filter((r) => r.id !== ref && preset.renderers.includes(r.id))
+              .map((r) => r.id);
+            onChange({ ref, renderer: undefined, renderers: ids.join(',') || '-' });
+          }}
+        />
       ) : null}
       {outputs.length > 1 ? (
         <Pick

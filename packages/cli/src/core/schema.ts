@@ -22,11 +22,12 @@ export type FidelityConfig = {
     enabled?: boolean;
     category?: string;
   }[];
+  comparisonPresets?: { id: string; name: string; renderers: string[]; ref?: string }[];
   outputs: { id: string; label?: string }[];
 };
 
 /** Optional `<scene>/scene.json`. */
-export type SceneMeta = { title?: string; tags: string[] };
+export type SceneMeta = { title?: string; category?: string; tags: string[] };
 
 /** Something in the suite that fidelity-kit ignores; `path` is relative to the suite root. */
 export type SuiteWarning = { path: string; message: string };
@@ -106,6 +107,13 @@ export function parseConfig(data: unknown, file = 'fidelity.json', onWarning?: (
     ...duplicates(config.renderers).map((id) => `renderers: renderer ids must be unique ("${id}" is repeated)`),
     ...duplicates(config.outputs).map((id) => `outputs: output ids must be unique ("${id}" is repeated)`),
   ];
+  issues.push(...duplicates(config.comparisonPresets ?? []).map((id) => `comparisonPresets: duplicate id ${id}`));
+  for (const preset of config.comparisonPresets ?? []) {
+    if (preset.renderers.some((id) => !config.renderers.some((r) => r.id === id)))
+      issues.push(`comparisonPresets: unknown renderer in ${preset.id}`);
+    if (preset.ref && !config.renderers.some((r) => r.id === preset.ref && r.reference))
+      issues.push(`comparisonPresets: invalid reference in ${preset.id}`);
+  }
   if (issues.length) throw new SchemaValidationError(file, issues);
   delete (config as { $schema?: string }).$schema;
   delete (config as { delta?: unknown }).delta;

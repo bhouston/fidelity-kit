@@ -77,3 +77,20 @@ it('requires the home hero to identify a registered scene and renderer', () => {
     output: 'beauty',
   });
 });
+
+it('preserves categories, tags and presets and rejects invalid preset identities', () => {
+  const value = {
+    ...input,
+    renderers: input.renderers.map((r) => ({ ...r, category: 'References' })),
+    scenes: input.scenes.map((s) => ({ ...s, category: 'Diagnostics', tags: ['glass'] })),
+    comparisonPresets: [{ id: 'test', name: 'Test', renderers: ['base'], ref: 'native' }],
+  };
+  expect(parseRegistry(value).comparisonPresets?.[0]?.ref).toBe('native');
+  expect(parseRegistry(value).scenes[0]?.tags).toEqual(['glass']);
+  expect(() =>
+    parseRegistry({ ...value, comparisonPresets: [{ id: 'bad', name: 'Bad', renderers: ['missing'] }] }),
+  ).toThrow('Unknown renderer');
+  expect(() =>
+    parseRegistry({ ...value, comparisonPresets: [{ id: 'bad', name: 'Bad', renderers: [], ref: 'base' }] }),
+  ).toThrow('Invalid reference');
+});

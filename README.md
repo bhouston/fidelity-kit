@@ -13,6 +13,14 @@
 
 Your renderer writes images; fidelity-kit handles the comparisons and viewer. Run the viewer locally while developing, serve the results from a container, or export a static site.
 
+## Grouped selections
+
+Set an optional `category` on renderers in `fidelity.json` or the unified registry. The renderer menu supports search, scrolling, collapsible groups, and all/none/partial group selection. Define `comparisonPresets` as `{ id, name, renderers, ref? }` entries to offer named comparisons; the chosen renderer IDs and reference remain in the URL.
+
+Scenes can carry a `category` and `tags` in the registry or `scene.json`. Fidelity filters scene families with union semantics, while selected tags must all match. Live and performance selects use the same categories. These fields are optional; existing suites retain their defaults.
+
+Run `node scripts/selection-browser.mjs` after building to verify selector behavior in Chrome. Set `CHROME_EXECUTABLE` when using an installed browser.
+
 ## Quick start
 
 If you already have a results folder in the format below:

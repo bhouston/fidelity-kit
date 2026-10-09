@@ -81,7 +81,11 @@ export async function getSuite() {
   if (site)
     for (const scene of scenes) {
       const definition = site.registry.scenes.find((item) => (item.path ?? item.id) === scene.path);
-      if (definition) scene.title = definition.name;
+      if (definition) {
+        scene.title = definition.name;
+        scene.category = definition.category ?? scene.category;
+        scene.tags = [...new Set([...scene.tags, ...(definition.tags ?? [])])];
+      }
     }
   bumpChangedScenes(index, scenes);
   return { site, index, hashes: { ...hashes, ...sceneVersions }, scenes, liveReload };
