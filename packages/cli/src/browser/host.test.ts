@@ -249,3 +249,40 @@ describe('shared render host contracts', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 });
+
+it('uses async completed sample counts rather than wavefront submissions', async () => {
+  locationFor('capture', { samples: 3 });
+  const rendered = session();
+  let updates = 0;
+  rendered.accumulated = async () => Math.floor(updates / 4);
+  rendered.draw = vi.fn(() => updates++);
+  await mountRenderHost(async () => rendered);
+  expect(updates).toBe(12);
+  expect(rendered.complete).toHaveBeenCalledTimes(12);
+  hide();
+});
+it('delegates a capture policy and completes GPU work before publishing metadata', async () => {
+  locationFor('capture', { samples: 4096 });
+  const rendered = session();
+  const operations: string[] = [];
+  rendered.capture = async (options) => {
+    expect(options.samples).toBe(4096);
+    operations.push('policy');
+    return { samples: 128, noise: 0.004, converged: true };
+  };
+  rendered.complete = async () => {
+    operations.push('complete');
+    expect(messages).toEqual([]);
+  };
+  await mountRenderHost(async () => rendered);
+  expect(operations).toEqual(['policy', 'complete']);
+  expect(messages.at(-1)?.data).toMatchObject({ samples: 128, noise: 0.004, converged: true });
+  hide();
+});
+it.each([NaN, -1, Infinity])('rejects invalid asynchronous counts %s', async (value) => {
+  locationFor('capture', { samples: 4 });
+  const rendered = session();
+  rendered.accumulated = async () => value;
+  await expect(mountRenderHost(async () => rendered)).rejects.toThrow('Invalid accumulated');
+  expect(messages.some((m) => m.kind === 'complete')).toBe(false);
+});

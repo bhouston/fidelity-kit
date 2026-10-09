@@ -8,7 +8,12 @@ export type SessionReporter = Pick<
 >;
 export interface RenderSession {
   canvas: HTMLCanvasElement;
-  accumulated?(): number;
+  accumulated?(): number | Promise<number>;
+  /** Optional project-owned stopping policy for progressive captures; independent of benchmark timing. */
+  capture?(options: {
+    frames: number;
+    samples: number;
+  }): Promise<{ samples?: number; noise?: number; converged?: boolean }>;
   /** Resize live rendering after completed GPU work; captures and benchmarks keep their configured size. */
   resize?(width: number, height: number): void;
   draw(deltaSeconds?: number): void;
@@ -73,21 +78,42 @@ export async function mountRenderHost(createSession: SessionFactory): Promise<vo
         throw new Error('Invalid capture frame count');
       const samples = Number(params.samples ?? 0);
       if (!Number.isSafeInteger(samples) || samples < 0 || samples > 100000) throw new Error('Invalid sample count');
-      for (
-        let i = 1;
-        i < 1000000 && (samples && session.accumulated ? session.accumulated() < samples : i < frames);
-        i++
-      ) {
-        session.draw();
+      let metadata: { samples?: number; noise?: number; converged?: boolean } = {};
+      if (session.capture) {
+        metadata = await session.capture({ frames, samples });
         await session.complete();
+      } else {
+        let completed = samples && session.accumulated ? await session.accumulated() : 0;
+        if (!Number.isFinite(completed) || completed < 0) throw new Error('Invalid accumulated sample count');
+        for (let i = 1; i < 1000000 && (samples && session.accumulated ? completed < samples : i < frames); i++) {
+          if (stopped) throw new Error('Capture cancelled');
+          session.draw();
+          await session.complete();
+          if (samples && session.accumulated) {
+            const next = await session.accumulated();
+            if (!Number.isFinite(next) || next < completed) throw new Error('Invalid accumulated sample count');
+            completed = next;
+          }
+        }
+        if (samples && session.accumulated && completed < samples)
+          throw new Error('Capture did not reach the sample target');
       }
-      if (samples && session.accumulated && session.accumulated() < samples)
-        throw new Error('Capture did not reach the sample target');
-      (window as unknown as { __fidelityKitCapture: { width: number; height: number } }).__fidelityKitCapture = {
+      (
+        window as unknown as {
+          __fidelityKitCapture: {
+            width: number;
+            height: number;
+            samples?: number;
+            noise?: number;
+            converged?: boolean;
+          };
+        }
+      ).__fidelityKitCapture = {
+        ...metadata,
         width: session.canvas.width,
         height: session.canvas.height,
       };
-      send('complete', { width: session.canvas.width, height: session.canvas.height });
+      send('complete', { ...metadata, width: session.canvas.width, height: session.canvas.height });
       return;
     }
     if (automated) {
