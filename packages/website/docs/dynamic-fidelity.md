@@ -32,7 +32,7 @@ Dynamic fidelity uses the [rendering registry](./suite-format.md) and the same b
 ```
 
 - **`renderers[].supersample`** renders at `factor ×` the requested width and height and downsamples the capture in linear light. The filter is `lanczos3` (default) or `box`. Any renderer becomes a reference this way, for example a renderer without anti-aliasing at 4 × 4 samples per pixel. `render` honours it for static captures as well.
-- **`scenes[].dynamic`** opts a scene in. It sets the sequence size, the total frame count, the unscored `warmup` frames that let temporal history settle, and the time step `1 / fps`. Optional `params` are passed to the session, for example camera motion.
+- **`scenes[].dynamic`** opts a scene in. It sets the sequence size, the total frame count, the unscored `warmup` frames that let temporal history settle, and the time step `1 / fps`. Optional `params` are passed to the session, for example camera motion. Optional `renderers` limits the compared renderers for this scene, for example a denoiser that only applies to scenes with ambient occlusion.
 - **`dynamic`** names the reference renderer and the output folder of the representative frames. `renderers` optionally limits the compared renderers; the default is every enabled, non-reference browser renderer. `representativeFrame` picks the saved frame (default: the last measured one).
 
 ## Session contract

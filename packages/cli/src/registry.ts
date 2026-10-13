@@ -17,6 +17,8 @@ export const sceneDynamicSchema = z.object({
   frames: z.number().int().positive().max(10000).default(120),
   warmup: z.number().int().nonnegative().default(30),
   fps: z.number().positive().default(60),
+  /** Compared renderers for this scene; defaults to every compared renderer of the dynamic section. */
+  renderers: z.array(id).optional(),
   params,
 });
 export const registrySchema = z.object({
@@ -147,9 +149,13 @@ export function parseRegistry(value: unknown): RenderingRegistry {
       if (!browserRenderer(rendererId)) throw new Error(`Unknown browser renderer ${rendererId} in dynamic`);
     if (!suite.scenes.some((scene) => scene.dynamic)) throw new Error('Dynamic fidelity needs a scene with dynamic');
   }
-  for (const scene of suite.scenes)
+  for (const scene of suite.scenes) {
     if (scene.dynamic && scene.dynamic.warmup >= scene.dynamic.frames)
       throw new Error(`Scene ${scene.id} must measure at least one dynamic frame after warm-up`);
+    for (const rendererId of scene.dynamic?.renderers ?? [])
+      if (!suite.renderers.some((r) => r.id === rendererId && r.kind === 'browser'))
+        throw new Error(`Unknown browser renderer ${rendererId} in scene ${scene.id}`);
+  }
   for (const renderer of suite.renderers)
     if (renderer.kind === 'external' && !renderer.command?.length)
       throw new Error(`External renderer ${renderer.id} needs a command`);

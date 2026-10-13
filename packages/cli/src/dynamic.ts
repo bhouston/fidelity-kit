@@ -110,11 +110,13 @@ async function readJson<T>(file: string): Promise<T | undefined> {
 async function declareOutput(out: string, suite: RenderingRegistry, output: string) {
   type Config = { outputs?: { id: string; label?: string }[] } & Record<string, unknown>;
   const file = join(out, 'fidelity.json');
-  const config: Config = (await readJson<Config>(file)) ?? {
+  const existing = await readJson<Config>(file);
+  const config: Config = existing ?? {
     title: suite.title,
     renderers: suite.renderers.map((r) => ({ id: r.id, label: r.name, reference: r.reference, enabled: r.enabled })),
   };
-  const outputs = config.outputs ?? [{ id: 'beauty' }];
+  // An existing configuration without outputs implies `beauty`; a new one only declares the dynamic output.
+  const outputs = config.outputs ?? (existing ? [{ id: 'beauty' }] : []);
   if (config.outputs && outputs.some((o) => o.id === output)) return;
   config.outputs = outputs.some((o) => o.id === output) ? outputs : [...outputs, { id: output, label: 'Motion' }];
   await writeFile(file, JSON.stringify(config, null, 2) + '\n');
@@ -181,6 +183,7 @@ export async function captureDynamic(options: DynamicOptions) {
       const referenceFrames = await captureSequence(browser, suite, reference, scene, options.rootUrl);
       await writeFrame(join(folder, `${reference.id}.avif`), referenceFrames[representative]!);
       for (const renderer of renderers) {
+        if (sequence.renderers && !sequence.renderers.includes(renderer.id)) continue;
         log(`${scene.id} / ${renderer.id}`);
         const frames = await captureSequence(browser, suite, renderer, scene, options.rootUrl);
         const { summary, perFrame } = compareSequences(referenceFrames, frames);

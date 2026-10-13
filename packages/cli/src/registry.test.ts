@@ -135,5 +135,11 @@ describe('dynamic fidelity registry', () => {
     expect(() =>
       parseRegistry({ ...dynamicInput, renderers: [{ id: 'a', name: 'A', supersample: { factor: 1 } }] }),
     ).toThrow();
+    expect(() =>
+      parseRegistry({
+        ...dynamicInput,
+        scenes: [...input.scenes, { id: 'motion', name: 'M', dynamic: { renderers: ['missing'] } }],
+      }),
+    ).toThrow(/Unknown browser renderer missing in scene motion/);
   });
 });
