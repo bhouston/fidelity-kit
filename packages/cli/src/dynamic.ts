@@ -171,6 +171,8 @@ export async function captureDynamic(options: DynamicOptions) {
     headless: !options.headful,
     executablePath: options.executablePath,
     args: [...chromeFlags('on'), ...(options.chromeArgs ?? [])],
+    // Supersampled references of heavy effects can keep a page busy for minutes; sequences have no time limit.
+    protocolTimeout: 0,
   });
   try {
     for (const scene of scenes) {
