@@ -1,6 +1,8 @@
 import { Link, getRouteApi, notFound, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
-import type { MetricsRecord } from 'fidelity-kit';
+import type { MetricsRecord, TemporalSummary } from 'fidelity-kit';
+import { TemporalSparkline } from '#/components/DynamicPage';
+import { temporalFile } from 'fidelity-kit/paths';
 import { BookmarkHeading } from '#/components/BookmarkHeading';
 import Header from '#/components/Header';
 import { Markdown } from '#/components/Markdown';
@@ -8,6 +10,7 @@ import { ResultImage, type ImageSize } from '#/components/ResultImage';
 import { ViewControls } from '#/components/ViewControls';
 import {
   deltaUrl,
+  fileUrl,
   formatMetric,
   metricsOf,
   psnrClassName,
@@ -23,7 +26,7 @@ const indexRoute = getRouteApi('/');
 
 /** Detail page for `/?scene=<path>`; rendered by the index route. */
 export function SceneDetail({ path, readme }: { path: string; readme: string | null }) {
-  const { index, hashes, scenes } = root.useLoaderData();
+  const { index, hashes, scenes, dynamic } = root.useLoaderData();
   const search = indexRoute.useSearch();
   const scene = scenes.find((s) => s.path === path);
   const navigate = useNavigate({ from: '/' });
@@ -84,6 +87,12 @@ export function SceneDetail({ path, readme }: { path: string; readme: string | n
             search={search}
             showDelta={view.showDeltas}
             size={size}
+            temporal={
+              dynamic && dynamic.output === view.output && dynamic.reference === view.ref
+                ? dynamic.results[scene.path]?.[r]
+                : undefined
+            }
+            temporalUrl={fileUrl(scene.path, view.output, temporalFile(r), hashes)}
           />
         ))}
       </div>
@@ -103,6 +112,8 @@ function Comparison({
   showDelta,
   metrics,
   size,
+  temporal,
+  temporalUrl,
 }: {
   id: string;
   scenePath: string;
@@ -115,6 +126,8 @@ function Comparison({
   showDelta: boolean;
   metrics?: MetricsRecord;
   size?: ImageSize;
+  temporal?: TemporalSummary;
+  temporalUrl: string;
 }) {
   const [split, setSplit] = useState(50);
   return (
@@ -190,10 +203,25 @@ function Comparison({
           <dl className={`grid max-w-md grid-cols-2 gap-x-4 gap-y-1 p-2 font-mono text-sm ${psnrClassName(metrics)}`}>
             <dt>PSNR (dB)</dt>
             <dd>{formatMetric(metrics.psnr)}</dd>
+            <dt>Sharpness</dt>
+            <dd>{formatMetric(metrics.sharpness, 3)}</dd>
+            {temporal ? (
+              <>
+                <dt>Sequence PSNR (dB)</dt>
+                <dd>{formatMetric(temporal.psnr)}</dd>
+                <dt>Temporal PSNR (dB)</dt>
+                <dd>{formatMetric(temporal.temporalPsnr)}</dd>
+                <dt>Sequence sharpness</dt>
+                <dd>{formatMetric(temporal.sharpness, 3)}</dd>
+                <dt>Frames</dt>
+                <dd>{temporal.frames}</dd>
+              </>
+            ) : null}
           </dl>
         ) : (
           <p className="text-sm text-muted-foreground">No metrics yet. Run `fidelity-kit process`.</p>
         )}
+        {temporal ? <TemporalSparkline url={temporalUrl} /> : null}
       </div>
     </section>
   );

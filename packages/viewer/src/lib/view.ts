@@ -3,7 +3,7 @@ import { deltaFile, imageFile, metricsFile } from 'fidelity-kit/paths';
 
 export type Sort = 'name' | 'psnr-asc' | 'psnr-desc';
 export interface ViewSearch {
-  view?: 'home' | 'fidelity' | 'performance' | 'live';
+  view?: 'home' | 'fidelity' | 'dynamic' | 'performance' | 'live';
   renderer?: string;
   machine?: string;
   session?: string;
@@ -31,7 +31,7 @@ const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v : undefined);
 export function validateViewSearch(s: Record<string, unknown>): ViewSearch {
   const sort = s.sort === 'psnr-asc' || s.sort === 'psnr-desc' ? s.sort : undefined;
   return {
-    view: ['home', 'fidelity', 'performance', 'live'].includes(String(s.view))
+    view: ['home', 'fidelity', 'dynamic', 'performance', 'live'].includes(String(s.view))
       ? (s.view as ViewSearch['view'])
       : undefined,
     renderer: str(s.renderer),

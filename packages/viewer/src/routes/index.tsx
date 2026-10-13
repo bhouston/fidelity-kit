@@ -11,6 +11,7 @@ import { Button } from '#/components/ui/button';
 import { Input } from '#/components/ui/input';
 import { SortSelect, ViewControls } from '#/components/ViewControls';
 import { SceneDetail } from '#/components/SceneDetail';
+import { DynamicPage } from '#/components/DynamicPage';
 import { getPreamble, getReadme } from '#/lib/data';
 import {
   allTags,
@@ -52,6 +53,7 @@ function Index() {
         <LivePage />
       </Suspense>
     );
+  if (view === 'dynamic') return <DynamicPage />;
   if (view === 'performance')
     return (
       <Suspense fallback={<p className="p-6">Loading performance results…</p>}>

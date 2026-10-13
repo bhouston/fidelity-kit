@@ -94,3 +94,46 @@ it('preserves categories, tags and presets and rejects invalid preset identities
     parseRegistry({ ...value, comparisonPresets: [{ id: 'bad', name: 'Bad', renderers: [], ref: 'base' }] }),
   ).toThrow('Invalid reference');
 });
+
+describe('dynamic fidelity registry', () => {
+  const dynamicInput = {
+    ...input,
+    renderers: [
+      ...input.renderers,
+      { id: 'ssaa', name: 'Supersampled', reference: true, supersample: { factor: 4 } },
+      { id: 'taa', name: 'TAA' },
+    ],
+    scenes: [...input.scenes, { id: 'motion', name: 'Motion', dynamic: { frames: 40, warmup: 10 } }],
+    dynamic: { reference: 'ssaa' },
+  };
+  it('applies supersample, sequence and output defaults', () => {
+    const suite = parseRegistry(dynamicInput);
+    expect(suite.renderers.find((r) => r.id === 'ssaa')!.supersample).toEqual({ factor: 4, filter: 'lanczos3' });
+    expect(suite.scenes.find((s) => s.id === 'motion')!.dynamic).toEqual({
+      width: 640,
+      height: 360,
+      frames: 40,
+      warmup: 10,
+      fps: 60,
+      params: {},
+    });
+    expect(suite.dynamic).toEqual({ output: 'motion', reference: 'ssaa' });
+  });
+  it('rejects invalid dynamic configurations', () => {
+    expect(() => parseRegistry({ ...dynamicInput, dynamic: { reference: 'taa' } })).toThrow(/reference/);
+    expect(() => parseRegistry({ ...dynamicInput, dynamic: { reference: 'native' } })).toThrow(/reference/);
+    expect(() => parseRegistry({ ...dynamicInput, dynamic: { reference: 'ssaa', renderers: ['nope'] } })).toThrow(
+      /Unknown browser renderer/,
+    );
+    expect(() => parseRegistry({ ...dynamicInput, scenes: input.scenes })).toThrow(/needs a scene/);
+    expect(() =>
+      parseRegistry({
+        ...dynamicInput,
+        scenes: [...input.scenes, { id: 'motion', name: 'M', dynamic: { frames: 4, warmup: 4 } }],
+      }),
+    ).toThrow(/after warm-up/);
+    expect(() =>
+      parseRegistry({ ...dynamicInput, renderers: [{ id: 'a', name: 'A', supersample: { factor: 1 } }] }),
+    ).toThrow();
+  });
+});

@@ -16,7 +16,7 @@ export const Route = createRootRoute({
 });
 
 function Root() {
-  const { index, liveReload } = Route.useLoaderData();
+  const { index, liveReload, dynamic } = Route.useLoaderData();
   const router = useRouter();
   useEffect(() => listenForChanges(liveReload, () => router.invalidate()), [liveReload, router]);
   useEffect(() => {
@@ -39,6 +39,11 @@ function Root() {
         <Link to="/" search={{ view: 'fidelity' }}>
           Fidelity
         </Link>
+        {dynamic ? (
+          <Link to="/" search={{ view: 'dynamic' }}>
+            Dynamic
+          </Link>
+        ) : null}
         <Link to="/" search={{ view: 'performance' }}>
           Performance
         </Link>

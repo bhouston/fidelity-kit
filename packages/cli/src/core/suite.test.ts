@@ -45,11 +45,17 @@ test('scan, process, staleness, etag', async () => {
   expect(a.psnr).toBeNull();
   expect(b.psnr).toEqual(expect.any(Number));
 
-  expect(Object.keys(a).toSorted()).toEqual(['generatedAt', 'height', 'psnr', 'source', 'width']);
+  expect(Object.keys(a).toSorted()).toEqual(['generatedAt', 'height', 'psnr', 'sharpness', 'source', 'width']);
+  expect(a.sharpness).toBeNull(); // the fixture images are flat
   // Existing caches retain PSNR and timestamps but lose retired metric fields without recomputing.
   await writeFile(join(dir, 'a.vs-ref.metrics.json'), JSON.stringify({ ...a, rmse: 0, mae: 0, maxError: 0 }));
   expect(await processSuite(root)).toMatchObject({ computed: 0, skipped: 2 });
   expect(JSON.parse(await readFile(join(dir, 'a.vs-ref.metrics.json'), 'utf8'))).toEqual(a);
+  // Caches from before sharpness existed are recomputed once.
+  const { sharpness: _, ...withoutSharpness } = a;
+  await writeFile(join(dir, 'a.vs-ref.metrics.json'), JSON.stringify(withoutSharpness));
+  expect(await processSuite(root)).toMatchObject({ computed: 1, skipped: 1 });
+  expect(JSON.parse(await readFile(join(dir, 'a.vs-ref.metrics.json'), 'utf8'))).toHaveProperty('sharpness', null);
   const indexed = JSON.parse(await readFile(join(root, 'index.json'), 'utf8'));
   expect(indexed.metrics['g1/g2/s1/beauty/a.vs-ref.metrics.json']).not.toHaveProperty('rmse');
   const future = new Date(Date.now() + 5000);

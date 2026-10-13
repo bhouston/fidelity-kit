@@ -26,6 +26,23 @@ export type SessionFactory = (
   host: HTMLElement,
   interactive: boolean,
 ) => Promise<RenderSession>;
+/** Receives each measured frame of a dynamic capture as a base64 PNG; exposed by the `dynamic` command. */
+type FrameReceiver = (index: number, png: string) => Promise<void>;
+
+const blobToBase64 = (blob: Blob) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener('load', () => resolve(String(reader.result).slice(String(reader.result).indexOf(',') + 1)));
+    reader.addEventListener('error', () => reject(reader.error ?? new Error('Frame read failed')));
+    reader.readAsDataURL(blob);
+  });
+
+const integerParam = (value: unknown, fallback: number, name: string, min: number) => {
+  const number = Number(value ?? fallback);
+  if (!Number.isSafeInteger(number) || number < min || number > 100000) throw new Error(`Invalid ${name}`);
+  return number;
+};
+
 const viewportSize = () => ({ width: Math.max(1, window.innerWidth), height: Math.max(1, window.innerHeight) });
 export const hostProtocol = 'fidelity-kit-host-v1';
 /** The project supplies one session factory, shared by captures, benchmarks and interactive rendering. */
@@ -40,12 +57,13 @@ export async function mountRenderHost(createSession: SessionFactory): Promise<vo
   };
   const reporter = createReporter({
     throughput: true,
-    enabled: mode === 'live' || mode === 'capture' ? false : undefined,
+    enabled: mode === 'live' || mode === 'capture' || mode === 'dynamic' ? false : undefined,
   });
   const automated = reporter.enabled;
   const responsive = !automated && mode === 'live' && query.get('fidelityKitViewport') === 'responsive';
   let size = viewportSize();
-  if (!automated && mode !== 'live' && mode !== 'capture') throw new Error('No render host mode selected');
+  if (!automated && mode !== 'live' && mode !== 'capture' && mode !== 'dynamic')
+    throw new Error('No render host mode selected');
   const telemetry = createLiveTelemetry(
     (data) => send('setup', data),
     (data) => send('frame', data),
@@ -70,6 +88,37 @@ export async function mountRenderHost(createSession: SessionFactory): Promise<vo
     session = await createSession(params, automated ? reporter : telemetry.reporter, document.body, mode === 'live');
     if (stopped) {
       session.dispose();
+      return;
+    }
+    if (mode === 'dynamic') {
+      // A deterministic animated sequence: a fixed time step per frame, the first `warmup` frames are not delivered.
+      const frames = integerParam(params.frames, 120, 'dynamic frame count', 1);
+      const warmup = integerParam(params.warmup, 0, 'dynamic warm-up', 0);
+      const fps = Number(params.fps ?? 60);
+      if (!(fps > 0) || warmup >= frames) throw new Error('Invalid dynamic sequence');
+      const receive = (window as unknown as { __fidelityKitFrame?: FrameReceiver }).__fidelityKitFrame;
+      if (!receive) throw new Error('No dynamic frame receiver');
+      const readback = document.createElement('canvas');
+      readback.width = session.canvas.width;
+      readback.height = session.canvas.height;
+      const context = readback.getContext('2d');
+      if (!context) throw new Error('Dynamic readback context unavailable');
+      for (let frame = 0; frame < frames; frame++) {
+        if (stopped) throw new Error('Capture cancelled');
+        session.draw(1 / fps);
+        // Copy in the same task as the draw, before the canvas is presented; this works for WebGL and WebGPU canvases
+        // without preserved drawing buffers.
+        if (frame >= warmup) context.drawImage(session.canvas, 0, 0);
+        await session.complete();
+        if (frame < warmup) continue;
+        const png = await new Promise<Blob>((resolve, reject) =>
+          readback.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('Frame encoding failed'))), 'image/png'),
+        );
+        await receive(frame - warmup, await blobToBase64(png));
+      }
+      const result = { frames: frames - warmup, width: session.canvas.width, height: session.canvas.height };
+      (window as unknown as { __fidelityKitDynamic: typeof result }).__fidelityKitDynamic = result;
+      send('complete', result);
       return;
     }
     if (mode === 'capture') {
