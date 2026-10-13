@@ -4,6 +4,23 @@ import type { Suite } from './schema/index.js';
 const id = z.string().regex(/^[a-z0-9][a-z0-9._-]*$/);
 const params = z.record(z.string(), z.unknown()).default({});
 const identity = { id, name: z.string().min(1) };
+/** Render at `factor` × the requested size and downsample in linear light; turns any renderer into a reference. */
+export const supersampleSchema = z.object({
+  factor: z.number().int().min(2).max(8),
+  filter: z.enum(['lanczos3', 'box']).default('lanczos3'),
+});
+export type Supersample = z.infer<typeof supersampleSchema>;
+/** A scene's animated sequence for dynamic (temporal) fidelity. Frames before `warmup` are rendered but not scored. */
+export const sceneDynamicSchema = z.object({
+  width: z.number().int().positive().default(640),
+  height: z.number().int().positive().default(360),
+  frames: z.number().int().positive().max(10000).default(120),
+  warmup: z.number().int().nonnegative().default(30),
+  fps: z.number().positive().default(60),
+  /** Compared renderers for this scene; defaults to every compared renderer of the dynamic section. */
+  renderers: z.array(id).optional(),
+  params,
+});
 export const registrySchema = z.object({
   schemaVersion: z.literal(1),
   title: z.string().min(1),
@@ -25,6 +42,7 @@ export const registrySchema = z.object({
         params,
         command: z.array(z.string()).optional(),
         captureLane: z.enum(['cpu', 'gpu', 'either']).optional(),
+        supersample: supersampleSchema.optional(),
       }),
     )
     .min(1),
@@ -44,9 +62,22 @@ export const registrySchema = z.object({
             frames: z.number().int().positive().default(64),
           })
           .default({ width: 640, height: 480, frames: 64 }),
+        dynamic: sceneDynamicSchema.optional(),
       }),
     )
     .min(1),
+  dynamic: z
+    .object({
+      /** Output folder of the representative frames, e.g. `<scene>/motion/<renderer>.avif`. */
+      output: id.default('motion'),
+      /** Reference renderer every sequence is compared against, usually a supersampled one. */
+      reference: id,
+      /** Compared renderers; defaults to every enabled, non-reference browser renderer. */
+      renderers: z.array(id).optional(),
+      /** Measured frame (0-based, after warm-up) saved as the representative image; defaults to the last one. */
+      representativeFrame: z.number().int().nonnegative().optional(),
+    })
+    .optional(),
   comparisonPresets: z
     .array(z.object({ id, name: z.string().min(1), renderers: z.array(id), ref: id.optional() }))
     .optional(),
@@ -109,6 +140,22 @@ export function parseRegistry(value: unknown): RenderingRegistry {
         throw new Error(`Unknown browser renderer ${entry.renderer} in ${name}`);
       if (!suite.scenes.some((s) => s.id === entry.scene)) throw new Error(`Unknown scene ${entry.scene} in ${name}`);
     }
+  if (suite.dynamic) {
+    const browserRenderer = (rendererId: string) =>
+      suite.renderers.find((r) => r.id === rendererId && r.kind === 'browser');
+    if (!browserRenderer(suite.dynamic.reference)?.reference)
+      throw new Error(`Dynamic reference ${suite.dynamic.reference} must be a browser reference renderer`);
+    for (const rendererId of suite.dynamic.renderers ?? [])
+      if (!browserRenderer(rendererId)) throw new Error(`Unknown browser renderer ${rendererId} in dynamic`);
+    if (!suite.scenes.some((scene) => scene.dynamic)) throw new Error('Dynamic fidelity needs a scene with dynamic');
+  }
+  for (const scene of suite.scenes) {
+    if (scene.dynamic && scene.dynamic.warmup >= scene.dynamic.frames)
+      throw new Error(`Scene ${scene.id} must measure at least one dynamic frame after warm-up`);
+    for (const rendererId of scene.dynamic?.renderers ?? [])
+      if (!suite.renderers.some((r) => r.id === rendererId && r.kind === 'browser'))
+        throw new Error(`Unknown browser renderer ${rendererId} in scene ${scene.id}`);
+  }
   for (const renderer of suite.renderers)
     if (renderer.kind === 'external' && !renderer.command?.length)
       throw new Error(`External renderer ${renderer.id} needs a command`);

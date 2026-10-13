@@ -93,6 +93,8 @@ function validMetrics(value: unknown): value is MetricsRecord {
   const r = value as MetricsRecord;
   return (
     (r.psnr === null || Number.isFinite(r.psnr)) &&
+    // Metrics cached before sharpness was introduced are recomputed.
+    (r.sharpness === null || Number.isFinite(r.sharpness ?? NaN)) &&
     Number.isInteger(r.width) &&
     r.width > 0 &&
     Number.isInteger(r.height) &&
@@ -381,7 +383,13 @@ export class SuiteProcessor {
         try {
           const { source: saved, ...cached } = JSON.parse(await readFile(metricsPath, 'utf8'));
           if (matchesSource(saved, inputs) && validMetrics(cached)) {
-            record = { psnr: cached.psnr, width: cached.width, height: cached.height, generatedAt: cached.generatedAt };
+            record = {
+              psnr: cached.psnr,
+              sharpness: cached.sharpness,
+              width: cached.width,
+              height: cached.height,
+              generatedAt: cached.generatedAt,
+            };
             cleanLegacyMetrics = ['rmse', 'mae', 'maxError'].some((field) => field in cached);
           }
         } catch {

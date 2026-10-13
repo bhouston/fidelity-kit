@@ -9,6 +9,8 @@ import sharp from 'sharp';
 import { parseRegistry, rendererParams, rendererUrl } from './registry.js';
 import { runCaptureLanes } from './capture-lanes.js';
 import { chromeFlags } from './performance/schedule.js';
+import { readRgb, RESULT_AVIF } from './core/compare.js';
+import { downsample } from './supersample.js';
 
 export interface RenderOptions {
   registry: string;
@@ -98,12 +100,14 @@ export async function renderSuite(options: RenderOptions) {
       },
       async ({ renderer, scene, file }, lane) => {
         await mkdir(dirname(file), { recursive: true });
+        // Supersampled browser renderers capture at factor × the scene size and are downsampled after capture.
+        const factor = renderer.kind === 'browser' ? (renderer.supersample?.factor ?? 1) : 1;
         const params: Record<string, unknown> & { width: number; height: number; frames: number } = {
           seed: 1,
           ...rendererParams(suite, renderer.id, scene.id),
           ...options.captureParams,
-          width: scene.fidelity.width,
-          height: scene.fidelity.height,
+          width: scene.fidelity.width * factor,
+          height: scene.fidelity.height * factor,
           frames: options.frames ?? scene.fidelity.frames,
         };
         console.log(`${scene.id} / ${renderer.id}`);
@@ -144,7 +148,12 @@ export async function renderSuite(options: RenderOptions) {
           if (!canvas) throw new Error('Render host did not produce a canvas');
           // Compositor readback works after GPU completion, including canvases without preserved drawing buffers.
           const image = await canvas.screenshot({ type: 'png' });
-          await sharp(image).avif({ quality: 90, chromaSubsampling: '4:4:4' }).toFile(file);
+          if (renderer.supersample) {
+            const frame = downsample(await readRgb(Buffer.from(image)), renderer.supersample);
+            await sharp(frame.data, { raw: { width: frame.width, height: frame.height, channels: 3 } })
+              .avif(RESULT_AVIF)
+              .toFile(file);
+          } else await sharp(image).avif(RESULT_AVIF).toFile(file);
         } finally {
           await page.close();
         }

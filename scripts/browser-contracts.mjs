@@ -113,6 +113,46 @@ try {
   const metadata = await sharp(image).metadata();
   assert.deepEqual([metadata.width, metadata.height], [320, 240]);
   assert.ok((await sharp(image).stats()).channels.some((channel) => channel.stdev > 10));
+
+  // Dynamic fidelity: the plain cube against a 2× supersampled reference over a short animated sequence.
+  const dynamicRegistryFile = join(work, 'dynamic-registry.json');
+  await writeFile(
+    dynamicRegistryFile,
+    JSON.stringify({
+      ...registry,
+      renderers: [
+        { id: 'cube-ssaa', name: 'Supersampled cube', reference: true, supersample: { factor: 2 } },
+        ...registry.renderers,
+      ],
+      scenes: [{ ...registry.scenes[0], dynamic: { width: 160, height: 120, frames: 6, warmup: 2 } }],
+      dynamic: { reference: 'cube-ssaa' },
+    }),
+  );
+  await execute([
+    'dynamic',
+    '--registry',
+    dynamicRegistryFile,
+    '--out',
+    join(work, 'dynamic'),
+    '--executable-path',
+    chrome,
+  ]);
+  const dynamicIndex = JSON.parse(await readFile(join(work, 'dynamic/dynamic.json'), 'utf8'));
+  const motion = dynamicIndex.results.cube.cube;
+  assert.equal(motion.frames, 4);
+  assert.ok(motion.psnr > 15 && motion.psnr < 60, `dynamic PSNR ${motion.psnr}`);
+  assert.ok(motion.temporalPsnr > 15, `temporal PSNR ${motion.temporalPsnr}`);
+  // Sharpness is relative to the reference filter (Lanczos ringing adds edge energy), so only check it is sane.
+  assert.ok(motion.sharpness > 0.5 && motion.sharpness < 2, `dynamic sharpness ${motion.sharpness}`);
+  const sidecar = JSON.parse(await readFile(join(work, 'dynamic/cube/motion/cube.temporal.json'), 'utf8'));
+  assert.equal(sidecar.perFrame.psnr.length, 4);
+  assert.equal(sidecar.perFrame.temporalPsnr[0], null);
+  for (const id of ['cube', 'cube-ssaa']) {
+    const frameMetadata = await sharp(join(work, `dynamic/cube/motion/${id}.avif`)).metadata();
+    assert.deepEqual([frameMetadata.width, frameMetadata.height], [160, 120]);
+  }
+  const dynamicConfig = JSON.parse(await readFile(join(work, 'dynamic/fidelity.json'), 'utf8'));
+  assert.ok(dynamicConfig.outputs.some((output) => output.id === 'motion'));
   // Software GPU is allowed for correctness CI only. These are not comparative hardware measurements.
   await execute([
     'benchmark',

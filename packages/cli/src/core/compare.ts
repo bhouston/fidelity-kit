@@ -7,9 +7,14 @@ export interface RawImage {
   height: number;
 }
 
-/** `psnr` is in dB over RGB 0–255, and `null` when the images are identical (infinite PSNR). */
+/**
+ * `psnr` is in dB over RGB 0–255, and `null` when the images are identical (infinite PSNR). `sharpness` is the
+ * gradient energy of the test image relative to the reference: 1 is equally sharp, below 1 is blurrier (for example
+ * temporal accumulation) and above 1 has extra edges (aliasing or noise). It is `null` when the reference is flat.
+ */
 export interface ImageMetrics {
   psnr: number | null;
+  sharpness?: number | null;
 }
 
 /** Encoding for committed result images: near-lossless (worst render ~40 dB PSNR vs PNG), full-res chroma so noise and false colour survive. */
@@ -55,6 +60,29 @@ function inferno(t: number): [number, number, number] {
 // Max-channel error e (0–255) → t = min(1, 2·sqrt(e/255)): 1/255 error is already visible, ≥25% error saturates.
 const DELTA_LUT = Array.from({ length: 256 }, (_, e) => inferno(Math.min(1, 2 * Math.sqrt(e / 255))));
 
+/** Sum of absolute horizontal and vertical neighbour differences over all RGB channels. */
+export function gradientEnergy(image: RawImage): number {
+  const { data, width, height } = image;
+  const row = width * 3;
+  let sum = 0;
+  for (let y = 0; y < height; y += 1)
+    for (let x = 0; x < width; x += 1) {
+      const p = y * row + x * 3;
+      for (let c = 0; c < 3; c += 1) {
+        const v = data[p + c]!;
+        if (x > 0) sum += Math.abs(v - data[p - 3 + c]!);
+        if (y > 0) sum += Math.abs(v - data[p - row + c]!);
+      }
+    }
+  return sum;
+}
+
+/** Gradient energy of `test` relative to `reference`; see {@link ImageMetrics.sharpness}. */
+export function sharpnessRatio(reference: RawImage, test: RawImage): number | null {
+  const ref = gradientEnergy(reference);
+  return ref === 0 ? null : gradientEnergy(test) / ref;
+}
+
 /** Computes metrics and an RGB heat-map delta image (black = identical) from two equal-size RGB images. */
 export function compareRgb(reference: RawImage, test: RawImage): { metrics: ImageMetrics; delta: RawImage } {
   if (reference.width !== test.width || reference.height !== test.height) {
@@ -81,6 +109,7 @@ export function compareRgb(reference: RawImage, test: RawImage): { metrics: Imag
   return {
     metrics: {
       psnr: mse === 0 ? null : 10 * Math.log10((255 * 255) / mse),
+      sharpness: sharpnessRatio(reference, test),
     },
     delta: { data: delta, width: reference.width, height: reference.height },
   };

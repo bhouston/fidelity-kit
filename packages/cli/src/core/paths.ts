@@ -5,6 +5,10 @@ export const IMAGE_EXTENSIONS = ['.avif', '.webp', '.png', '.jpg'] as const;
 export const imageFile = (renderer: string, extension: string = IMAGE_EXT) => `${renderer}${extension}`;
 export const isImageFile = (file: string) => IMAGE_EXTENSIONS.some((extension) => file.endsWith(extension));
 export const metricsFile = (renderer: string, reference: string) => `${renderer}.vs-${reference}.metrics.json`;
+/** Sidecar of a compared renderer's dynamic (temporal) metrics, next to its representative frame. */
+export const temporalFile = (renderer: string) => `${renderer}.temporal.json`;
+/** Suite-level index of dynamic fidelity results. */
+export const DYNAMIC_INDEX = 'dynamic.json';
 export const deltaFile = (renderer: string, reference: string, extension: '.webp' | '.avif' = '.webp') =>
   `${renderer}.vs-${reference}.delta${extension}`;
 
@@ -16,7 +20,13 @@ export function isDataFile(rel: string): boolean {
       rel,
     );
   return (
-    rel === 'site.json' || rel === 'index.json' || rel === 'README.md' || rel.endsWith('/README.md') || isLogoFile(rel)
+    rel === 'site.json' ||
+    rel === 'index.json' ||
+    rel === DYNAMIC_INDEX ||
+    rel.endsWith('.temporal.json') ||
+    rel === 'README.md' ||
+    rel.endsWith('/README.md') ||
+    isLogoFile(rel)
   );
 }
 

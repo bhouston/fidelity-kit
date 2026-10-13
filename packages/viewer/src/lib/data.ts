@@ -1,7 +1,7 @@
 type SiteManifest = { registry: RenderingRegistry; rendererUrl: string };
 
 import type { RenderingRegistry } from 'fidelity-kit/registry';
-import type { GroupNode, SceneNode, SuiteIndex } from 'fidelity-kit';
+import type { DynamicIndex, GroupNode, SceneNode, SuiteIndex } from 'fidelity-kit';
 
 function* allScenes(g: GroupNode): Generator<SceneNode> {
   yield* g.scenes;
@@ -88,7 +88,19 @@ export async function getSuite() {
       }
     }
   bumpChangedScenes(index, scenes);
-  return { site, index, hashes: { ...hashes, ...sceneVersions }, scenes, liveReload };
+  return { site, index, hashes: { ...hashes, ...sceneVersions }, scenes, liveReload, dynamic: await getDynamic() };
+}
+
+/** Optional dynamic (temporal) fidelity summaries from `fidelity-kit dynamic`. */
+async function getDynamic(): Promise<DynamicIndex | null> {
+  try {
+    const response = await fetch('data/dynamic.json');
+    if (!response.ok || response.headers.get('content-type')?.includes('html')) return null;
+    const dynamic = (await response.json()) as DynamicIndex;
+    return dynamic?.schemaVersion === 1 && dynamic.results ? dynamic : null;
+  } catch {
+    return null;
+  }
 }
 
 /** README.md of the suite ('' path) or a group/scene; null when absent (dev servers answer 404s with index.html). */
