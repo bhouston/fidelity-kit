@@ -37,12 +37,13 @@ function mean(values: (number | null | undefined)[]) {
   return finite.length ? finite.reduce((a, b) => a + b, 0) / finite.length : undefined;
 }
 
-/** Scene × renderer table of dynamic (temporal) fidelity summaries. */
+/** Renderer × scene table of dynamic (temporal) fidelity summaries. */
 export function DynamicPage() {
   const { index, scenes, dynamic } = root.useLoaderData();
   const [metric, setMetric] = useState<Metric>('psnr');
   if (!dynamic) return <p className="p-6">No dynamic results. Run `fidelity-kit dynamic`.</p>;
   const labels = new Map(index.config.renderers.map((r) => [r.id, r.label ?? r.id]));
+  const categories = new Map(index.config.renderers.map((r) => [r.id, r.category]));
   const present = new Set(Object.values(dynamic.results).flatMap((row) => Object.keys(row)));
   const renderers = [
     ...index.config.renderers.map((r) => r.id).filter((id) => present.has(id)),
@@ -52,8 +53,9 @@ export function DynamicPage() {
   const title = (path: string) => scenes.find((scene) => scene.path === path)?.title ?? path;
   const value = (path: string, renderer: string) => dynamic.results[path]?.[renderer]?.[metric];
   const digits = metric === 'sharpness' ? 3 : 2;
-  const best = (values: (number | null | undefined)[]) => Math.max(...values.map((v) => quality(metric, v)));
-  const means = renderers.map((renderer) => mean(paths.map((path) => value(path, renderer))));
+  const best = new Map(
+    paths.map((path) => [path, Math.max(...renderers.map((renderer) => quality(metric, value(path, renderer))))]),
+  );
   const description = METRICS.find((m) => m.id === metric)!.description;
   return (
     <div className="flex w-full flex-col gap-4 px-4 py-6 sm:px-6">
@@ -61,7 +63,8 @@ export function DynamicPage() {
       <p className="max-w-3xl text-sm text-muted-foreground">
         Animated sequences compared frame by frame with{' '}
         <strong>{labels.get(dynamic.reference) ?? dynamic.reference}</strong>. Warm-up frames are excluded and the best
-        value in each row is bold. {description}
+        value of each scene is bold. Means only average the scenes a renderer ran on (n), so compare renderers within a
+        scene. {description}
       </p>
       <fieldset className="flex flex-wrap gap-2">
         <legend className="sr-only">Metric</legend>
@@ -81,48 +84,47 @@ export function DynamicPage() {
         <table className="border-collapse font-mono text-sm">
           <thead>
             <tr>
-              <th className="sticky left-0 bg-background p-2 text-left font-sans">Scene</th>
-              {renderers.map((renderer) => (
-                <th className="p-2 text-right font-sans" key={renderer}>
-                  {labels.get(renderer) ?? renderer}
+              <th className="sticky left-0 bg-background p-2 text-left font-sans">Renderer</th>
+              {paths.map((path) => (
+                <th className="max-w-40 p-2 text-right align-bottom font-sans font-normal" key={path}>
+                  <Link
+                    className="underline underline-offset-4"
+                    search={{ view: 'fidelity', scene: path, output: dynamic.output, ref: dynamic.reference }}
+                    to="/"
+                  >
+                    {title(path)}
+                  </Link>
                 </th>
               ))}
+              <th className="p-2 text-right align-bottom font-sans">Mean (n)</th>
             </tr>
           </thead>
           <tbody>
-            <tr className="border-y border-border bg-muted/30">
-              <th className="sticky left-0 bg-muted/30 p-2 text-left font-sans">Mean</th>
-              {means.map((m, i) => (
-                <td
-                  className={`p-2 text-right ${m !== undefined && quality(metric, m) === best(means) ? 'font-bold' : ''}`}
-                  key={renderers[i]}
-                >
-                  {formatMetric(m, digits)}
-                </td>
-              ))}
-            </tr>
-            {paths.map((path) => {
-              const values = renderers.map((renderer) => value(path, renderer));
-              const top = best(values);
+            {renderers.map((renderer, row) => {
+              const values = paths.map((path) => value(path, renderer));
+              const covered = values.filter((v) => v !== undefined);
+              const average = mean(values);
+              const category = categories.get(renderer);
+              const newCategory = row > 0 && category !== categories.get(renderers[row - 1]!);
               return (
-                <tr className="border-b border-border" key={path}>
-                  <th className="sticky left-0 bg-background p-2 text-left font-sans font-normal">
-                    <Link
-                      className="underline underline-offset-4"
-                      search={{ view: 'fidelity', scene: path, output: dynamic.output, ref: dynamic.reference }}
-                      to="/"
-                    >
-                      {title(path)}
-                    </Link>
+                <tr
+                  className={`border-b border-border ${newCategory ? 'border-t-2 border-t-foreground/30' : ''}`}
+                  key={renderer}
+                >
+                  <th className="sticky left-0 whitespace-nowrap bg-background p-2 text-left font-sans font-normal">
+                    {labels.get(renderer) ?? renderer}
                   </th>
                   {values.map((v, i) => (
                     <td
-                      className={`p-2 text-right ${v !== undefined && quality(metric, v) === top ? 'font-bold' : ''}`}
-                      key={renderers[i]}
+                      className={`p-2 text-right ${v !== undefined && quality(metric, v) === best.get(paths[i]!) ? 'font-bold' : ''}`}
+                      key={paths[i]}
                     >
                       {formatMetric(v, digits)}
                     </td>
                   ))}
+                  <td className="whitespace-nowrap p-2 text-right text-muted-foreground">
+                    {formatMetric(average, digits)} ({covered.length})
+                  </td>
                 </tr>
               );
             })}
