@@ -124,12 +124,13 @@ try {
         { id: 'cube-ssaa', name: 'Supersampled cube', reference: true, supersample: { factor: 2 } },
         ...registry.renderers,
       ],
-      scenes: [{ ...registry.scenes[0], dynamic: { width: 160, height: 120, frames: 6, warmup: 2 } }],
-      dynamic: { reference: 'cube-ssaa' },
+      scenes: [{ ...registry.scenes[0], temporalFidelity: { width: 160, height: 120, frames: 6, warmup: 2 } }],
+      staticFidelity: false,
+      temporalFidelity: { reference: 'cube-ssaa' },
     }),
   );
   await execute([
-    'dynamic',
+    'temporal',
     '--registry',
     dynamicRegistryFile,
     '--out',
@@ -152,7 +153,20 @@ try {
     assert.deepEqual([frameMetadata.width, frameMetadata.height], [160, 120]);
   }
   const dynamicConfig = JSON.parse(await readFile(join(work, 'dynamic/fidelity.json'), 'utf8'));
-  assert.ok(dynamicConfig.outputs.some((output) => output.id === 'motion'));
+  assert.equal(dynamicConfig.staticFidelity, false);
+  assert.equal(dynamicConfig.outputs.find((output) => output.id === 'motion')?.kind, 'temporal');
+  await assert.rejects(
+    execute([
+      'render',
+      '--registry',
+      dynamicRegistryFile,
+      '--out',
+      join(work, 'disabled-static'),
+      '--executable-path',
+      chrome,
+    ]),
+    /Static fidelity is disabled/,
+  );
   // Software GPU is allowed for correctness CI only. These are not comparative hardware measurements.
   await execute([
     'benchmark',
