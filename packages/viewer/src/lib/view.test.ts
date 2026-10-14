@@ -141,3 +141,7 @@ test('scene family union combines with tag filters and survives URLs', () => {
   ]);
   expect(selectScenes(index, grouped, { groups: '-' }, resolveView(index, {}))).toEqual([]);
 });
+
+test('empty static outputs do not crash view resolution', () => {
+  expect(resolveView({ ...index, config: { ...index.config, outputs: [] } }, {}).output).toBe('');
+});

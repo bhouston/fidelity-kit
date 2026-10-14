@@ -1,6 +1,7 @@
 import { Link, getRouteApi, notFound, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { MetricsRecord, TemporalSummary } from 'fidelity-kit';
+import { ComparisonMetrics } from './ComparisonMetrics';
 import { TemporalSparkline } from '#/components/DynamicPage';
 import { temporalFile } from 'fidelity-kit/paths';
 import { BookmarkHeading } from '#/components/BookmarkHeading';
@@ -8,38 +9,72 @@ import Header from '#/components/Header';
 import { Markdown } from '#/components/Markdown';
 import { ResultImage, type ImageSize } from '#/components/ResultImage';
 import { ViewControls } from '#/components/ViewControls';
-import {
-  deltaUrl,
-  fileUrl,
-  formatMetric,
-  metricsOf,
-  psnrClassName,
-  renderUrl,
-  resolveView,
-  sceneSize,
-  type ViewSearch,
-} from '#/lib/view';
+import { deltaUrl, fileUrl, metricsOf, renderUrl, resolveView, sceneSize, type ViewSearch } from '#/lib/view';
 
 const root = getRouteApi('__root__');
 
 const indexRoute = getRouteApi('/');
 
 /** Detail page for `/?scene=<path>`; rendered by the index route. */
-export function SceneDetail({ path, readme }: { path: string; readme: string | null }) {
-  const { index, hashes, scenes, dynamic } = root.useLoaderData();
-  const search = indexRoute.useSearch();
+export function SceneDetail({
+  path,
+  readme,
+  temporal = false,
+}: {
+  path: string;
+  readme: string | null;
+  temporal?: boolean;
+}) {
+  const { index: originalIndex, hashes, scenes, dynamic, site } = root.useLoaderData();
+  const index =
+    temporal && dynamic
+      ? {
+          ...originalIndex,
+          config: {
+            ...originalIndex.config,
+            outputs: originalIndex.config.outputs.filter((output) => output.id === dynamic.output),
+            renderers: originalIndex.config.renderers
+              .filter((renderer) => renderer.id === dynamic.reference || Boolean(dynamic.results[path]?.[renderer.id]))
+              .map((renderer) => ({ ...renderer, reference: renderer.id === dynamic.reference })),
+          },
+        }
+      : {
+          ...originalIndex,
+          config: {
+            ...originalIndex.config,
+            outputs: originalIndex.config.outputs.filter(
+              (output) => output.kind !== 'temporal' && output.id !== dynamic?.output,
+            ),
+          },
+        };
+  const requestedSearch = indexRoute.useSearch();
+  const search = temporal ? { ...requestedSearch, view: 'temporal' as const } : requestedSearch;
   const scene = scenes.find((s) => s.path === path);
   const navigate = useNavigate({ from: '/' });
-  if (!scene) throw notFound();
-  const view = resolveView(index, search, hashes);
+  if (
+    !scene ||
+    (!temporal && site?.registry.scenes.find((item) => (item.path ?? item.id) === path)?.staticFidelity === false)
+  )
+    throw notFound();
+  const view = resolveView(
+    index,
+    temporal && dynamic ? { ...search, output: dynamic.output, ref: dynamic.reference } : search,
+    hashes,
+  );
+  if (temporal && dynamic)
+    view.compared = view.compared.filter((renderer) => Boolean(dynamic.results[path]?.[renderer]));
   const compared = view.compared;
-  const size = sceneSize(index, scene, view);
+  const sequence = site?.registry.scenes.find((item) => (item.path ?? item.id) === path)?.dynamic;
+  const size =
+    temporal && sequence ? { width: sequence.width, height: sequence.height } : sceneSize(index, scene, view);
+  if (temporal) view.showDeltas = false;
 
   return (
     <>
       <Header logo={index.config.logo} scenePath={scene.path} search={search} title={index.config.title}>
         <ViewControls
           index={index}
+          showDeltaControl={!temporal}
           onChange={(patch) =>
             void navigate({
               replace: true,
@@ -54,7 +89,9 @@ export function SceneDetail({ path, readme }: { path: string; readme: string | n
         />
       </Header>
       <div className="mx-auto flex w-full max-w-[1120px] flex-col gap-6 px-4 py-6 sm:px-6">
-        <h1 className="text-xl font-semibold">{scene.title}</h1>
+        <h1 className="text-xl font-semibold">
+          {scene.title} · {temporal ? 'Temporal fidelity' : 'Static fidelity'}
+        </h1>
         {readme ? <Markdown>{readme}</Markdown> : null}
         <section className="grid gap-4 md:grid-cols-4">
           {[view.ref, ...compared].map((r) => (
@@ -80,7 +117,8 @@ export function SceneDetail({ path, readme }: { path: string; readme: string | n
             id={`vs-${r}`}
             key={r}
             label={view.label(r)}
-            metrics={metricsOf(index, scene, view, r)}
+            metrics={temporal ? undefined : metricsOf(index, scene, view, r)}
+            isTemporal={temporal}
             reference={renderUrl(scene, view, view.ref)}
             refLabel={view.label(view.ref)}
             scenePath={scene.path}
@@ -88,7 +126,7 @@ export function SceneDetail({ path, readme }: { path: string; readme: string | n
             showDelta={view.showDeltas}
             size={size}
             temporal={
-              dynamic && dynamic.output === view.output && dynamic.reference === view.ref
+              temporal && dynamic && dynamic.output === view.output && dynamic.reference === view.ref
                 ? dynamic.results[scene.path]?.[r]
                 : undefined
             }
@@ -114,6 +152,7 @@ function Comparison({
   size,
   temporal,
   temporalUrl,
+  isTemporal,
 }: {
   id: string;
   scenePath: string;
@@ -128,6 +167,7 @@ function Comparison({
   size?: ImageSize;
   temporal?: TemporalSummary;
   temporalUrl: string;
+  isTemporal: boolean;
 }) {
   const [split, setSplit] = useState(50);
   return (
@@ -199,28 +239,7 @@ function Comparison({
         ) : null}
       </div>
       <div className="mt-3">
-        {metrics ? (
-          <dl className={`grid max-w-md grid-cols-2 gap-x-4 gap-y-1 p-2 font-mono text-sm ${psnrClassName(metrics)}`}>
-            <dt>PSNR (dB)</dt>
-            <dd>{formatMetric(metrics.psnr)}</dd>
-            <dt>Sharpness</dt>
-            <dd>{formatMetric(metrics.sharpness, 3)}</dd>
-            {temporal ? (
-              <>
-                <dt>Sequence PSNR (dB)</dt>
-                <dd>{formatMetric(temporal.psnr)}</dd>
-                <dt>Temporal PSNR (dB)</dt>
-                <dd>{formatMetric(temporal.temporalPsnr)}</dd>
-                <dt>Sequence sharpness</dt>
-                <dd>{formatMetric(temporal.sharpness, 3)}</dd>
-                <dt>Frames</dt>
-                <dd>{temporal.frames}</dd>
-              </>
-            ) : null}
-          </dl>
-        ) : (
-          <p className="text-sm text-muted-foreground">No metrics yet. Run `fidelity-kit process`.</p>
-        )}
+        <ComparisonMetrics metrics={metrics} temporal={temporal} isTemporal={isTemporal} />
         {temporal ? <TemporalSparkline url={temporalUrl} /> : null}
       </div>
     </section>

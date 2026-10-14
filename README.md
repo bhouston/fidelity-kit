@@ -191,15 +191,19 @@ External renderers use an argv command producer with `{job}` (JSON job) and `{ou
 
 Automated throughput benchmarks disable vsync and frame-rate limits, warm up for one second, then count GPU-completed frames over the configured sustained window. Bounded batches include the full render pipeline and drain GPU work before publication and teardown. Individual frame timings are retained only when reading historical results; new throughput runs do not collect them. Live UI telemetry remains interactive and unpersisted.
 
-## Dynamic fidelity
+## Temporal fidelity
 
-Temporal techniques (TAA, temporal upscalers and denoisers, animated sampling noise) are judged on animated sequences, not single frames. Opt scenes in with `scenes[].dynamic` (size, frames, warm-up, fps), make any renderer a reference with `renderers[].supersample` (for example no anti-aliasing at 4 × 4 samples, Lanczos-downsampled in linear light), and name it in a top-level `dynamic` section. Then run:
+Static fidelity, temporal fidelity and performance are independent optional sections. Set `staticFidelity: false` to disable still-image comparisons. An explicit `temporalFidelity` section defaults static fidelity to disabled; set `staticFidelity: true` as well for a mixed suite. Performance navigation appears only for configured or captured tests.
+
+Temporal techniques (TAA, temporal upscalers and denoisers, animated sampling noise) are judged on animated sequences, not single frames. Opt scenes in with `scenes[].temporalFidelity` (size, frames, warm-up, fps), make any renderer a reference with `renderers[].supersample` (for example no anti-aliasing at 4 × 4 samples, Lanczos-downsampled in linear light), and name it in a top-level `temporalFidelity` section. Then run:
 
 ```sh
-fidelity-kit dynamic --registry registry.json --out fidelity-results
+fidelity-kit temporal --registry registry.json --out fidelity-results
 ```
 
-Every measured frame is scored against the reference: sequence PSNR, temporal PSNR (the error of the frame-to-frame change, which isolates flicker and lag) and sharpness (gradient energy relative to the reference; below 1 is blurrier). Results land in `dynamic.json`, `<scene>/motion/<renderer>.temporal.json` and a representative frame per renderer, and the viewer adds a Dynamic page. Static comparisons now report sharpness as well. See [Dynamic fidelity](https://fidelity-kit.ben3d.ca/docs/dynamic-fidelity).
+Every measured frame is scored against the reference: sequence PSNR, temporal PSNR (the error of the frame-to-frame change, which isolates flicker and lag) and sharpness (gradient energy relative to the reference; below 1 is blurrier). Results land in `dynamic.json`, `<scene>/motion/<renderer>.temporal.json` and a representative frame per renderer, and the viewer adds a dedicated Temporal fidelity page. Representative outputs are tagged `kind: "temporal"` and indexed without being scored as static captures. Legacy `dynamic` configuration and the CLI command remain supported aliases. See [Temporal fidelity](https://fidelity-kit.ben3d.ca/docs/dynamic-fidelity).
+
+Configure still-image cases with `scenes[].staticFidelity` and animated cases with `scenes[].temporalFidelity`; either can be `false` to opt a scene out of that section. Existing registries using `fidelity` or `dynamic` remain compatible.
 
 ## Capture a rendering registry
 

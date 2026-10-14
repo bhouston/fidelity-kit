@@ -1,3 +1,4 @@
+import { resolveSectionView } from '#/lib/sections';
 import { HomePage } from '#/components/HomePage';
 
 import { Link, createFileRoute, getRouteApi, useNavigate } from '@tanstack/react-router';
@@ -37,7 +38,10 @@ const root = getRouteApi('__root__');
 export const Route = createFileRoute('/')({
   validateSearch: validateViewSearch,
   loaderDeps: ({ search }) => ({
-    scene: search.view === 'fidelity' || (!search.view && search.scene) ? search.scene : undefined,
+    scene:
+      ['fidelity', 'temporal', 'dynamic'].includes(search.view ?? '') || (!search.view && search.scene)
+        ? search.scene
+        : undefined,
   }),
   // the page content: a scene's README (`?scene=`) or the suite preamble
   loader: ({ deps }) => (deps.scene ? getReadme(deps.scene) : getPreamble()),
@@ -46,14 +50,17 @@ export const Route = createFileRoute('/')({
 
 function Index() {
   const content = Route.useLoaderData();
-  const { scene, view } = Route.useSearch();
+  const { scene, view: requestedView } = Route.useSearch();
+  const { sections, dynamic } = root.useLoaderData();
+  const view = resolveSectionView(requestedView, sections);
   if (view === 'live')
     return (
       <Suspense fallback={<p className="p-6">Loading live viewer…</p>}>
         <LivePage />
       </Suspense>
     );
-  if (view === 'dynamic') return <DynamicPage />;
+  if (view === 'temporal')
+    return scene && dynamic ? <SceneDetail path={scene} readme={content} temporal /> : <DynamicPage />;
   if (view === 'performance')
     return (
       <Suspense fallback={<p className="p-6">Loading performance results…</p>}>
@@ -65,7 +72,20 @@ function Index() {
 }
 
 function SceneList({ preamble }: { preamble: string | null }) {
-  const { index, hashes, scenes } = root.useLoaderData();
+  const { index: originalIndex, hashes, scenes: allScenes, site, dynamic } = root.useLoaderData();
+  const index = {
+    ...originalIndex,
+    config: {
+      ...originalIndex.config,
+      outputs: originalIndex.config.outputs.filter(
+        (output) => output.kind !== 'temporal' && output.id !== dynamic?.output,
+      ),
+    },
+  };
+  const scenes = allScenes.filter((scene) => {
+    const definition = site?.registry.scenes.find((item) => (item.path ?? item.id) === scene.path);
+    return definition?.staticFidelity !== false;
+  });
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   const update = (patch: Partial<ViewSearch>) =>

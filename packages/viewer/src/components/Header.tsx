@@ -33,7 +33,15 @@ export default function Header({
             <BreadcrumbItem>
               {scenePath ? (
                 <BreadcrumbLink asChild>
-                  <Link search={{ ...search, view: 'fidelity', scene: undefined, renderer: undefined }} to="/">
+                  <Link
+                    search={{
+                      ...search,
+                      view: search?.view === 'temporal' || search?.view === 'dynamic' ? 'temporal' : 'fidelity',
+                      scene: undefined,
+                      renderer: undefined,
+                    }}
+                    to="/"
+                  >
                     {title}
                   </Link>
                 </BreadcrumbLink>

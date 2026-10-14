@@ -1,5 +1,6 @@
 type SiteManifest = { registry: RenderingRegistry; rendererUrl: string };
 
+import { resolveSections } from './sections';
 import type { RenderingRegistry } from 'fidelity-kit/registry';
 import type { DynamicIndex, GroupNode, SceneNode, SuiteIndex } from 'fidelity-kit';
 
@@ -88,7 +89,22 @@ export async function getSuite() {
       }
     }
   bumpChangedScenes(index, scenes);
-  return { site, index, hashes: { ...hashes, ...sceneVersions }, scenes, liveReload, dynamic: await getDynamic() };
+  const dynamic = await getDynamic();
+  const performance = await getPerformanceAvailability();
+  return {
+    site,
+    index,
+    hashes: { ...hashes, ...sceneVersions },
+    scenes,
+    liveReload,
+    dynamic,
+    sections: resolveSections(
+      site?.registry ??
+        (index.config?.staticFidelity === undefined ? null : { staticFidelity: index.config.staticFidelity }),
+      Boolean(dynamic),
+      performance,
+    ),
+  };
 }
 
 /** Optional dynamic (temporal) fidelity summaries from `fidelity-kit dynamic`. */
@@ -115,5 +131,18 @@ export async function getPreamble(): Promise<string | null> {
     return await getReadme('');
   } catch {
     return null;
+  }
+}
+
+async function getPerformanceAvailability(): Promise<boolean> {
+  try {
+    const response = await fetch('data/performance/index.json');
+    if (!response.ok || response.headers.get('content-type')?.includes('html')) return false;
+    const data: unknown = await response.json();
+    return Boolean(
+      data && typeof data === 'object' && 'results' in data && Array.isArray(data.results) && data.results.length > 0,
+    );
+  } catch {
+    return false;
   }
 }

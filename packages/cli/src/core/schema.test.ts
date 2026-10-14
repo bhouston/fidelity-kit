@@ -4,6 +4,13 @@ import { parseConfig, parseSceneMeta, schemaFiles, SchemaValidationError, type S
 
 const base = () => ({ title: 'T', renderers: [{ id: 'ref', reference: true }, { id: 'a' }] });
 
+test('a performance-only results tree does not require a static reference', () => {
+  expect(parseConfig({ title: 'Performance', staticFidelity: false, renderers: [{ id: 'gpu' }] }).staticFidelity).toBe(
+    false,
+  );
+  expect(() => parseConfig({ title: 'Static', renderers: [{ id: 'gpu' }] })).toThrow(/reference/);
+});
+
 test('schema files are valid JSON Schemas with stable published ids', async () => {
   for (const [kind, url] of Object.entries(schemaFiles)) {
     const schema = JSON.parse(await readFile(url, 'utf8'));

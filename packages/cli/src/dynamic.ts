@@ -108,7 +108,7 @@ async function readJson<T>(file: string): Promise<T | undefined> {
 
 /** Declare the dynamic output in `fidelity.json` so `process` and the viewer pick up the representative frames. */
 async function declareOutput(out: string, suite: RenderingRegistry, output: string) {
-  type Config = { outputs?: { id: string; label?: string }[] } & Record<string, unknown>;
+  type Config = { outputs?: { id: string; label?: string; kind?: string }[] } & Record<string, unknown>;
   const file = join(out, 'fidelity.json');
   const existing = await readJson<Config>(file);
   const config: Config = existing ?? {
@@ -117,8 +117,10 @@ async function declareOutput(out: string, suite: RenderingRegistry, output: stri
   };
   // An existing configuration without outputs implies `beauty`; a new one only declares the dynamic output.
   const outputs = config.outputs ?? (existing ? [{ id: 'beauty' }] : []);
-  if (config.outputs && outputs.some((o) => o.id === output)) return;
-  config.outputs = outputs.some((o) => o.id === output) ? outputs : [...outputs, { id: output, label: 'Motion' }];
+  config.staticFidelity = suite.staticFidelity;
+  config.outputs = outputs.some((o) => o.id === output)
+    ? outputs.map((item) => (item.id === output ? { ...item, kind: 'temporal' } : item))
+    : [...outputs, { id: output, label: 'Temporal fidelity', kind: 'temporal' }];
   await writeFile(file, JSON.stringify(config, null, 2) + '\n');
 }
 
@@ -130,7 +132,7 @@ export async function captureDynamic(options: DynamicOptions) {
   const log = options.log ?? console.log;
   const suite = parseRegistry(JSON.parse(await readFile(resolve(options.registry), 'utf8')));
   const config = suite.dynamic;
-  if (!config) throw new Error('The registry has no dynamic section');
+  if (!config) throw new Error('The registry has no enabled temporal fidelity section');
   const out = resolve(options.out);
   const reference = suite.renderers.find((r) => r.id === config.reference)!;
   const candidates = config.renderers

@@ -13,6 +13,8 @@ export const schemaFiles = {
 /** `<root>/fidelity.json`. Renderer/output ids and labels are entirely up to the suite. */
 export type FidelityConfig = {
   title: string;
+  /** Disable static comparisons for temporal-only or performance-only result trees. */
+  staticFidelity?: boolean;
   logo?: string;
   renderers: {
     id: string;
@@ -23,7 +25,7 @@ export type FidelityConfig = {
     category?: string;
   }[];
   comparisonPresets?: { id: string; name: string; renderers: string[]; ref?: string }[];
-  outputs: { id: string; label?: string }[];
+  outputs: { id: string; label?: string; kind?: 'static' | 'temporal' }[];
 };
 
 /** Optional `<scene>/scene.json`. */

@@ -16,7 +16,7 @@ export const Route = createRootRoute({
 });
 
 function Root() {
-  const { index, liveReload, dynamic } = Route.useLoaderData();
+  const { index, liveReload, sections } = Route.useLoaderData();
   const router = useRouter();
   useEffect(() => listenForChanges(liveReload, () => router.invalidate()), [liveReload, router]);
   useEffect(() => {
@@ -36,17 +36,21 @@ function Root() {
         <Link to="/" search={{ view: 'home' }} className="font-semibold">
           {index.config.title}
         </Link>
-        <Link to="/" search={{ view: 'fidelity' }}>
-          Fidelity
-        </Link>
-        {dynamic ? (
-          <Link to="/" search={{ view: 'dynamic' }}>
-            Dynamic
+        {sections.static ? (
+          <Link to="/" search={{ view: 'fidelity' }}>
+            Static fidelity
           </Link>
         ) : null}
-        <Link to="/" search={{ view: 'performance' }}>
-          Performance
-        </Link>
+        {sections.temporal ? (
+          <Link to="/" search={{ view: 'temporal' }}>
+            Temporal fidelity
+          </Link>
+        ) : null}
+        {sections.performance ? (
+          <Link to="/" search={{ view: 'performance' }}>
+            Performance
+          </Link>
+        ) : null}
         <Link to="/" search={{ view: 'live' }}>
           Live
         </Link>
