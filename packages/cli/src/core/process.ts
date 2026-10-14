@@ -255,6 +255,11 @@ export class SuiteProcessor {
     const pairs = new Map<string, Pair>();
     if (node) {
       for (const [output, renderers] of Object.entries(node.images)) {
+        if (
+          this.config.staticFidelity === false ||
+          this.config.outputs.find((item) => item.id === output)?.kind === 'temporal'
+        )
+          continue;
         const images = new Map(
           await Promise.all(
             renderers.map(async (r) => {

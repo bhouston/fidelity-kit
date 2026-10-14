@@ -1,8 +1,9 @@
 import { defineCommand } from 'yargs-file-commands';
 import { captureDynamic } from '../dynamic.js';
 export const command = defineCommand({
-  command: 'dynamic',
-  describe: 'Capture animated sequences and score them against the dynamic reference (temporal fidelity)',
+  command: 'temporal',
+  aliases: ['dynamic'],
+  describe: 'Capture temporal fidelity sequences and score them against the temporal reference',
   builder: (yargs) =>
     yargs
       .option('registry', { alias: 'suite', type: 'string', demandOption: true })

@@ -21,9 +21,23 @@ export const sceneDynamicSchema = z.object({
   renderers: z.array(id).optional(),
   params,
 });
+const sceneStaticSchema = z.object({
+  width: z.number().int().positive().default(640),
+  height: z.number().int().positive().default(480),
+  frames: z.number().int().positive().default(64),
+});
+const temporalFidelitySchema = z.object({
+  output: id.default('motion'),
+  reference: id,
+  renderers: z.array(id).optional(),
+  representativeFrame: z.number().int().nonnegative().optional(),
+});
 export const registrySchema = z.object({
   schemaVersion: z.literal(1),
   title: z.string().min(1),
+  /** Legacy registries keep static fidelity enabled. Explicit temporal-only suites opt in independently. */
+  staticFidelity: z.boolean().optional(),
+  temporalFidelity: z.union([z.literal(false), temporalFidelitySchema]).optional(),
   home: z.object({ hero: z.object({ scene: id, renderer: id, output: id.default('beauty') }).optional() }).default({}),
   renderServer: z.object({
     developmentUrl: z.url(),
@@ -55,6 +69,8 @@ export const registrySchema = z.object({
         category: z.string().min(1).optional(),
         tags: z.array(z.string()).optional(),
         params,
+        staticFidelity: z.union([z.literal(false), sceneStaticSchema]).optional(),
+        temporalFidelity: z.union([z.literal(false), sceneDynamicSchema]).optional(),
         fidelity: z
           .object({
             width: z.number().int().positive().default(640),
@@ -104,6 +120,13 @@ export const registrySchema = z.object({
 export type RenderingRegistry = z.infer<typeof registrySchema>;
 export function parseRegistry(value: unknown): RenderingRegistry {
   const suite = registrySchema.parse(value);
+  // Canonical sections take precedence; retain aliases for existing capture/session integrations.
+  suite.staticFidelity ??= suite.temporalFidelity === undefined;
+  suite.dynamic = suite.temporalFidelity === false ? undefined : (suite.temporalFidelity ?? suite.dynamic);
+  for (const scene of suite.scenes) {
+    if (scene.staticFidelity && typeof scene.staticFidelity === 'object') scene.fidelity = scene.staticFidelity;
+    scene.dynamic = scene.temporalFidelity === false ? undefined : (scene.temporalFidelity ?? scene.dynamic);
+  }
   for (const key of ['renderers', 'scenes'] as const) {
     const ids = suite[key].map((item) => item.id);
     if (new Set(ids).size !== ids.length) throw new Error(`Duplicate ${key} IDs`);

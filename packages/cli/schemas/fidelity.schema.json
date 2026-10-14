@@ -26,17 +26,7 @@
       "type": "array",
       "items": {
         "$ref": "#/definitions/renderer"
-      },
-      "contains": {
-        "type": "object",
-        "required": ["reference"],
-        "properties": {
-          "reference": {
-            "const": true
-          }
-        }
-      },
-      "errorMessage": "at least one renderer needs \"reference\": true"
+      }
     },
     "outputs": {
       "description": "Output folders inside each scene. Defaults to a single \"beauty\" output.",
@@ -80,6 +70,10 @@
           }
         }
       }
+    },
+    "staticFidelity": {
+      "type": "boolean",
+      "description": "Disable static fidelity processing for temporal-only or performance-only results."
     }
   },
   "definitions": {
@@ -127,8 +121,43 @@
         "label": {
           "type": "string",
           "description": "Display name; defaults to the id."
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["static", "temporal"],
+          "description": "Temporal representative frames are indexed but not compared as static captures."
         }
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "required": ["staticFidelity"],
+        "properties": {
+          "staticFidelity": {
+            "const": false
+          }
+        }
+      },
+      "then": {},
+      "else": {
+        "properties": {
+          "renderers": {
+            "type": "array",
+            "contains": {
+              "type": "object",
+              "required": ["reference"],
+              "properties": {
+                "reference": {
+                  "const": true
+                }
+              }
+            },
+            "errorMessage": "at least one renderer needs \"reference\": true"
+          }
+        }
+      }
+    }
+  ]
 }

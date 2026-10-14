@@ -62,6 +62,27 @@ test.each([true, false])('discovers live updates only when advertised by the ind
 
 const scene = (path: string) => ({ path, title: path, tags: [], hasReadme: false, images: {} });
 
+test('a performance-only results tree can disable static fidelity without a rendering manifest', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi
+      .fn()
+      .mockImplementation(
+        async (path: string) =>
+          new Response(
+            JSON.stringify(
+              path === 'data/index.json'
+                ? { config: { staticFidelity: false }, root: { scenes: [], groups: [] }, metrics: {} }
+                : path === 'data/performance/index.json'
+                  ? { results: [{ metrics: 'run.json' }] }
+                  : {},
+            ),
+          ),
+      ),
+  );
+  expect((await getSuite()).sections).toEqual({ static: false, temporal: false, performance: true });
+});
+
 const loadSuite = async (config: object, psnr: number) => {
   vi.stubGlobal(
     'fetch',
@@ -89,4 +110,27 @@ test('live updates version only the images of scenes whose JSON changed, or all 
   const everything = await loadSuite({ title: 'y' }, 2);
   expect(everything['g/a']).not.toBe(oneScene['g/a']);
   expect(everything['g/b']).not.toBe(oneScene['g/b']);
+});
+
+test('site section options separate temporal-only results from static and discover performance results', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockImplementation(async (path: string) => {
+      const json =
+        path === 'data/index.json'
+          ? { root: { scenes: [], groups: [] }, metrics: {} }
+          : path === 'data/site.json'
+            ? {
+                registry: { scenes: [], renderers: [], temporalFidelity: {}, performance: {} },
+                rendererUrl: 'https://example.test/render',
+              }
+            : path === 'data/dynamic.json'
+              ? { schemaVersion: 1, results: {} }
+              : path === 'data/performance/index.json'
+                ? { schemaVersion: 2, results: [{ metrics: 'result.json' }] }
+                : {};
+      return new Response(JSON.stringify(json));
+    }),
+  );
+  expect((await getSuite()).sections).toEqual({ static: false, temporal: true, performance: true });
 });

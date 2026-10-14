@@ -36,6 +36,7 @@ export async function prepareSite(
     JSON.stringify(
       {
         title: suite.title,
+        ...(suite.staticFidelity === false ? { staticFidelity: false } : {}),
         renderers: suite.renderers.map((r) => ({
           id: r.id,
           label: r.name,
@@ -44,7 +45,14 @@ export async function prepareSite(
           ...(r.category ? { category: r.category } : {}),
         })),
         ...(suite.comparisonPresets ? { comparisonPresets: suite.comparisonPresets } : {}),
-        ...(outputs ? { outputs } : {}),
+        ...(Array.isArray(outputs)
+          ? {
+              outputs: outputs.map((output) => ({
+                ...output,
+                ...(output.id === suite.dynamic?.output ? { kind: 'temporal' } : {}),
+              })),
+            }
+          : {}),
       },
       null,
       2,

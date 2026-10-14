@@ -35,6 +35,7 @@ export async function renderSuite(options: RenderOptions) {
   for (const key of ['renderer', 'scene', 'width', 'height', 'frames'])
     if (key in (options.captureParams ?? {})) throw new Error(`Capture parameters cannot override ${key}`);
   const suite = parseRegistry(JSON.parse(await readFile(resolve(options.registry), 'utf8')));
+  if (suite.staticFidelity === false) throw new Error('Static fidelity is disabled in this registry');
   const sceneIds =
     options.scenes === undefined
       ? undefined
@@ -52,7 +53,10 @@ export async function renderSuite(options: RenderOptions) {
           'renderer',
         );
   const scenes = suite.scenes.filter(
-    (s) => (!options.scene || options.scene.includes(s.id)) && (!sceneIds || sceneIds.includes(s.id)),
+    (s) =>
+      s.staticFidelity !== false &&
+      (!options.scene || options.scene.includes(s.id)) &&
+      (!sceneIds || sceneIds.includes(s.id)),
   );
   const renderers = suite.renderers.filter(
     (r) =>

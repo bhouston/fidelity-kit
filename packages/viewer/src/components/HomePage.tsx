@@ -4,7 +4,7 @@ import { renderUrl, resolveView } from '#/lib/view';
 
 const rootRoute = getRouteApi('__root__');
 export function HomePage({ readme }: { readme: string | null }) {
-  const { index, scenes, hashes, site } = rootRoute.useLoaderData();
+  const { index, scenes, hashes, site, sections } = rootRoute.useLoaderData();
   const hero = site?.registry.home.hero;
   const configured = site?.registry.scenes.find((scene) => scene.id === hero?.scene);
   const view = resolveView(index, { output: hero?.output, ref: hero?.renderer }, hashes);
@@ -26,7 +26,7 @@ export function HomePage({ readme }: { readme: string | null }) {
         </div>
         <figure className="border border-border bg-muted/20">
           {image && scene ? (
-            <Link to="/" search={{ view: 'fidelity', scene: scene.path, renderer }}>
+            <Link to="/" search={{ view: sections.static ? 'fidelity' : 'temporal', scene: scene.path, renderer }}>
               <img className="w-full" src={image} alt={`${scene.title} rendered by ${view.label(renderer)}`} />
             </Link>
           ) : (
@@ -44,25 +44,44 @@ export function HomePage({ readme }: { readme: string | null }) {
       <div className="grid md:grid-cols-3 gap-6">
         {(
           [
-            ['fidelity', 'Fidelity', 'Compare renderer images with reference renders and inspect image quality.'],
+            [
+              'fidelity',
+              'Static fidelity',
+              'Compare renderer images with reference renders and inspect image quality.',
+            ],
             [
               'performance',
               'Performance',
               'Explore frame rates, setup stages, and convergence by renderer, machine, and scene.',
             ],
+            [
+              'temporal',
+              'Temporal fidelity',
+              'Compare animated sequences with references and inspect flicker, lag, and sharpness over time.',
+            ],
             ['live', 'Live', 'Choose a scene and renderer, move around, and watch live measurements.'],
           ] as const
-        ).map(([section, title, description]) => (
-          <Link
-            key={section}
-            to="/"
-            search={{ view: section }}
-            className="block border border-border bg-card p-6 hover:bg-muted/20"
-          >
-            <h2 className="text-2xl font-semibold mb-3">{title}</h2>
-            <p className="text-muted-foreground">{description}</p>
-          </Link>
-        ))}
+        )
+          .filter(([section]) =>
+            section === 'fidelity'
+              ? sections.static
+              : section === 'temporal'
+                ? sections.temporal
+                : section === 'performance'
+                  ? sections.performance
+                  : true,
+          )
+          .map(([section, title, description]) => (
+            <Link
+              key={section}
+              to="/"
+              search={{ view: section }}
+              className="block border border-border bg-card p-6 hover:bg-muted/20"
+            >
+              <h2 className="text-2xl font-semibold mb-3">{title}</h2>
+              <p className="text-muted-foreground">{description}</p>
+            </Link>
+          ))}
       </div>
     </div>
   );

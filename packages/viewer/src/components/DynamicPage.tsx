@@ -39,9 +39,9 @@ function mean(values: (number | null | undefined)[]) {
 
 /** Renderer × scene table of dynamic (temporal) fidelity summaries. */
 export function DynamicPage() {
-  const { index, scenes, dynamic } = root.useLoaderData();
+  const { index, scenes, dynamic, site } = root.useLoaderData();
   const [metric, setMetric] = useState<Metric>('psnr');
-  if (!dynamic) return <p className="p-6">No dynamic results. Run `fidelity-kit dynamic`.</p>;
+  if (!dynamic) return <p className="p-6">No temporal fidelity results. Run `fidelity-kit temporal`.</p>;
   const labels = new Map(index.config.renderers.map((r) => [r.id, r.label ?? r.id]));
   const categories = new Map(index.config.renderers.map((r) => [r.id, r.category]));
   const present = new Set(Object.values(dynamic.results).flatMap((row) => Object.keys(row)));
@@ -52,6 +52,11 @@ export function DynamicPage() {
   const paths = Object.keys(dynamic.results).toSorted();
   const title = (path: string) => scenes.find((scene) => scene.path === path)?.title ?? path;
   const value = (path: string, renderer: string) => dynamic.results[path]?.[renderer]?.[metric];
+  const missingLabel = (path: string, renderer: string) => {
+    const definition = site?.registry.scenes.find((scene) => (scene.path ?? scene.id) === path);
+    const selected = definition?.dynamic?.renderers ?? site?.registry.dynamic?.renderers;
+    return selected && !selected.includes(renderer) ? 'Not applicable' : 'Missing result';
+  };
   const digits = metric === 'sharpness' ? 3 : 2;
   const best = new Map(
     paths.map((path) => [path, Math.max(...renderers.map((renderer) => quality(metric, value(path, renderer))))]),
@@ -59,7 +64,7 @@ export function DynamicPage() {
   const description = METRICS.find((m) => m.id === metric)!.description;
   return (
     <div className="flex w-full flex-col gap-4 px-4 py-6 sm:px-6">
-      <h1 className="text-xl font-semibold">Dynamic fidelity</h1>
+      <h1 className="text-xl font-semibold">Temporal fidelity</h1>
       <p className="max-w-3xl text-sm text-muted-foreground">
         Animated sequences compared frame by frame with{' '}
         <strong>{labels.get(dynamic.reference) ?? dynamic.reference}</strong>. Warm-up frames are excluded and the best
@@ -89,7 +94,7 @@ export function DynamicPage() {
                 <th className="max-w-40 p-2 text-right align-bottom font-sans font-normal" key={path}>
                   <Link
                     className="underline underline-offset-4"
-                    search={{ view: 'fidelity', scene: path, output: dynamic.output, ref: dynamic.reference }}
+                    search={{ view: 'temporal', scene: path, output: dynamic.output, ref: dynamic.reference }}
                     to="/"
                   >
                     {title(path)}
@@ -119,7 +124,11 @@ export function DynamicPage() {
                       className={`p-2 text-right ${v !== undefined && quality(metric, v) === best.get(paths[i]!) ? 'font-bold' : ''}`}
                       key={paths[i]}
                     >
-                      {formatMetric(v, digits)}
+                      {v === undefined ? (
+                        <span className="font-sans text-muted-foreground">{missingLabel(paths[i]!, renderer)}</span>
+                      ) : (
+                        formatMetric(v, digits)
+                      )}
                     </td>
                   ))}
                   <td className="whitespace-nowrap p-2 text-right text-muted-foreground">

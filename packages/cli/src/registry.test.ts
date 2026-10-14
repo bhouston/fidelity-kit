@@ -19,6 +19,39 @@ const input = {
   performance: { default: { entries: [{ scene: 'box', renderer: 'base', durationMs: 1000 }] } },
 };
 describe('shared rendering suite', () => {
+  it('keeps legacy static suites enabled and temporal-only suites independent', () => {
+    expect(parseRegistry(input).staticFidelity).toBe(true);
+    const temporal = {
+      ...input,
+      performance: {},
+      renderers: [
+        { id: 'base', name: 'Base' },
+        { id: 'ref', name: 'Reference', reference: true },
+      ],
+      scenes: [{ id: 'motion', name: 'Motion', temporalFidelity: { frames: 60, warmup: 10 } }],
+      temporalFidelity: { reference: 'ref' },
+    };
+    const suite = parseRegistry(temporal);
+    expect(suite.staticFidelity).toBe(false);
+    expect(suite.dynamic?.reference).toBe('ref');
+    expect(suite.scenes[0]?.dynamic?.frames).toBe(60);
+    expect(parseRegistry({ ...temporal, staticFidelity: true }).staticFidelity).toBe(true);
+    expect(parseRegistry({ ...temporal, temporalFidelity: false }).dynamic).toBeUndefined();
+  });
+  it('supports separate static and temporal scenes and explicit disabling of legacy captures', () => {
+    const suite = parseRegistry({
+      ...input,
+      staticFidelity: true,
+      performance: {},
+      scenes: [
+        { id: 'still', name: 'Still', staticFidelity: { width: 320, frames: 1 } },
+        { id: 'motion', name: 'Motion', staticFidelity: false, dynamic: { frames: 60 }, temporalFidelity: false },
+      ],
+    });
+    expect(suite.scenes[0]?.fidelity).toEqual({ width: 320, height: 480, frames: 1 });
+    expect(suite.scenes[1]?.staticFidelity).toBe(false);
+    expect(suite.scenes[1]?.dynamic).toBeUndefined();
+  });
   it('uses the same renderer and scene settings without expanding a Cartesian product', () => {
     const suite = parseRegistry(input),
       performance = performanceSuite(suite);

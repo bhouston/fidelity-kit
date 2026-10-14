@@ -10,7 +10,9 @@ export function ViewControls({
   index,
   view,
   onChange,
+  showDeltaControl = true,
 }: {
+  showDeltaControl?: boolean;
   index: SuiteIndex;
   view: View;
   onChange: (patch: Partial<ViewSearch>) => void;
@@ -60,14 +62,16 @@ export function ViewControls({
           onChange={(ref) => onChange({ ref })}
         />
       ) : null}
-      <label htmlFor="show-deltas" className="flex shrink-0 items-center gap-2 text-sm text-muted-foreground">
-        <Switch
-          aria-label="Show delta images"
-          checked={view.showDeltas}
-          onCheckedChange={(deltas) => onChange({ deltas })}
-        />
-        Deltas
-      </label>
+      {showDeltaControl ? (
+        <label htmlFor="show-deltas" className="flex shrink-0 items-center gap-2 text-sm text-muted-foreground">
+          <Switch
+            aria-label="Show delta images"
+            checked={view.showDeltas}
+            onCheckedChange={(deltas) => onChange({ deltas })}
+          />
+          Deltas
+        </label>
+      ) : null}
     </>
   );
 }

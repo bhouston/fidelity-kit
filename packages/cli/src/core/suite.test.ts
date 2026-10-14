@@ -11,6 +11,29 @@ const png = (v: number) =>
     .avif({ lossless: true })
     .toBuffer();
 
+test('temporal representatives are indexed without being scored as static captures', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'fk-sections-'));
+  const config = {
+    title: 'Independent sections',
+    renderers: [{ id: 'ref', reference: true }, { id: 'a' }],
+    outputs: [{ id: 'beauty' }, { id: 'motion', kind: 'temporal' }],
+  };
+  await writeFile(join(root, 'fidelity.json'), JSON.stringify(config));
+  for (const output of ['beauty', 'motion']) {
+    const folder = join(root, 'scene', output);
+    await mkdir(folder, { recursive: true });
+    await writeFile(join(folder, 'ref.avif'), await png(100));
+    await writeFile(join(folder, 'a.avif'), await png(110));
+  }
+  expect(await processSuite(root)).toMatchObject({ computed: 1, failed: [] });
+  const index = JSON.parse(await readFile(join(root, 'index.json'), 'utf8'));
+  expect(index.root.scenes[0].images.motion).toEqual(['ref', 'a']);
+  expect(Object.keys(index.metrics)).toEqual(['scene/beauty/a.vs-ref.metrics.json']);
+  await writeFile(join(root, 'fidelity.json'), JSON.stringify({ ...config, staticFidelity: false }));
+  expect(await processSuite(root)).toMatchObject({ computed: 0, failed: [] });
+  expect(JSON.parse(await readFile(join(root, 'index.json'), 'utf8')).metrics).toEqual({});
+});
+
 test('scan, process, staleness, etag', async () => {
   const root = await mkdtemp(join(tmpdir(), 'fk-'));
   await writeFile(
