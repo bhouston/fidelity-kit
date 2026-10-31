@@ -25,7 +25,7 @@
     "test:browser": "node scripts/browser-contracts.mjs"
   },
   "devDependencies": {
-    "@anolilab/semantic-release-pnpm": "^8.1.25",
+    "@anolilab/semantic-release-pnpm": "^8.1.36",
     "@commitlint/cli": "^21.2.2",
     "@commitlint/config-conventional": "^21.2.2",
     "@semantic-release/commit-analyzer": "^13.0.1",
@@ -54,5 +54,5 @@
   "engines": {
     "node": ">=22"
   },
-  "packageManager": "pnpm@11.27.0"
+  "packageManager": "pnpm@12.16.1"
 }
