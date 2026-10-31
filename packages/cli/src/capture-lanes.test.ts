@@ -16,7 +16,7 @@ test('never overlaps jobs on a lane while using CPU and GPU concurrently', async
       finished.push(job);
     },
   );
-  expect(finished.toSorted()).toEqual([0, 1, 2, 3]);
+  expect(finished.toSorted((a, b) => a - b)).toEqual([0, 1, 2, 3]);
   expect(overlap).toBe(true);
 });
 test('finishes in-flight work before rejecting a failed lane', async () => {

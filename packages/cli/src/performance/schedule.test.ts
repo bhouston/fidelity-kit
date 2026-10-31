@@ -13,6 +13,7 @@ const suite: Suite = {
     scene: { id: 'cube', name: 'Spinning cube' },
   })),
 };
+const first = suite.entries[0]!;
 describe('benchmark scheduling', () => {
   it('runs each workload exactly once and preserves stable identifiers', () => {
     expect(scheduleSuite(suite).map((run) => run.entry.id)).toEqual(['a', 'b', 'c']);
@@ -29,9 +30,7 @@ describe('benchmark scheduling', () => {
     expect(() => scheduleSuite(suite, { seed: Infinity })).toThrow('finite');
   });
   it('rejects duplicate flat workloads', () => {
-    expect(() =>
-      scheduleSuite({ ...suite, entries: [suite.entries[0], { ...suite.entries[0], id: 'duplicate' }] }),
-    ).toThrow('Duplicate');
+    expect(() => scheduleSuite({ ...suite, entries: [first, { ...first, id: 'duplicate' }] })).toThrow('Duplicate');
   });
   it('has reproducible seeded order', () => {
     expect(scheduleSuite(suite, { seed: 17 })).toEqual(scheduleSuite(suite, { seed: 17 }));
@@ -52,7 +51,7 @@ describe('benchmark scheduling', () => {
 it('matches benchmark globs, unions repeated patterns, and intersects renderer and scene filters', () => {
   const mixed: Suite = {
     ...suite,
-    entries: [...suite.entries, { ...suite.entries[0], id: 'room-a', scene: { id: 'room-w', name: 'Room' } }],
+    entries: [...suite.entries, { ...first, id: 'room-a', scene: { id: 'room-w', name: 'Room' } }],
   };
   expect(scheduleSuite(mixed, { renderer: ['{a,c}'], scene: ['cu*'] }).map((run) => run.entry.id)).toEqual(['a', 'c']);
   expect(scheduleSuite(mixed, { renderer: ['a', 'b,c'], scene: ['*-w'] }).map((run) => run.entry.id)).toEqual([

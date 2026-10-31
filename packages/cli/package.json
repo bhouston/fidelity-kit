@@ -22,6 +22,7 @@
   "files": [
     "bin.js",
     "dist",
+    "!dist/**/*.test.*",
     "schemas",
     "viewer"
   ],

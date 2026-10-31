@@ -7,7 +7,7 @@ const fixture = vi.hoisted(() => ({
   failure: undefined as string | undefined,
 }));
 const launch = vi.hoisted(() =>
-  vi.fn(async () => ({
+  vi.fn(async (_options?: { args?: string[] }) => ({
     userAgent: async () => 'pinned-test-chrome',
     close: async () => {},
     newPage: async () => ({
@@ -89,7 +89,7 @@ describe('runner lifecycle', () => {
       });
       expect(result.results).toHaveLength(2);
       expect(launch).toHaveBeenCalledTimes(2);
-      expect(launch.mock.calls[0]![0].args).toContain('--use-angle=vulkan');
+      expect(launch.mock.calls[0]?.[0]?.args).toContain('--use-angle=vulkan');
       const index = JSON.parse(await readFile(join(result.out, 'index.json'), 'utf8'));
       expect(new Set(index.results.map((item: { session: string }) => item.session)).size).toBe(1);
       expect(index.results[0].recordedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
@@ -135,13 +135,13 @@ describe('runner lifecycle', () => {
       );
       fixture.environment = { gpuAdapter: { description: 'SwiftShader selected by renderer' } };
       const software = await runSuite({ suite, out: join(root, 'software'), port: 0, cooldownMs: 0 });
-      expect(software.results[0].status).toBe('error');
-      expect(software.results[0].error?.message).toContain('Renderer selected a software GPU');
+      expect(software.results[0]!.status).toBe('error');
+      expect(software.results[0]!.error?.message).toContain('Renderer selected a software GPU');
       fixture.environment = {};
       fixture.failure = 'Timeout during renderer page run';
       const timeout = await runSuite({ suite, out: join(root, 'timeout'), port: 0, cooldownMs: 0 });
-      expect(timeout.results[0].status).toBe('timeout');
-      expect(timeout.results[0].reporter.frames).toEqual([]);
+      expect(timeout.results[0]!.status).toBe('timeout');
+      expect(timeout.results[0]!.reporter.frames).toEqual([]);
       expect(
         JSON.parse(
           await readFile(join(timeout.out, defaultMachineId(), timeout.session, 'test/cube/metrics.json'), 'utf8'),

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { mountRenderHost, hostProtocol, type RenderSession } from './host.js';
 
 // A controlled session tests lifecycle guarantees; real GPU rendering is tested by test:browser.
@@ -19,7 +19,11 @@ function locationFor(mode: string, params: Record<string, unknown> = {}) {
     }).toString(),
   });
 }
-function session(): RenderSession {
+function session(): RenderSession & {
+  draw: Mock;
+  complete: Mock;
+  dispose: Mock;
+} {
   return {
     canvas: { width: 320, height: 240 } as HTMLCanvasElement,
     draw: vi.fn(),
@@ -65,16 +69,17 @@ describe('shared render host contracts', () => {
     location.search += '&fidelityKitViewport=responsive';
     Object.assign(window, { innerWidth: 900, innerHeight: 500 });
     const rendered = session();
-    rendered.resize = vi.fn();
+    const resize = vi.fn();
+    rendered.resize = resize;
     await mountRenderHost(async (params) => {
       expect(params).toEqual({ width: 900, height: 500 });
       return rendered;
     });
     Object.assign(window, { innerWidth: 600, innerHeight: 400 });
-    await tick(16);
-    expect(rendered.resize).toHaveBeenCalledExactlyOnceWith(600, 400);
-    await tick(32);
-    expect(rendered.resize).toHaveBeenCalledOnce();
+    tick(16);
+    expect(resize).toHaveBeenCalledExactlyOnceWith(600, 400);
+    tick(32);
+    expect(resize).toHaveBeenCalledOnce();
     hide();
   });
 
@@ -93,11 +98,11 @@ describe('shared render host contracts', () => {
     locationFor('capture', { frames: 3 });
     const rendered = session();
     const operations: string[] = [];
-    rendered.draw = () => operations.push('draw');
-    rendered.complete = async () => {
+    rendered.draw.mockImplementation(() => operations.push('draw'));
+    rendered.complete.mockImplementation(async () => {
       await Promise.resolve();
       operations.push('complete');
-    };
+    });
     await mountRenderHost(async (_params, _reporter, _host, interactive) => {
       expect(interactive).toBe(false);
       // The factory renders the initial frame during setup.
@@ -239,9 +244,9 @@ describe('shared render host contracts', () => {
   it('reports a live drawing failure and releases timers and rendering resources', async () => {
     locationFor('live');
     const rendered = session();
-    rendered.draw = () => {
+    rendered.draw.mockImplementation(() => {
       throw new Error('device lost');
-    };
+    });
     await mountRenderHost(async () => rendered);
     tick(16);
     expect(messages.at(-1)).toMatchObject({ kind: 'error', data: 'Error: device lost' });
@@ -270,10 +275,10 @@ it('delegates a capture policy and completes GPU work before publishing metadata
     operations.push('policy');
     return { samples: 128, noise: 0.004, converged: true };
   };
-  rendered.complete = async () => {
+  rendered.complete.mockImplementation(async () => {
     operations.push('complete');
     expect(messages).toEqual([]);
-  };
+  });
   await mountRenderHost(async () => rendered);
   expect(operations).toEqual(['policy', 'complete']);
   expect(messages.at(-1)?.data).toMatchObject({ samples: 128, noise: 0.004, converged: true });
