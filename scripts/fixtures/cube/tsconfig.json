@@ -1,0 +1,17 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "types": [],
+    "noEmit": true,
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "rootDir": null,
+    "outDir": null,
+    "paths": { "fidelity-kit/browser/host": ["../../../packages/cli/dist/browser/host.d.ts"] }
+  },
+  "include": ["cube.ts"]
+}

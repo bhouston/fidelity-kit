@@ -146,7 +146,7 @@ export async function harnessRun(input: {
   window.addEventListener('message', listener);
   if (pageMode)
     outer.__performanceKitSend = (message) => {
-      void listener(new MessageEvent('message', { data: message, origin, source: window }));
+      listener(new MessageEvent('message', { data: message, origin, source: window }));
     };
   else {
     iframe.src = input.url;

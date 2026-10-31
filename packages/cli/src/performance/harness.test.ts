@@ -88,8 +88,9 @@ it('preserves inbound arrival order despite reversed validator delays and transf
     expect(result.harness.captureSent).toBeGreaterThanOrEqual(result.harness.runEndObserved!);
     expect(result.reporter.frames).toHaveLength(1);
     expect(result.reporter.phases).toHaveLength(2);
-    expect(result.reporter.phases?.map((p) => p.id)).toEqual([0, 1]);
-    expect(result.reporter.phases?.every((p) => p.end !== undefined)).toBe(true);
+    const phases = result.reporter.phases as { id: number; end?: unknown }[];
+    expect(phases.map((p) => p.id)).toEqual([0, 1]);
+    expect(phases.every((p) => p.end !== undefined)).toBe(true);
     expect(result.reporter.renderStart).toBe(result.reporter.ready);
   } finally {
     vi.unstubAllGlobals();

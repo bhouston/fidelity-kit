@@ -9,14 +9,15 @@ const command: CommandModule = {
       .option('host', { type: 'string', default: 'localhost' })
       .option('port', { type: 'number', default: 4400, describe: 'Starting port; try higher ports if occupied' }),
   handler: async (args) => {
+    const out = args.out as string;
     const server = await startServer({
-      out: args.out as string,
+      out,
       host: args.host as string,
       port: args.port as number,
       watchResults: true,
       findAvailablePort: true,
     });
-    console.log(`Performance development report: ${server.url}\nWatching: ${args.out}`);
+    console.log(`Performance development report: ${server.url}\nWatching: ${out}`);
     for (const signal of ['SIGINT', 'SIGTERM'] as const)
       process.once(signal, () => {
         void server.close();

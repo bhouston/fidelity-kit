@@ -20,15 +20,20 @@ export function attachThree(
   if (renderer.backend?.device) {
     const device = renderer.backend.device as InstrumentableDevice;
     const timing = attachWebGPU(device, 8, 64);
+    // oxlint-disable-next-line typescript/unbound-method -- Intentional WebGPU monkey-patch; re-bound via apply/call.
     const createEncoder = device.createCommandEncoder;
+    // oxlint-disable-next-line typescript/unbound-method -- Intentional WebGPU monkey-patch; re-bound via apply/call.
     const submit = device.queue?.submit;
     let frame = -1;
     let disposed = false;
     const pending: number[] = [];
     const hookedCreate = function (this: InstrumentableDevice, ...args: unknown[]) {
       const encoder = createEncoder.apply(this, args);
+      // oxlint-disable-next-line typescript/unbound-method -- Intentional WebGPU monkey-patch; re-bound via apply/call.
       const renderPass = encoder.beginRenderPass;
+      // oxlint-disable-next-line typescript/unbound-method -- Intentional WebGPU monkey-patch; re-bound via apply/call.
       const computePass = encoder.beginComputePass;
+      // oxlint-disable-next-line typescript/unbound-method -- Intentional WebGPU monkey-patch; re-bound via apply/call.
       const finish = encoder.finish;
       let slot: number | undefined;
       const descriptorWithTiming = (descriptor: PassDescriptor = {}) => {

@@ -32,7 +32,9 @@ type FrameReceiver = (index: number, png: string) => Promise<void>;
 const blobToBase64 = (blob: Blob) =>
   new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
-    reader.addEventListener('load', () => resolve(String(reader.result).slice(String(reader.result).indexOf(',') + 1)));
+    reader.addEventListener('load', () =>
+      resolve(typeof reader.result === 'string' ? reader.result.slice(reader.result.indexOf(',') + 1) : ''),
+    );
     reader.addEventListener('error', () => reject(reader.error ?? new Error('Frame read failed')));
     reader.readAsDataURL(blob);
   });
