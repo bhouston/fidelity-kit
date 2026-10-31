@@ -11,10 +11,10 @@ const browserRequire = createRequire(require.resolve('puppeteer'));
 const { Browser, Cache, detectBrowserPlatform, getDownloadUrl } = browserRequire('@puppeteer/browsers');
 const platform = detectBrowserPlatform();
 if (!platform) throw new Error('Unsupported test browser platform.');
-const buildId = puppeteer.default.browserVersion;
-const cache = new Cache(puppeteer.default.configuration.cacheDirectory);
+const buildId = await puppeteer.default.browserVersion();
+const cache = new Cache((await puppeteer.default.configuration()).cacheDirectory);
 const destination = cache.installationDir(Browser.CHROME, platform, buildId);
-const executable = puppeteer.executablePath();
+const executable = await puppeteer.executablePath();
 
 try {
   await access(executable);
