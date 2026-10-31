@@ -5,6 +5,7 @@ export default defineConfig({
     tsconfigPaths: true,
   },
   test: {
+    fsModuleCache: true,
     include: ['packages/*/src/**/*.test.ts', 'packages/*/src/**/*.test.js'],
     exclude: ['**/dist/**', '**/node_modules/**'],
     environment: 'node',
