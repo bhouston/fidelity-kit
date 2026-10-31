@@ -1,14 +1,14 @@
 import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
-import puppeteer from 'puppeteer';
 import sharp from 'sharp';
 import yargs from 'yargs';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { command } from './commands/render.js';
 import { renderSuite, type RenderOptions } from './render.js';
 
-vi.mock('puppeteer', () => ({ default: { launch: vi.fn() } }));
+const launch = vi.hoisted(() => vi.fn());
+vi.mock('puppeteer', () => ({ default: { launch } }));
 let root: string;
 let options: RenderOptions;
 let captures: { scene: string; renderer: string }[];
@@ -58,7 +58,7 @@ beforeEach(async () => {
   const png = await sharp({ create: { width: 2, height: 2, channels: 3, background: '#336699' } })
     .png()
     .toBuffer();
-  vi.mocked(puppeteer.launch).mockResolvedValue({
+  launch.mockResolvedValue({
     close,
     newPage: async () => ({
       setViewport: vi.fn(),
@@ -68,7 +68,7 @@ beforeEach(async () => {
       close: vi.fn(),
       $: async () => ({ screenshot: async () => png }),
     }),
-  } as unknown as Awaited<ReturnType<typeof puppeteer.launch>>);
+  } as unknown as never);
   vi.spyOn(console, 'log').mockImplementation(() => {});
 });
 afterEach(async () => {
@@ -135,14 +135,14 @@ it('does not launch Chrome or external jobs when every selected output exists', 
   for (const scene of registry.scenes)
     for (const renderer of registry.renderers.filter((r) => r.enabled !== false)) await existing(scene.id, renderer.id);
   await renderSuite({ ...options, missingOnly: true });
-  expect(puppeteer.launch).not.toHaveBeenCalled();
+  expect(launch).not.toHaveBeenCalled();
   for (const scene of registry.scenes)
     expect(await readFile(output(scene.id, 'native'), 'utf8')).toBe('existing image');
 });
 it('does not launch Chrome for missing external jobs when browser outputs exist', async () => {
   await existing('sphere', 'gpu-base');
   await renderSuite({ ...options, scenes: 'sphere', renderers: 'gpu-base,native', missingOnly: true });
-  expect(puppeteer.launch).not.toHaveBeenCalled();
+  expect(launch).not.toHaveBeenCalled();
   expect(JSON.parse(await readFile(output('sphere', 'native'), 'utf8'))).toMatchObject({ scenes: ['sphere'] });
 });
 it('intersects legacy exact-ID filters with new glob filters', async () => {
@@ -155,7 +155,7 @@ it('reports unmatched patterns before rendering and rejects empty intersections'
   await expect(renderSuite({ ...options, scene: ['sphere'], scenes: 'box-*' })).rejects.toThrow(
     'No scenes or renderers match',
   );
-  expect(puppeteer.launch).not.toHaveBeenCalled();
+  expect(launch).not.toHaveBeenCalled();
 });
 
 it('shares policy overrides with browser and external jobs and honours producer lanes', async () => {
@@ -189,5 +189,5 @@ it('rejects CPU overrides for scenes requiring GPU export before running jobs', 
   await expect(renderSuite({ ...options, renderers: 'native', scenes: 'sphere', externalLane: 'cpu' })).rejects.toThrow(
     'requires the gpu export lane',
   );
-  expect(puppeteer.launch).not.toHaveBeenCalled();
+  expect(launch).not.toHaveBeenCalled();
 });

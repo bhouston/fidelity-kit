@@ -16,7 +16,7 @@ const chrome =
   process.env.CHROME_EXECUTABLE ??
   (process.platform === 'darwin'
     ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-    : puppeteer.executablePath());
+    : await puppeteer.executablePath());
 try {
   await access(chrome);
 } catch {

@@ -51,7 +51,7 @@ try {
     if (i === 99) throw Error(errors);
   }
   browser = await puppeteer.launch({
-    executablePath: process.env.CHROME_EXECUTABLE ?? puppeteer.executablePath(),
+    executablePath: process.env.CHROME_EXECUTABLE ?? (await puppeteer.executablePath()),
     headless: true,
     args: ['--no-sandbox'],
   });
