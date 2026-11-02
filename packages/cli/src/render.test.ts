@@ -68,7 +68,7 @@ beforeEach(async () => {
       close: vi.fn(),
       $: async () => ({ screenshot: async () => png }),
     }),
-  } as unknown as never);
+  } as unknown);
   vi.spyOn(console, 'log').mockImplementation(() => {});
 });
 afterEach(async () => {

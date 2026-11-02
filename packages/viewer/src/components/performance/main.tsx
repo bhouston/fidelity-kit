@@ -625,7 +625,7 @@ function Card({
                           ? `${r.downloads?.some((report) => report.unknownSizeCount > 0) ? '≥ ' : ''}${humanizeBytes(metrics.download, { emptyValue: '—' })}`
                           : key === 'avgFrameRate'
                             ? fps(metrics[key])
-                            : duration(metrics[key] === undefined ? undefined : metrics[key]! / 1000)}
+                            : duration(metrics[key] === undefined ? undefined : metrics[key] / 1000)}
                     </strong>
                   </div>
                 ))}

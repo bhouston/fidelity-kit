@@ -94,7 +94,7 @@ async function loadMetrics(root: string, prefix: string): Promise<ProcessedResul
 export async function readMachine(root: string, machineId: string): Promise<NamedEntity> {
   let machine: unknown;
   try {
-    machine = JSON.parse(await readFile(join(root, safeEntryId(machineId!), 'machine.json'), 'utf8'));
+    machine = JSON.parse(await readFile(join(root, safeEntryId(machineId), 'machine.json'), 'utf8'));
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { id: machineId, name: machineId };
     throw error;
@@ -228,7 +228,7 @@ export async function processResults(
   const machines = new Map<string, NamedEntity>();
   for (const { result, file } of (await scanResults(root)).runs) {
     const machineId = file.split('/')[0]!;
-    if (!machines.has(machineId)) machines.set(machineId, await readMachine(root, machineId!));
+    if (!machines.has(machineId)) machines.set(machineId, await readMachine(root, machineId));
     index.results.push(await referenceFor(root, machines.get(machineId)!, result, dirname(file).split(sep).join('/')));
   }
   await saveIndex(root, index, onWrite);
@@ -244,13 +244,13 @@ export async function processResult(
 ): Promise<void> {
   if (session) sessionDate(session);
   const prefix = [
-    safeEntryId(machineId!),
+    safeEntryId(machineId),
     ...(session ? [session] : []),
-    safeEntryId(rendererId!),
-    safeEntryId(sceneId!),
+    safeEntryId(rendererId),
+    safeEntryId(sceneId),
   ].join('/');
   const result = await loadMetrics(root, prefix);
-  const reference = result ? await referenceFor(root, await readMachine(root, machineId!), result, prefix) : undefined;
+  const reference = result ? await referenceFor(root, await readMachine(root, machineId), result, prefix) : undefined;
   const index = await readReportIndex(root);
   index.results = index.results.filter(
     (item) =>
@@ -285,7 +285,7 @@ export async function writeRun(
   if (result.environment) result.environment.host.machineId = machineId;
   const folder = join(
     root,
-    safeEntryId(machineId!),
+    safeEntryId(machineId),
     ...(session ? [session] : []),
     safeEntryId(result.entry.renderer.id),
     safeEntryId(result.entry.scene.id),

@@ -395,7 +395,7 @@ export const validateProcessedResult: ValidateFunction<ProcessedResult> = Object
     const valid = validateProcessedSchema(value);
     validateProcessedResult.errors = validateProcessedSchema.errors;
     if (!valid) return false;
-    const metrics = value as ProcessedResult;
+    const metrics = value;
     const timeline = metrics.timeline;
     if (metrics.measuredIntervals.length !== metrics.statistics.intervalCount) {
       validateProcessedResult.errors = [
@@ -437,7 +437,7 @@ export const validateMessageToHarness: ValidateFunction<MessageToHarness> = Obje
     validateMessageToHarness.errors = validateHarnessSchema.errors;
     if (
       valid &&
-      (value as MessageToHarness).type === 'capture' &&
+      value.type === 'capture' &&
       !((value as Extract<MessageToHarness, { type: 'capture' }>).payload.bytes instanceof ArrayBuffer)
     ) {
       validateMessageToHarness.errors = [

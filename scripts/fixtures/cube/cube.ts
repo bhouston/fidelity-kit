@@ -41,7 +41,7 @@ const createCube: SessionFactory = async (params, reporter, host) => {
     out vec4 pixel;
     void main() { pixel = vec4(color, 1.); }`,
   );
-  const program = gl.createProgram()!;
+  const program = gl.createProgram();
   gl.attachShader(program, vertex);
   gl.attachShader(program, fragment);
   gl.linkProgram(program);
@@ -59,7 +59,7 @@ const createCube: SessionFactory = async (params, reporter, host) => {
   const triangles = [
     0, 2, 1, 0, 3, 2, 4, 5, 6, 4, 6, 7, 0, 1, 5, 0, 5, 4, 3, 7, 6, 3, 6, 2, 0, 4, 7, 0, 7, 3, 1, 2, 6, 1, 6, 5,
   ];
-  const buffer = gl.createBuffer()!;
+  const buffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(triangles.flatMap((i) => corners[i]!)), gl.STATIC_DRAW);
   gl.useProgram(program);
