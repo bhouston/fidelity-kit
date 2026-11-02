@@ -429,7 +429,7 @@ test('source format changes invalidate caches even when size and mtime match', a
   const previous = (await index(root)).metrics[aKey].psnr;
   await rm(join(dir, 'a.png'));
   expect(await processSuite(root)).toMatchObject({ computed: 1, skipped: 1 });
-  expect((await index(root)).metrics[aKey].psnr).toBeLessThan(previous!);
+  expect((await index(root)).metrics[aKey].psnr).toBeLessThan(previous);
   expect(await processSuite(root)).toMatchObject({ computed: 0, skipped: 2 });
 });
 

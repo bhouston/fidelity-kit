@@ -83,7 +83,7 @@ test('uses selected input filenames and WebP heatmaps in versioned viewer URLs',
     metrics: {
       ...mixed.metrics,
       'group/a scene/beauty/a.vs-ref.metrics.json': {
-        ...mixed.metrics['group/a scene/beauty/a.vs-ref.metrics.json']!,
+        ...mixed.metrics['group/a scene/beauty/a.vs-ref.metrics.json'],
         deltaFile: undefined,
       },
     },

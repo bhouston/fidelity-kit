@@ -1,4 +1,4 @@
-import { processRun, type RunResult } from '../schema/index.js';
+import { processRun } from '../schema/index.js';
 import { it, expect } from 'vitest';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -113,7 +113,7 @@ it('dev coalesces atomic writes, handles added/removed results and README, and c
       harness: { teardown: 2 },
       reporter: { frames: [] },
       status: 'ok',
-    } as RunResult);
+    });
     const temp = join(directory, '.metrics.json.tmp');
     await writeFile(temp, JSON.stringify(result));
     await new Promise((resolve) => setTimeout(resolve, 650));

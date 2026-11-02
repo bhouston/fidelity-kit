@@ -8,10 +8,7 @@ type SectionRegistry = Partial<Pick<RenderingRegistry, 'dynamic' | 'performance'
 /** Explicit section options take precedence over legacy results and configuration. */
 export function resolveSections(registry: SectionRegistry | null, hasTemporal: boolean, hasPerformance = false) {
   return {
-    static:
-      registry?.staticFidelity !== undefined
-        ? registry.staticFidelity !== false
-        : registry?.temporalFidelity === undefined,
+    static: registry?.staticFidelity !== undefined ? registry.staticFidelity : registry?.temporalFidelity === undefined,
     temporal:
       registry?.temporalFidelity !== undefined
         ? registry.temporalFidelity !== false

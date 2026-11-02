@@ -206,7 +206,7 @@ export function performanceSuite(suite: RenderingRegistry, collection = 'default
   return {
     schemaVersion: 1,
     name: `${suite.title} / ${collection}`,
-    defaults: selected.defaults as Suite['defaults'],
+    defaults: selected.defaults,
     entries: selected.entries.map((entry) => {
       const renderer = suite.renderers.find((r) => r.id === entry.renderer)!;
       const scene = suite.scenes.find((s) => s.id === entry.scene)!;
@@ -218,9 +218,7 @@ export function performanceSuite(suite: RenderingRegistry, collection = 'default
         url: suite.renderServer.entry,
         durationMs: entry.durationMs,
         params: { ...rendererParams(suite, renderer.id, scene.id), width: 1920, height: 1080, ...entry.params },
-        ...(entry.reference
-          ? { reference: entry.reference as NonNullable<Suite['entries'][number]['reference']> }
-          : {}),
+        ...(entry.reference ? { reference: entry.reference } : {}),
       };
     }),
   };

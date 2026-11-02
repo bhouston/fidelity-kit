@@ -176,7 +176,7 @@ export function processRun(run: RunResult): ProcessedResult {
           convergence: {
             ...structuredClone(run.reporter.convergence),
             ...(() => {
-              const convergence = run.reporter.convergence!;
+              const convergence = run.reporter.convergence;
               const start = run.reporter.runStart ?? run.reporter.ready ?? 0;
               const reached = convergence.samples.find(
                 (sample) =>

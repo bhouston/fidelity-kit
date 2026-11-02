@@ -250,6 +250,7 @@ export async function runSuite(options: RunOptions): Promise<{ out: string; sess
         if (isolation === 'page') {
           await page.evaluateOnNewDocument(
             (source, runInput) => {
+              // oxlint-disable-next-line typescript/no-implied-eval -- harness source must be evaluated inside the page
               (window as unknown as { __performanceKitResult: Promise<unknown> }).__performanceKitResult = new Function(
                 `return (${source})`,
               )()(runInput);

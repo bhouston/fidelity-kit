@@ -99,8 +99,8 @@ export function Bandwidth({ result, maxTime }: { result: ProcessedResult; maxTim
           ))}
           {result.timeline.renderStart !== undefined && (
             <line
-              x1={x(result.timeline.renderStart!)}
-              x2={x(result.timeline.renderStart!)}
+              x1={x(result.timeline.renderStart)}
+              x2={x(result.timeline.renderStart)}
               y1="10"
               y2={height - 28}
               stroke="currentColor"
