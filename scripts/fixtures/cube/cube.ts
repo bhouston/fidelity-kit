@@ -91,9 +91,13 @@ const createCube: SessionFactory = async (params, reporter, host) => {
   draw();
   await complete();
   reporter.phaseEnd(phase);
+  const info = gl.getExtension('WEBGL_debug_renderer_info');
   reporter.environment({
     api: 'webgl2',
-    gpuAdapter: { vendor: gl.getParameter(gl.VENDOR), description: gl.getParameter(gl.RENDERER) },
+    gpuAdapter: {
+      vendor: gl.getParameter(info?.UNMASKED_VENDOR_WEBGL ?? gl.VENDOR),
+      description: gl.getParameter(info?.UNMASKED_RENDERER_WEBGL ?? gl.RENDERER),
+    },
   });
   reporter.ready();
   return {
