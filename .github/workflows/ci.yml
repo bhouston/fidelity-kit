@@ -36,10 +36,14 @@ jobs:
       - run: pnpm test --coverage
       - name: Install Chrome for render contracts
         run: node scripts/install-test-browser.mjs
+      - name: Install Mesa lavapipe and Xvfb
+        run: sudo apt-get update && sudo apt-get install -y mesa-vulkan-drivers xvfb
       - name: Check grouped selection UI
         run: node scripts/selection-browser.mjs
       - name: Check real browser render contracts
-        run: pnpm test:browser
+        run: xvfb-run -a pnpm test:browser
+        env:
+          VK_DRIVER_FILES: /usr/share/vulkan/icd.d/lvp_icd.x86_64.json
       - uses: codecov/codecov-action@v5
         if: ${{ !cancelled() && hashFiles('coverage/lcov.info') != '' }}
         with:

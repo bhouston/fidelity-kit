@@ -24,6 +24,18 @@ try {
     `Chrome not found at ${chrome}. Install it with "node scripts/install-test-browser.mjs" or set CHROME_EXECUTABLE.`,
   );
 }
+// CI renders on Mesa lavapipe (Vulkan) in headed Chrome under xvfb; SwiftShader is deprecated.
+const ci = Boolean(process.env.CI) && process.platform === 'linux';
+const gpuArgs = ci
+  ? [
+      '--enable-unsafe-webgpu',
+      '--enable-features=Vulkan',
+      '--disable-vulkan-surface',
+      '--ignore-gpu-blocklist',
+      '--disable-gpu-driver-bug-workarounds',
+      '--disable-gpu-watchdog',
+    ]
+  : ['--enable-unsafe-swiftshader'];
 const work = await mkdtemp(join(tmpdir(), 'fidelity-cube-'));
 const renderer = await createCubeServer();
 const parent = createServer((_req, res) => {
@@ -37,7 +49,13 @@ const origin = `http://127.0.0.1:${parent.address().port}`;
 const execute = (args) =>
   promisify(execFile)(
     process.execPath,
-    [cli, ...args, '--chrome-arg=--no-sandbox', '--chrome-arg=--enable-unsafe-swiftshader'],
+    [
+      cli,
+      ...args,
+      ...(ci ? ['--headful'] : []),
+      '--chrome-arg=--no-sandbox',
+      ...gpuArgs.map((arg) => `--chrome-arg=${arg}`),
+    ],
     { maxBuffer: 16 * 1024 * 1024 },
   );
 let browser;
@@ -60,8 +78,8 @@ try {
   await writeFile(registryFile, JSON.stringify(registry));
   browser = await puppeteer.launch({
     executablePath: chrome,
-    headless: true,
-    args: ['--enable-unsafe-swiftshader', '--no-sandbox'],
+    headless: !ci,
+    args: [...gpuArgs, '--no-sandbox'],
   });
   const page = await browser.newPage();
   await page.goto(origin);
@@ -183,7 +201,6 @@ try {
     '--cooldown-ms',
     '0',
     '--allow-software',
-    '--chrome-arg=--enable-unsafe-swiftshader',
     '--executable-path',
     chrome,
   ]);
@@ -191,6 +208,8 @@ try {
   assert.match(history.results[0].session, /^\d{4}-\d{2}-\d{2}-\d{2}-\d{2}$/);
   const metrics = JSON.parse(await readFile(join(work, 'performance', history.results[0].metrics), 'utf8'));
   assert.equal(metrics.status, 'ok');
+  console.log('GPU renderer:', JSON.stringify(metrics.environment.gpuAdapter));
+  if (ci) assert.match(JSON.stringify(metrics.environment.gpuAdapter), /llvmpipe|lavapipe/i);
   assert.equal(metrics.config.vsync, 'off');
   assert.ok(metrics.throughput.elapsed >= 5);
   assert.ok(metrics.throughput.completedFrames > 0);
