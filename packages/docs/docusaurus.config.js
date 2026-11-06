@@ -73,6 +73,13 @@ module.exports = {
         { to: '/docs/cli', label: 'CLI', position: 'left' },
         { to: '/docs/api', label: 'API reference', position: 'left' },
         {
+          href: 'https://www.npmjs.com/package/fidelity-kit',
+          html: '<span class="navbar-npm-icon" aria-hidden="true"></span>',
+          'aria-label': 'npm package',
+          title: 'npm package',
+          position: 'right',
+        },
+        {
           href: 'https://github.com/bhouston/fidelity-kit',
           html: '<span class="navbar-github-icon" aria-hidden="true"></span>',
           'aria-label': 'GitHub repository',
