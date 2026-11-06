@@ -1,5 +1,6 @@
 ---
 title: Temporal fidelity
+description: Score animated sequences for temporal artifacts such as ghosting, flicker and slow convergence.
 ---
 
 Static fidelity scores one image per renderer. Temporal techniques such as TAA, temporal upscaling, temporal denoisers and animated sampling noise cannot be judged from one frame. Their errors are blur under motion, ghosting, flicker and slow convergence, so **temporal fidelity** scores an animated sequence instead.

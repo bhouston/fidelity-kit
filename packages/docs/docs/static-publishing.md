@@ -1,5 +1,6 @@
 ---
 title: Publish a static viewer
+description: Export a self-contained fidelity-kit viewer and publish it to any static host, including GitHub Pages.
 ---
 
 `fidelity-kit build` processes the suite and exports a self-contained viewer. It includes the viewer assets, source images, metadata, metrics, deltas, and optional logo and READMEs. No Node server is needed at the destination.

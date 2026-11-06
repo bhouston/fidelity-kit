@@ -1,0 +1,13 @@
+{
+  "name": "fidelity-kit",
+  "short_name": "fidelity-kit",
+  "description": "Turn a folder of renders into PSNR metrics, visual deltas and a browsable comparison viewer.",
+  "start_url": ".",
+  "display": "browser",
+  "background_color": "#11151d",
+  "theme_color": "#11151d",
+  "icons": [
+    { "src": "img/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "img/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

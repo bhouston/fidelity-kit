@@ -12,19 +12,28 @@ export const schemaFiles = {
 
 /** `<root>/fidelity.json`. Renderer/output ids and labels are entirely up to the suite. */
 export type FidelityConfig = {
+  /** Heading shown at the top of the viewer. */
   title: string;
   /** Disable static comparisons for temporal-only or performance-only result trees. */
   staticFidelity?: boolean;
+  /** Path to a branding image, relative to the suite root. */
   logo?: string;
+  /** The renderers to compare; at least one should be marked as a reference. */
   renderers: {
+    /** Lowercase letters, numbers, `.`, `_` or `-`; used in image file names. */
     id: string;
+    /** Display name; defaults to the id. */
     label?: string;
+    /** Marks a renderer others are compared against. */
     reference?: boolean;
     /** `false` hides the renderer by default; viewers can still toggle it on. */
     enabled?: boolean;
+    /** Optional grouping label for the viewer. */
     category?: string;
   }[];
+  /** Named renderer selections the viewer offers, optionally pinned to a reference. */
   comparisonPresets?: { id: string; name: string; renderers: string[]; ref?: string }[];
+  /** The outputs rendered for each scene, such as `beauty` or `ao`. */
   outputs: { id: string; label?: string; kind?: 'static' | 'temporal' }[];
 };
 
@@ -34,6 +43,7 @@ export type SceneMeta = { title?: string; category?: string; tags: string[] };
 /** Something in the suite that fidelity-kit ignores; `path` is relative to the suite root. */
 export type SuiteWarning = { path: string; message: string };
 
+/** Thrown when `fidelity.json` or `scene.json` fails validation; every problem is listed in the message. */
 export class SchemaValidationError extends Error {
   constructor(
     readonly file: string,
@@ -101,7 +111,16 @@ const duplicates = (items: { id: string }[]) => {
   return [...new Set(items.filter(({ id }) => seen.has(id) || !seen.add(id)).map(({ id }) => id))];
 };
 
-/** Validate `fidelity.json` (already parsed). `file` names it in messages. */
+/**
+ * Validates a parsed `fidelity.json` against the published JSON Schema and checks that ids are unique and presets
+ * refer to declared renderers. Unknown properties are dropped with a warning.
+ *
+ * @param data - The parsed JSON value.
+ * @param file - File name used in error and warning messages.
+ * @param onWarning - Receives warnings for ignored properties.
+ * @returns The validated configuration.
+ * @throws {@link SchemaValidationError} listing every problem found.
+ */
 export function parseConfig(data: unknown, file = 'fidelity.json', onWarning?: (w: SuiteWarning) => void) {
   const config = validate<FidelityConfig>('config', file, data, onWarning);
   // JSON Schema cannot express uniqueness by property.
@@ -122,7 +141,15 @@ export function parseConfig(data: unknown, file = 'fidelity.json', onWarning?: (
   return config;
 }
 
-/** Validate a scene's `scene.json` (already parsed). `file` names it in messages. */
+/**
+ * Validates a parsed `scene.json` against the published JSON Schema.
+ *
+ * @param data - The parsed JSON value.
+ * @param file - File name used in error and warning messages.
+ * @param onWarning - Receives warnings for ignored properties.
+ * @returns The validated scene metadata.
+ * @throws {@link SchemaValidationError} listing every problem found.
+ */
 export function parseSceneMeta(data: unknown, file = 'scene.json', onWarning?: (w: SuiteWarning) => void) {
   const meta = validate<SceneMeta>('scene', file, data, onWarning);
   delete (meta as { $schema?: string }).$schema;

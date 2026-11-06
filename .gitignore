@@ -8,8 +8,9 @@ coverage
 *.log
 .DS_Store
 packages/cli/viewer
-packages/website/.generated
-packages/website/.docusaurus
-packages/website/build
-packages/website/docs/cli
+packages/docs/.generated
+packages/docs/.docusaurus
+packages/docs/build
+packages/docs/docs/cli
+packages/docs/docs/api
 release-artifacts
