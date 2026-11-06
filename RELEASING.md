@@ -1,50 +1,53 @@
-# Releases
+# Releasing
 
-## Running a release
+Releases are manual and maintainer-only. Merging to `main` never publishes.
 
-Releases are never triggered by pushes or merges to `main`. When ready to publish, the maintainer dispatches the workflow:
+## Running a Release
 
 ```sh
-gh workflow run release.yml --ref main
+gh workflow run release.yml --ref main                  # release
+gh workflow run release.yml --ref main -f dry_run=true  # preview only, publishes nothing
 ```
 
-Add `-f dry_run=true` to preview versioning and release notes without publishing or tagging. The workflow refuses to run against any ref other than `main`, waits for the full CI suite, and fails if `main` advances after dispatch. If there are no release-worthy commits since the last tag, the run succeeds as a no-op.
+When there are no release-worthy commits since the last `v*` tag, the run is a no-op.
 
-## One-time activation
+## What the Workflow Does
 
-1. **First publish (manual).** npm trusted publishing can only be configured on a package that already exists, so the first version is published by hand with 2FA:
+1. Refuses any ref other than `main`.
+2. Runs the full CI workflow on the dispatched commit.
+3. Stops if `main` has moved since the dispatch.
+4. Installs, builds, and runs `pnpm release`, which is semantic-release.
+5. semantic-release computes the next version, creates the `v<version>` tag and GitHub Release, and publishes.
 
-   ```sh
-   pnpm install --frozen-lockfile && pnpm build
-   cd packages/cli
-   pnpm pack --dry-run   # expect dist/ and viewer/
-   pnpm publish --access public
-   ```
+Releases run one at a time and never cancel a publish in progress. npm packages publish through npm trusted publishing (GitHub OIDC), so no `NPM_TOKEN` is stored.
 
-2. **Baseline tag.** Give semantic-release a version floor. Never move this tag afterwards.
+## Versioning
 
-   ```sh
-   git tag v0.1.0 <commit-that-was-published>
-   git push origin v0.1.0
-   ```
+The version comes from the Conventional Commits since the last `v*` tag. The highest change wins:
 
-3. **Trusted publisher.** On npmjs.com, open `fidelity-kit` → Settings → Trusted Publisher → GitHub Actions:
+- `feat` produces a minor release.
+- `fix` and `perf` produce a patch release.
+- `!` or a `BREAKING CHANGE:` footer produces a major release.
+- Other types do not trigger a release.
 
-   | Field                | Value          |
-   | -------------------- | -------------- |
-   | Organization or user | `bhouston`     |
-   | Repository           | `fidelity-kit` |
-   | Workflow filename    | `release.yml`  |
-   | Environment name     | Leave blank    |
+Everything this repository publishes shares one version. `package.json` versions in source are development snapshots; the Git tag and the registry hold the released version. [GitHub Releases](https://github.com/bhouston/fidelity-kit/releases) is the changelog of record.
 
-   These are package settings, not repository secrets; no `NPM_TOKEN` is needed. The release job publishes with `pnpm` and `id-token: write`, and npm attaches provenance automatically.
+## One-Time Setup
 
-## Versioning and artifacts
+1. On npmjs.com, open each package's Trusted Publisher settings, choose GitHub Actions, and enter organization or user `bhouston`, repository `fidelity-kit`, workflow filename `release.yml`, and environment name `npm`.
+2. Protect `main`: require pull requests and the CI checks, allow merge commits, and block force pushes and deletion.
+3. If the repository uploads coverage to Codecov, add the `CODECOV_TOKEN` repository secret.
 
-Semantic-release analyzes Conventional Commits since the last `v*` tag: `feat` is a minor, `fix`/`perf` a patch, `!` or `BREAKING CHANGE:` a major. Docs/chore-only changes produce no release.
+## Recovery
 
-Only `packages/cli` (`fidelity-kit`) is published, via `pnpm publish` through `@anolilab/semantic-release-pnpm`. Source `package.json` versions are development snapshots; the Git tag and npm version are authoritative. Nothing is committed back to `main` and no `CHANGELOG.md` is written; [GitHub Releases](https://github.com/bhouston/fidelity-kit/releases) holds the notes and the package tarball.
+Publishing is not atomic. If a run fails part way, compare the registry versions, the `v<version>` tag, and the workflow log, then finish what is missing from the same release commit. If publishing succeeded but the GitHub Release failed, create the release from the existing tag. Never republish a version, delete a published version, or move a release tag. Resolve the failure before dispatching another release.
 
-## Validation
+## Repository Specifics
 
-`pnpm release:check` tests commit analysis and publish readiness. Dispatch with `dry_run=true` for a full preview.
+### Published Artifacts
+
+- npm package `fidelity-kit` (`packages/cli`), with the private `packages/viewer` bundled into it by the package's `prepack` script. Each GitHub Release also attaches the package tarball.
+
+### Local Validation
+
+`pnpm release:check` tests commit analysis and publish readiness without publishing.
