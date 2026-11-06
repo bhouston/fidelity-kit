@@ -24,10 +24,44 @@ export interface ImageMetrics {
 }
 
 /** Sharp AVIF options for committed result images: near-lossless (worst render ~40 dB PSNR vs PNG), full-res chroma so noise and false colour survive. */
-export const RESULT_AVIF = { quality: 90, chromaSubsampling: '4:4:4' } as const;
+export const RESULT_AVIF = {
+  /** AVIF quality, 0 to 100. */
+  quality: 90,
+  /** Chroma subsampling mode; `4:4:4` keeps full-resolution colour. */
+  chromaSubsampling: '4:4:4',
+} as const;
 
 /** Sharp WebP options for delta heatmaps. They trade minor visual differences for smaller files at modest encoding cost. */
-export const DELTA_WEBP = { quality: 85, effort: 4 } as const;
+export const DELTA_WEBP = {
+  /** WebP quality, 0 to 100. */
+  quality: 85,
+  /** Encoder effort, 0 (fastest) to 6 (smallest). */
+  effort: 4,
+} as const;
+
+/** Result of {@link compareRgb}. */
+export interface RgbComparison {
+  /** Quality metrics of the test image. */
+  metrics: ImageMetrics;
+  /** Heat-map of per-pixel error; black pixels are identical. */
+  delta: RawImage;
+}
+
+/** Result of {@link measureImages}. */
+export interface ImageMeasurement {
+  /** Quality metrics of the test image. */
+  metrics: ImageMetrics;
+  /** Width of the compared images in pixels. */
+  width: number;
+  /** Height of the compared images in pixels. */
+  height: number;
+}
+
+/** Result of {@link compareImages}. */
+export interface ImageComparison extends ImageMeasurement {
+  /** The delta heat-map encoded as WebP. */
+  deltaImage: Buffer;
+}
 
 /**
  * Decodes an image to 8-bit sRGB, dropping alpha.
@@ -113,7 +147,7 @@ export function sharpnessRatio(reference: RawImage, test: RawImage): number | nu
  * @returns The metrics and the delta image, whose colour follows the largest channel error of each pixel.
  * @throws If the image dimensions differ.
  */
-export function compareRgb(reference: RawImage, test: RawImage): { metrics: ImageMetrics; delta: RawImage } {
+export function compareRgb(reference: RawImage, test: RawImage): RgbComparison {
   if (reference.width !== test.width || reference.height !== test.height) {
     throw new Error(
       `Image size mismatch: reference ${reference.width}x${reference.height} vs test ${test.width}x${test.height}`,
@@ -152,7 +186,7 @@ export function compareRgb(reference: RawImage, test: RawImage): { metrics: Imag
  * @returns The metrics and the shared image dimensions.
  * @throws If the image dimensions differ.
  */
-export async function measureImages(reference: string | Buffer, test: string | Buffer) {
+export async function measureImages(reference: string | Buffer, test: string | Buffer): Promise<ImageMeasurement> {
   const [ref, tst] = await Promise.all([readRgb(reference), readRgb(test)]);
   return { metrics: compareRgb(ref, tst).metrics, width: ref.width, height: ref.height };
 }
@@ -170,10 +204,7 @@ export async function measureImages(reference: string | Buffer, test: string | B
  * console.log(metrics.psnr); // dB, or null when identical
  * ```
  */
-export async function compareImages(
-  reference: string | Buffer,
-  test: string | Buffer,
-): Promise<{ metrics: ImageMetrics; width: number; height: number; deltaImage: Buffer }> {
+export async function compareImages(reference: string | Buffer, test: string | Buffer): Promise<ImageComparison> {
   const [ref, tst] = await Promise.all([readRgb(reference), readRgb(test)]);
   const { metrics, delta } = compareRgb(ref, tst);
   const deltaImage = await sharp(delta.data, { raw: { width: delta.width, height: delta.height, channels: 3 } })

@@ -117,8 +117,14 @@ export interface TemporalRecord {
   /** Aggregate metrics over the measured frames. */
   summary: TemporalSummary;
   /** Metrics for each measured frame, as in {@link TemporalComparison.perFrame}. */
-  perFrame: { psnr: (number | null)[]; temporalPsnr: (number | null)[]; sharpness: (number | null)[] };
+  perFrame: TemporalComparison['perFrame'];
   /** ISO timestamp of when the record was produced. */
+  generatedAt: string;
+}
+
+/** A renderer's temporal summary with the time it was produced. */
+export interface DynamicResult extends TemporalSummary {
+  /** ISO timestamp of when the result was produced. */
   generatedAt: string;
 }
 
@@ -131,5 +137,5 @@ export interface DynamicIndex {
   /** Id of the reference renderer the results compare against. */
   reference: string;
   /** Summaries keyed by scene path, then renderer id. */
-  results: Record<string, Record<string, TemporalSummary & { generatedAt: string }>>;
+  results: Record<string, Record<string, DynamicResult>>;
 }

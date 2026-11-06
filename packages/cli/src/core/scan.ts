@@ -1,3 +1,10 @@
+/**
+ * Scans a results folder into a tree of groups and scenes.
+ *
+ * Import from `fidelity-kit/scan`.
+ *
+ * @module fidelity-kit/scan
+ */
 import { readdir, readFile, stat } from 'node:fs/promises';
 import type { Dirent } from 'node:fs';
 import { join } from 'node:path';

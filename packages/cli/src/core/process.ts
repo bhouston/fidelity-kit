@@ -21,7 +21,18 @@ export interface MetricsRecord extends ImageMetrics {
   deltaFile?: string;
 }
 /** The scanned {@link Suite} plus the metrics of every comparison; this is the `index.json` the viewer reads. */
-export type SuiteIndex = Suite & { metrics: Record<string, MetricsRecord> };
+export interface SuiteIndex extends Suite {
+  /** Metrics of every comparison, keyed by scene, output, reference and renderer. */
+  metrics: Record<string, MetricsRecord>;
+}
+/** A comparison that could not be computed. */
+export interface ProcessFailure {
+  /** Delta file path of the failed comparison. */
+  file: string;
+  /** Error message. */
+  error: string;
+}
+
 /** Outcome of processing a suite. */
 export interface ProcessResult {
   /** Comparisons computed in this run. */
@@ -29,7 +40,7 @@ export interface ProcessResult {
   /** Comparisons skipped because their cached results were current. */
   skipped: number;
   /** Comparisons that failed, with the delta file involved and the error message. */
-  failed: { file: string; error: string }[];
+  failed: ProcessFailure[];
   /** Suite files and folders that were ignored, from scans performed for this result. */
   warnings: SuiteWarning[];
 }

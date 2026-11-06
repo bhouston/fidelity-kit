@@ -1,3 +1,10 @@
+/**
+ * Client-safe file naming helpers, with no Node imports, shared by the CLI and the viewer.
+ *
+ * Import from `fidelity-kit/paths`.
+ *
+ * @module fidelity-kit/paths
+ */
 // Client-safe file naming (no node imports): shared by the CLI and the viewer.
 /** Default extension for generated result images. */
 export const IMAGE_EXT = '.avif';
