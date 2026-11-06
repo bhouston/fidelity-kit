@@ -1,25 +1,28 @@
+<p align="center">
+  <a href="https://npmjs.com/package/fidelity-kit"><img src="https://img.shields.io/npm/v/fidelity-kit.svg" alt="npm package"></a>
+  <a href="https://www.npmtrends.com/fidelity-kit"><img src="https://img.shields.io/npm/dw/fidelity-kit.svg" alt="npm downloads"></a>
+  <a href="https://codecov.io/gh/bhouston/fidelity-kit"><img src="https://codecov.io/gh/bhouston/fidelity-kit/branch/main/graph/badge.svg" alt="coverage"></a>
+  <a href="https://discord.gg/fwupDN493R"><img src="https://img.shields.io/badge/chat-discord-blue?style=flat&logo=discord" alt="discord chat"></a>
+  <a href="https://fidelity-kit.ben3d.ca"><img src="https://img.shields.io/badge/docs-read-blue?style=flat" alt="documentation"></a>
+</p>
+<br/>
+
 # fidelity-kit
 
-[Documentation](https://fidelity-kit.ben3d.ca) · [Suite format](https://fidelity-kit.ben3d.ca/docs/suite-format) · [CLI reference](https://fidelity-kit.ben3d.ca/docs/cli)
+> Compare renderer output without building a comparison site.
 
-[![NPM Package][npm]][npm-url]
-[![NPM Downloads][npm-downloads]][npmtrends-url]
-[![Tests][tests-badge]][tests-url]
-[![Coverage][coverage-badge]][coverage-url]
-[![Discord][discord-badge]][discord-url]
-[![Docs][docs-badge]][docs-url]
+- 📊 PSNR Metrics per Comparison
+- 🔥 Visual Delta Images
+- 🖼️ Browsable Side-by-Side Viewer
+- ⚡ Live-Reloading Dev Server
+- 📦 Static Site or Docker Serving
+- 🎞️ Temporal Fidelity and Benchmarks
 
-**Compare renderer output without building a comparison site.** fidelity-kit turns a folder of AVIF renders into image quality metrics, visual difference images, and a browsable website. Use it for rendering fidelity suites, visual regression reviews, and side-by-side comparisons of a renderer against one or more references.
+fidelity-kit turns a folder of AVIF renders into image quality metrics, visual difference images, and a browsable website. Use it for rendering fidelity suites, visual regression reviews, and side-by-side comparisons of a renderer against one or more references.
 
 Your renderer writes images; fidelity-kit handles the comparisons and viewer. Run the viewer locally while developing, serve the results from a container, or export a static site.
 
-## Grouped selections
-
-Set an optional `category` on renderers in `fidelity.json` or the unified registry. The renderer menu supports search, scrolling, collapsible groups, and all/none/partial group selection. Define `comparisonPresets` as `{ id, name, renderers, ref? }` entries to offer named comparisons; the chosen renderer IDs and reference remain in the URL.
-
-Scenes can carry a `category` and `tags` in the registry or `scene.json`. Fidelity filters scene families with union semantics, while selected tags must all match. Live and performance selects use the same categories. These fields are optional; existing suites retain their defaults.
-
-Run `node scripts/selection-browser.mjs` after building to verify selector behavior in Chrome. Set `CHROME_EXECUTABLE` when using an installed browser.
+[Read the Docs to Learn More](https://fidelity-kit.ben3d.ca).
 
 ## Quick start
 
@@ -29,7 +32,7 @@ If you already have a results folder in the format below:
 npx fidelity-kit dev results
 ```
 
-Open the URL printed by the command (usually <http://localhost:3000>). `dev` processes stale images at startup, then watches for new or changed renders and updates their metrics, deltas, and viewer index. The viewer automatically reloads after result updates settle for five seconds (using server-sent events). Files are served without browser caching. See the [working example](https://github.com/bhouston/fidelity-kit/tree/main/examples/demo) for a complete suite.
+Open the URL printed by the command (usually <http://localhost:3000>). `dev` processes stale images at startup, then watches for new or changed renders and updates their metrics, deltas, and viewer index. The viewer automatically reloads after result updates settle for five seconds (using server-sent events). Files are served without browser caching. See the [working example](https://github.com/bhouston/fidelity-kit/tree/main/examples/demo) for a complete suite. See also the [suite format](https://fidelity-kit.ben3d.ca/docs/suite-format) and the [CLI reference](https://fidelity-kit.ben3d.ca/docs/cli).
 
 ## See it in action
 
@@ -157,22 +160,13 @@ docker run --rm -p 8080:8080 my-fidelity-site
 
 Open <http://localhost:8080>. `hash` prepares versioned image URLs so repeat visits can reuse cached images from the first request. If your results change at runtime, run `serve` without `--no-process` to refresh comparisons at startup; `hash` is optional in that case.
 
-## Author and sponsor
+## Grouped selections
 
-Created by [Ben Houston](https://github.com/bhouston) and sponsored by [Land of Assets](https://landofassets.com).
+Set an optional `category` on renderers in `fidelity.json` or the unified registry. The renderer menu supports search, scrolling, collapsible groups, and all/none/partial group selection. Define `comparisonPresets` as `{ id, name, renderers, ref? }` entries to offer named comparisons; the chosen renderer IDs and reference remain in the URL.
 
-[npm]: https://img.shields.io/npm/v/fidelity-kit
-[npm-url]: https://www.npmjs.com/package/fidelity-kit
-[npm-downloads]: https://img.shields.io/npm/dw/fidelity-kit
-[npmtrends-url]: https://www.npmtrends.com/fidelity-kit
-[tests-badge]: https://github.com/bhouston/fidelity-kit/actions/workflows/ci.yml/badge.svg
-[tests-url]: https://github.com/bhouston/fidelity-kit/actions/workflows/ci.yml
-[coverage-badge]: https://codecov.io/gh/bhouston/fidelity-kit/branch/main/graph/badge.svg
-[coverage-url]: https://codecov.io/gh/bhouston/fidelity-kit
-[discord-badge]: https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white
-[discord-url]: https://discord.gg/5J5Ur3F6Z2
-[docs-badge]: https://img.shields.io/badge/Docs-Read-2b77aa
-[docs-url]: https://fidelity-kit.ben3d.ca/
+Scenes can carry a `category` and `tags` in the registry or `scene.json`. Fidelity filters scene families with union semantics, while selected tags must all match. Live and performance selects use the same categories. These fields are optional; existing suites retain their defaults.
+
+Run `node scripts/selection-browser.mjs` after building to verify selector behavior in Chrome. Set `CHROME_EXECUTABLE` when using an installed browser.
 
 ## Unified rendering suites
 
@@ -254,3 +248,15 @@ The plural aliases `--renderers` and `--scenes` accept comma-separated globs, as
 `render`; when combined with singular options, their selections intersect. Filters
 select workloads already defined in the performance collection; they do not generate
 new renderer/scene combinations.
+
+## Contribution
+
+See [Contributing Guide](CONTRIBUTING.md).
+
+## License
+
+MIT
+
+## Author
+
+[Ben Houston](https://ben3d.ca), Sponsored by [Land of Assets](https://landofassets.com).
