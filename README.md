@@ -249,6 +249,10 @@ The plural aliases `--renderers` and `--scenes` accept comma-separated globs, as
 select workloads already defined in the performance collection; they do not generate
 new renderer/scene combinations.
 
+## Releases
+
+See [RELEASING.md](RELEASING.md) for how releases are published and [GitHub Releases](https://github.com/bhouston/fidelity-kit/releases) for changes.
+
 ## Contribution
 
 See [Contributing Guide](CONTRIBUTING.md).
