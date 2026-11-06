@@ -16,11 +16,19 @@ export class HashStore {
   /** Bumped whenever the set of known hashes changes; drives the ETag of the hash listing. */
   version = 0;
 
+  /** Seeds the store with a known hash, for example one read from `image-hashes.json`. */
   preload(path: string, entry: HashEntry) {
     this.entries.set(path, entry);
     this.version++;
   }
 
+  /**
+   * The hash entry for a file, hashing it only when the stored entry is missing or its mtime or size differs.
+   *
+   * @param path - Absolute file path.
+   * @param mtimeMs - The file's current modification time in milliseconds.
+   * @param size - The file's current size in bytes.
+   */
   async entryFor(path: string, mtimeMs: number, size: number): Promise<HashEntry> {
     const hit = this.entries.get(path);
     if (hit && hit.mtimeMs === mtimeMs && hit.size === size) return hit;
@@ -56,13 +64,20 @@ export class HashStore {
 /** Used by `fileResponse` callers that don't bring their own store (the server has one per handler). */
 const sharedStore = new HashStore();
 
-/** Refuses paths that escape `root`. */
+/**
+ * Resolves `rel` under `root`, refusing paths that escape it.
+ *
+ * @param root - The directory to stay inside.
+ * @param rel - A path relative to `root`.
+ * @returns The absolute path, or `null` when it would leave `root`.
+ */
 export function resolveInside(root: string, rel: string): string | null {
   const base = resolve(root);
   const full = resolve(base, rel);
   return full === base || full.startsWith(base + sep) ? full : null;
 }
 
+/** `Cache-Control` value for content-addressed files that never change. */
 export const IMMUTABLE = 'public, max-age=31536000, immutable';
 
 const TYPES: Record<string, string> = {
@@ -79,7 +94,13 @@ const TYPES: Record<string, string> = {
   ico: 'image/x-icon',
 };
 
-/** True when the request's validators say the client's copy is current (If-None-Match wins over If-Modified-Since). */
+/**
+ * True when the request's validators say the client's copy is current (If-None-Match wins over If-Modified-Since).
+ *
+ * @param req - The incoming request.
+ * @param etag - The file's current quoted ETag.
+ * @param mtimeMs - The file's modification time in milliseconds.
+ */
 export function notModified(req: Request, etag: string, mtimeMs: number): boolean {
   const inm = req.headers.get('if-none-match');
   if (inm) return inm.trim() === '*' || inm.split(',').some((t) => t.trim().replace(/^W\//, '') === etag);
@@ -92,6 +113,11 @@ export function notModified(req: Request, etag: string, mtimeMs: number): boolea
  * 304 on If-None-Match / If-Modified-Since. The body is streamed from disk. `cacheControl` defaults to `no-cache`
  * (always revalidate); `immutableIf` is a `?v=` version that becomes `immutableCacheControl` only if it equals the file's
  * current hash (an unverified version keeps `cacheControl`). There is no Vary: the response never depends on request headers.
+ *
+ * @param req - The incoming request, used for conditional headers.
+ * @param path - Absolute path of the file to serve.
+ * @param opts - Caching options and an optional {@link HashStore} to reuse hashes across requests.
+ * @returns A 200 streaming response, a 304, or a 404 when the file does not exist.
  */
 export async function fileResponse(
   req: Request,
@@ -123,6 +149,9 @@ function bodyHeaders(path: string, size: number) {
 /**
  * Dev-mode variant: the file exactly as it is on disk right now, every time. No ETag, no Last-Modified, no hash cache,
  * conditional headers are ignored (always 200) and `Cache-Control: no-store` keeps browsers and proxies from reusing it.
+ *
+ * @param path - Absolute path of the file to serve.
+ * @returns A 200 streaming response, or a 404 when the file does not exist.
  */
 export async function freshFileResponse(path: string): Promise<Response> {
   const s = await stat(path).catch(() => null);

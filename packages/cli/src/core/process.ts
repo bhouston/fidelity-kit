@@ -9,25 +9,39 @@ import { deltaFile, imageFile, IMAGE_EXTENSIONS, isImageFile, metricsFile } from
 import type { FidelityConfig, SuiteWarning } from './schema.js';
 import type { ProgressCallback } from './progress.js';
 
+/** Metrics for one reference and renderer pair, as stored in the suite index. */
 export interface MetricsRecord extends ImageMetrics {
+  /** Compared image width in pixels. */
   width: number;
+  /** Compared image height in pixels. */
   height: number;
+  /** ISO timestamp of when the comparison was computed. */
   generatedAt: string;
   /** Present in the viewer index; legacy entries refer to AVIF heatmaps. */
   deltaFile?: string;
 }
+/** The scanned {@link Suite} plus the metrics of every comparison; this is the `index.json` the viewer reads. */
 export type SuiteIndex = Suite & { metrics: Record<string, MetricsRecord> };
+/** Outcome of processing a suite. */
 export interface ProcessResult {
+  /** Comparisons computed in this run. */
   computed: number;
+  /** Comparisons skipped because their cached results were current. */
   skipped: number;
+  /** Comparisons that failed, with the delta file involved and the error message. */
   failed: { file: string; error: string }[];
   /** Suite files and folders that were ignored, from scans performed for this result. */
   warnings: SuiteWarning[];
 }
+/** Options for {@link processSuite} and {@link SuiteProcessor.create}. */
 export interface ProcessOptions {
+  /** Recompute every comparison, ignoring cached results. */
   force?: boolean;
+  /** Comparisons to run in parallel; a positive integer, defaulting to `os.availableParallelism()`. */
   concurrency?: number;
+  /** Called with the delta file path as each comparison starts. */
   onCompute?: (file: string) => void;
+  /** Called as comparisons complete. */
   onProgress?: ProgressCallback;
 }
 interface Signature {
@@ -114,6 +128,7 @@ async function atomicWrite(file: string, data: string | Buffer) {
 
 /** A fixed configuration, small per-scene dependency maps, and one bounded comparison queue. */
 export class SuiteProcessor {
+  /** The validated suite configuration. */
   readonly config: FidelityConfig;
   private suite: Suite;
   private scenes = new Map<string, SceneState>();
@@ -142,6 +157,7 @@ export class SuiteProcessor {
   }
 
   private constructor(
+    /** Suite root directory. */
     readonly root: string,
     config: FidelityConfig,
     private opts: ProcessOptions,
@@ -155,6 +171,13 @@ export class SuiteProcessor {
     this.force = opts.force ?? false;
   }
 
+  /**
+   * Reads the suite configuration and prepares a processor without scanning or comparing anything yet.
+   *
+   * @param root - Suite root containing `fidelity.json`.
+   * @param opts - Concurrency, force and progress options.
+   * @throws If `fidelity.json` is missing or invalid, or `concurrency` is not a positive integer.
+   */
   static async create(root: string, opts: ProcessOptions = {}) {
     const warnings: SuiteWarning[] = [];
     const processor = new SuiteProcessor(root, await readConfig(root, (w) => warnings.push(w)), opts);
@@ -166,7 +189,13 @@ export class SuiteProcessor {
     this.result.warnings.push(warning);
   };
 
-  /** Only source inputs qualify. Generated deltas, metrics, index and temporary files never do. */
+  /**
+   * Maps a changed file to the scene it affects. Only source inputs qualify; generated deltas, metrics, the index and
+   * temporary files never do.
+   *
+   * @param path - File path relative to the suite root, with `/` separators.
+   * @returns The scene path, or `null` when the file is not a source input.
+   */
   sceneForInput(path: string): string | null {
     const parts = path.split('/');
     if (parts.some((p) => !p || p.startsWith('.'))) return null;
@@ -184,7 +213,12 @@ export class SuiteProcessor {
     return parts.join('/');
   }
 
-  /** Invalidate synchronously, including work already running; reconciliation happens at the batch boundary. */
+  /**
+   * Invalidate synchronously, including work already running; reconciliation happens at the batch boundary.
+   *
+   * @param paths - Changed file paths relative to the suite root.
+   * @param defer - Hold the scenes back until {@link SuiteProcessor.settle} is called.
+   */
   notify(paths: Iterable<string>, defer = false) {
     for (const path of paths) {
       const scene = this.sceneForInput(path);
@@ -200,10 +234,17 @@ export class SuiteProcessor {
     this.unsettled.clear();
   }
 
+  /** True while changes are pending, comparisons are running or the index needs writing. */
   get needsFlush() {
     return !!(this.pending.size || this.active.size || this.indexDirty);
   }
 
+  /**
+   * Invalidates every scene inside, or containing, a removed directory.
+   *
+   * @param path - Directory path relative to the suite root.
+   * @param defer - Hold the scenes back until {@link SuiteProcessor.settle} is called.
+   */
   removeDirectory(path: string, defer = false) {
     for (const scene of this.scenes.keys()) {
       if (scene === path || scene.startsWith(`${path}/`) || path.startsWith(`${scene}/`)) {
@@ -213,7 +254,12 @@ export class SuiteProcessor {
     }
   }
 
-  /** Comparisons start as scenes are discovered; no second walk or metrics reread is needed. */
+  /**
+   * Scans the suite and runs stale comparisons. Comparisons start as scenes are discovered; no second walk or metrics
+   * reread is needed.
+   *
+   * @param process - Pass `false` to reuse the metrics in the existing `index.json` instead of computing any.
+   */
   async initialize(process = true): Promise<ProcessResult> {
     if (!process) {
       const index = JSON.parse(await readFile(join(this.root, 'index.json'), 'utf8')) as SuiteIndex;
@@ -242,6 +288,7 @@ export class SuiteProcessor {
     return this.flush();
   }
 
+  /** Runs queued comparisons, rewrites the index when needed, and resolves with the accumulated result. */
   flush(): Promise<ProcessResult> {
     if (!this.flushing)
       this.flushing = this.drain().finally(() => {
@@ -536,12 +583,30 @@ export class SuiteProcessor {
   }
 }
 
-/** Process discovered scenes through the same scheduler used by watch mode. */
+/**
+ * Scans a suite, computes the stale comparisons and writes metrics, delta images and `index.json`.
+ *
+ * @param root - Suite root containing `fidelity.json`.
+ * @param opts - Concurrency, force and progress options.
+ * @returns Counts of computed and skipped comparisons, failures and suite warnings.
+ * @example
+ * ```ts
+ * const result = await processSuite('results', { concurrency: 2 });
+ * console.log(`${result.computed} computed, ${result.skipped} up to date`);
+ * ```
+ */
 export async function processSuite(root: string, opts: ProcessOptions = {}): Promise<ProcessResult> {
   return (await SuiteProcessor.create(root, opts)).initialize();
 }
 
-/** One-shot compatibility helper. Watch mode retains its SuiteProcessor instead. */
+/**
+ * One-shot helper that reprocesses only the scenes affected by changed files, falling back to {@link processSuite}
+ * when there is no usable index. Watch mode retains its {@link SuiteProcessor} instead.
+ *
+ * @param root - Suite root containing `fidelity.json`.
+ * @param paths - Changed file paths relative to the suite root.
+ * @param onProgress - Called as comparisons complete.
+ */
 export async function processChanges(
   root: string,
   paths: Iterable<string>,

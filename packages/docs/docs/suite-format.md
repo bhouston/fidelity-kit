@@ -1,5 +1,6 @@
 ---
 title: Suite format
+description: 'The folder layout and fidelity.json configuration that fidelity-kit reads: renderers, outputs, scenes and optional READMEs.'
 ---
 
 Create one directory for the suite and put `fidelity.json` at its root. A scene can be nested under any number of group directories. Each image goes in `<scene>/<output>/<renderer>.<extension>`.

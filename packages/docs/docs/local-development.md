@@ -1,5 +1,6 @@
 ---
 title: Local development
+description: Add fidelity-kit scripts to your project to process, watch and view renderer comparisons while you develop.
 ---
 
 After [creating your suite](./suite-format.md), add scripts to your project:

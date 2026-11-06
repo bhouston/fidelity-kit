@@ -1,0 +1,23 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "plugin": ["typedoc-plugin-markdown"],
+  "readme": "none",
+  "entryFileName": "index",
+  "outputFileStrategy": "modules",
+  "hidePageHeader": true,
+  "hideBreadcrumbs": true,
+  "sort": ["source-order"],
+  "excludePrivate": true,
+  "excludeInternal": true,
+  "disableSources": true,
+  "groupOrder": ["Functions", "Classes", "*"],
+  "interfacePropertiesFormat": "table",
+  "parametersFormat": "table",
+  "typeDeclarationFormat": "table",
+  "useCodeBlocks": true,
+  "excludeExternals": true,
+  "entryPoints": ["../cli/src/core/index.ts", "../cli/src/core/paths.ts", "../cli/src/core/scan.ts"],
+  "tsconfig": "../cli/tsconfig.json",
+  "out": "docs/api",
+  "intentionallyNotExported": ["ProgressCallback"]
+}

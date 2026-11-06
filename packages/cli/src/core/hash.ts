@@ -8,11 +8,16 @@ import { z } from 'zod';
 import { isDataFile, isImageFile } from './paths.js';
 import type { ProgressCallback } from './progress.js';
 
+/** Name of the hash cache file written at the suite root. */
 export const HASHES_FILE = 'image-hashes.json';
 
+/** A cached content hash, valid while the file's size and modification time are unchanged. */
 export interface HashEntry {
+  /** Content hash as produced by {@link hashFile}. */
   hash: string;
+  /** File size in bytes when hashed. */
   size: number;
+  /** File modification time in milliseconds when hashed. */
   mtimeMs: number;
 }
 
@@ -24,6 +29,9 @@ const fileSchema = z.object({
 /**
  * Content hash shared by the ETag and the `?v=` URL version: `<size>-<crc32>` in base36. Streamed, so memory stays flat
  * however large the file is. Fast and non-cryptographic: it detects change, it is not a security boundary.
+ *
+ * @param path - File to hash.
+ * @returns The hash string `<size>-<crc32>`.
  */
 export async function hashFile(path: string): Promise<string> {
   let crc = 0;
@@ -35,7 +43,12 @@ export async function hashFile(path: string): Promise<string> {
   return `${size.toString(36)}-${crc.toString(36)}`;
 }
 
-/** The entries of `<root>/image-hashes.json`; empty when it is missing or malformed (they are only a cache). */
+/**
+ * The entries of `<root>/image-hashes.json`; empty when it is missing or malformed (they are only a cache).
+ *
+ * @param root - Suite root directory.
+ * @returns Hash entries keyed by path relative to the root.
+ */
 export async function readHashFile(root: string): Promise<Record<string, HashEntry>> {
   try {
     return fileSchema.parse(JSON.parse(await readFile(join(root, HASHES_FILE), 'utf8'))).files;
@@ -44,22 +57,31 @@ export async function readHashFile(root: string): Promise<Record<string, HashEnt
   }
 }
 
+/** Options for {@link hashSuite}. */
 export interface HashSuiteOptions {
   /** Parallel file reads; defaults to `os.availableParallelism()`. */
   concurrency?: number;
   /** Injectable for tests. */
   hash?: (path: string) => Promise<string>;
+  /** Called as files are hashed. */
   onProgress?: ProgressCallback;
 }
+/** What {@link hashSuite} did. */
 export interface HashSuiteResult {
+  /** Files that were read and hashed. */
   hashed: number;
+  /** Files whose cached entry was still current. */
   reused: number;
+  /** Files in the hash file after the run. */
   total: number;
 }
 
 /**
  * Writes `<root>/image-hashes.json` for every served image. Incremental: an entry whose size and mtimeMs are unchanged
  * is reused without reading the file. Output is sorted and timestamp-free, so unchanged files give identical bytes.
+ *
+ * @param root - Suite root directory.
+ * @param opts - Concurrency, progress reporting and a hash function override.
  */
 export async function hashSuite(root: string, opts: HashSuiteOptions = {}): Promise<HashSuiteResult> {
   root = resolve(root);

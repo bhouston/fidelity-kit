@@ -11,6 +11,7 @@
     "rendering",
     "visual-regression"
   ],
+  "homepage": "https://fidelity-kit.ben3d.ca",
   "license": "MIT",
   "repository": {
     "type": "git",

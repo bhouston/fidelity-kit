@@ -1,5 +1,6 @@
 ---
 title: Serve from Docker
+description: Process a fidelity suite once at build time and serve its viewer from a container.
 ---
 
 A container can process and hash a suite once while building, then serve its viewer without repeating that work on startup. This example assumes your project has a `results/` directory and uses a published `fidelity-kit` package.

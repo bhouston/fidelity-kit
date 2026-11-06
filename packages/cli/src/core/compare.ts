@@ -1,9 +1,13 @@
 import sharp from 'sharp';
 import { readFile } from 'node:fs/promises';
 
+/** A decoded 8-bit RGB image. */
 export interface RawImage {
+  /** Interleaved R, G, B bytes, row by row, three bytes per pixel and no alpha. */
   data: Buffer;
+  /** Width in pixels. */
   width: number;
+  /** Height in pixels. */
   height: number;
 }
 
@@ -13,17 +17,24 @@ export interface RawImage {
  * temporal accumulation) and above 1 has extra edges (aliasing or noise). It is `null` when the reference is flat.
  */
 export interface ImageMetrics {
+  /** Peak signal-to-noise ratio in dB, or `null` when the images are identical. */
   psnr: number | null;
+  /** Gradient energy of the test image relative to the reference, or `null` when the reference is flat. */
   sharpness?: number | null;
 }
 
-/** Encoding for committed result images: near-lossless (worst render ~40 dB PSNR vs PNG), full-res chroma so noise and false colour survive. */
+/** Sharp AVIF options for committed result images: near-lossless (worst render ~40 dB PSNR vs PNG), full-res chroma so noise and false colour survive. */
 export const RESULT_AVIF = { quality: 90, chromaSubsampling: '4:4:4' } as const;
 
-/** Heatmaps trade minor visual differences for smaller files at modest encoding cost. */
+/** Sharp WebP options for delta heatmaps. They trade minor visual differences for smaller files at modest encoding cost. */
 export const DELTA_WEBP = { quality: 85, effort: 4 } as const;
 
-/** Decodes an image (path or encoded buffer) to 8-bit RGB, dropping alpha. */
+/**
+ * Decodes an image to 8-bit sRGB, dropping alpha.
+ *
+ * @param input - A file path or an encoded image buffer (AVIF, WebP, PNG or JPEG).
+ * @returns The decoded pixels and dimensions.
+ */
 export async function readRgb(input: string | Buffer): Promise<RawImage> {
   // Decode an in-memory snapshot so libvips cannot retain a Windows file lock
   // after processing, or reuse cached pixels after the source is replaced.
@@ -60,7 +71,12 @@ function inferno(t: number): [number, number, number] {
 // Max-channel error e (0–255) → t = min(1, 2·sqrt(e/255)): 1/255 error is already visible, ≥25% error saturates.
 const DELTA_LUT = Array.from({ length: 256 }, (_, e) => inferno(Math.min(1, 2 * Math.sqrt(e / 255))));
 
-/** Sum of absolute horizontal and vertical neighbour differences over all RGB channels. */
+/**
+ * Sum of absolute horizontal and vertical neighbour differences over all RGB channels.
+ *
+ * @param image - The decoded image to measure.
+ * @returns The total gradient energy; larger means more edges and detail.
+ */
 export function gradientEnergy(image: RawImage): number {
   const { data, width, height } = image;
   const row = width * 3;
@@ -77,13 +93,26 @@ export function gradientEnergy(image: RawImage): number {
   return sum;
 }
 
-/** Gradient energy of `test` relative to `reference`; see {@link ImageMetrics.sharpness}. */
+/**
+ * Gradient energy of `test` relative to `reference`; see {@link ImageMetrics.sharpness}.
+ *
+ * @param reference - The reference image.
+ * @param test - The image to judge against it.
+ * @returns The ratio, or `null` when the reference has no gradient.
+ */
 export function sharpnessRatio(reference: RawImage, test: RawImage): number | null {
   const ref = gradientEnergy(reference);
   return ref === 0 ? null : gradientEnergy(test) / ref;
 }
 
-/** Computes metrics and an RGB heat-map delta image (black = identical) from two equal-size RGB images. */
+/**
+ * Computes metrics and an RGB heat-map delta image (black = identical) from two equal-size RGB images.
+ *
+ * @param reference - The reference image.
+ * @param test - The image to compare; it must have the same dimensions.
+ * @returns The metrics and the delta image, whose colour follows the largest channel error of each pixel.
+ * @throws If the image dimensions differ.
+ */
 export function compareRgb(reference: RawImage, test: RawImage): { metrics: ImageMetrics; delta: RawImage } {
   if (reference.width !== test.width || reference.height !== test.height) {
     throw new Error(
@@ -115,13 +144,32 @@ export function compareRgb(reference: RawImage, test: RawImage): { metrics: Imag
   };
 }
 
-/** Computes metrics without encoding an already-cached heatmap. */
+/**
+ * Computes metrics without encoding a heatmap, for when the cached heatmap is still current.
+ *
+ * @param reference - The reference image as a path or encoded buffer.
+ * @param test - The image to compare as a path or encoded buffer.
+ * @returns The metrics and the shared image dimensions.
+ * @throws If the image dimensions differ.
+ */
 export async function measureImages(reference: string | Buffer, test: string | Buffer) {
   const [ref, tst] = await Promise.all([readRgb(reference), readRgb(test)]);
   return { metrics: compareRgb(ref, tst).metrics, width: ref.width, height: ref.height };
 }
 
-/** Compares two encoded images; returns metrics and a quality-85 WebP heatmap. */
+/**
+ * Compares two encoded images; returns metrics and a quality-85 WebP heatmap.
+ *
+ * @param reference - The reference image as a path or encoded buffer.
+ * @param test - The image to compare as a path or encoded buffer.
+ * @returns The metrics, the image dimensions and the encoded WebP delta image.
+ * @throws If the image dimensions differ.
+ * @example
+ * ```ts
+ * const { metrics, deltaImage } = await compareImages('reference.avif', 'my-renderer.avif');
+ * console.log(metrics.psnr); // dB, or null when identical
+ * ```
+ */
 export async function compareImages(
   reference: string | Buffer,
   test: string | Buffer,

@@ -5,27 +5,41 @@ import { imageFile, IMAGE_EXTENSIONS } from './paths.js';
 import { parseConfig, parseSceneMeta, type FidelityConfig, type SuiteWarning } from './schema.js';
 import type { ProgressCallback } from './progress.js';
 
+/** A scene found in a suite: a folder holding renderer images or a `scene.json`. */
 export interface SceneNode {
   /** Slash-joined path from the root, e.g. `surfaces/standard_surface/brass`. */
   path: string;
+  /** Display title from `scene.json`, defaulting to the folder name. */
   title: string;
+  /** Optional category from `scene.json`. */
   category?: string;
+  /** Search tags from `scene.json`. */
   tags: string[];
+  /** Whether the scene folder contains a `README.md`. */
   hasReadme: boolean;
   /** output id -> renderer ids that have an image */
   images: Record<string, string[]>;
   /** Selected source filenames by output and renderer; absent in legacy indexes. */
   imageFiles?: Record<string, Record<string, string>>;
 }
+/** A folder that groups scenes and other groups. The suite root is the group with an empty path. */
 export interface GroupNode {
+  /** Slash-joined path from the suite root; empty for the root. */
   path: string;
+  /** Whether the group folder contains a `README.md`. */
   hasReadme: boolean;
+  /** Nested groups. */
   groups: GroupNode[];
+  /** Scenes directly inside this group. */
   scenes: SceneNode[];
 }
+/** A scanned results folder. */
 export interface Suite {
+  /** The validated `fidelity.json`. */
   config: FidelityConfig;
+  /** Whether the suite root contains a `README.md` preamble. */
   hasReadme: boolean;
+  /** The root group, containing every scene. */
   root: GroupNode;
 }
 
@@ -40,6 +54,7 @@ const isDir = (p: string) =>
     () => false,
   );
 
+/** Receives something in the suite that fidelity-kit ignores. */
 export type ScanWarningCallback = (warning: SuiteWarning) => void;
 
 async function readJson(file: string, label: string) {
@@ -51,6 +66,14 @@ async function readJson(file: string, label: string) {
   }
 }
 
+/**
+ * Reads and validates `<root>/fidelity.json`.
+ *
+ * @param root - Suite root directory.
+ * @param onWarning - Receives warnings for ignored properties.
+ * @returns The validated configuration.
+ * @throws If the file is missing, is not valid JSON, or fails validation.
+ */
 export async function readConfig(root: string, onWarning?: ScanWarningCallback): Promise<FidelityConfig> {
   const file = join(root, 'fidelity.json');
   if (!(await exists(file))) throw new Error(`No fidelity.json in ${root}`);
@@ -157,7 +180,20 @@ async function warnSceneContents(root: string, rel: string, config: FidelityConf
   }
 }
 
-/** A directory is a scene when it contains a configured source image or scene.json. */
+/**
+ * Walks a results folder and returns its groups and scenes. A directory is a scene when it contains a configured source
+ * image or `scene.json`.
+ *
+ * @param root - Suite root directory.
+ * @param options - A preloaded `config`, an `onScene` hook, progress reporting and a warning callback.
+ * @returns The suite tree.
+ * @throws If `root` is not a directory or `fidelity.json` is missing or invalid.
+ * @example
+ * ```ts
+ * const suite = await scanSuite('results');
+ * for (const scene of allScenes(suite.root)) console.log(scene.path, scene.images);
+ * ```
+ */
 export async function scanSuite(
   root: string,
   options: {
@@ -248,7 +284,15 @@ export async function scanSuite(
   return { config, hasReadme: await exists(join(root, 'README.md')), root: top as GroupNode };
 }
 
-/** Scan one known scene without walking the rest of the suite. */
+/**
+ * Scan one known scene without walking the rest of the suite.
+ *
+ * @param root - Suite root directory.
+ * @param rel - Scene path relative to the root.
+ * @param config - The suite configuration.
+ * @param onWarning - Receives warnings about ignored content.
+ * @returns The scene, or `null` when the folder is missing or is not a scene.
+ */
 export async function scanScene(
   root: string,
   rel: string,
@@ -291,6 +335,11 @@ async function scanSceneDirectory(
   };
 }
 
+/**
+ * Iterates every scene in a group and its descendants, depth first.
+ *
+ * @param g - The group to walk, usually `suite.root`.
+ */
 export function* allScenes(g: GroupNode): Generator<SceneNode> {
   yield* g.scenes;
   for (const c of g.groups) yield* allScenes(c);

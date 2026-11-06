@@ -1,6 +1,7 @@
 ---
 id: index
 title: Get started
+description: Run fidelity-kit on a folder of renders to get PSNR metrics, visual deltas and a local comparison viewer.
 slug: /
 ---
 

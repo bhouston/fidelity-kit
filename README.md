@@ -38,7 +38,7 @@ Open the URL printed by the command (usually <http://localhost:3000>). `dev` pro
 
 [Material Fidelity](https://material-fidelity.ben3d.ca) uses fidelity-kit to compare renderer output side by side, with visual deltas and PSNR metrics. Open the live site to explore the results.
 
-[![Material Fidelity comparison site showing renderer images, visual deltas, and PSNR metrics](https://raw.githubusercontent.com/bhouston/fidelity-kit/main/packages/website/static/img/material-fidelity-preview.webp)](https://material-fidelity.ben3d.ca)
+[![Material Fidelity comparison site showing renderer images, visual deltas, and PSNR metrics](https://raw.githubusercontent.com/bhouston/fidelity-kit/main/packages/docs/static/img/material-fidelity-preview.webp)](https://material-fidelity.ben3d.ca)
 
 ## Adopt it in your suite
 

@@ -1,0 +1,28 @@
+{
+  "name": "fidelity-kit-docs",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "generate": "pnpm --workspace-root docs:generate && typedoc",
+    "dev": "pnpm generate && docusaurus start --port 4000",
+    "build": "pnpm generate && docusaurus build",
+    "serve": "docusaurus serve --port 4000",
+    "clear": "docusaurus clear"
+  },
+  "dependencies": {
+    "@clidoc/docusaurus": "^0.1.0",
+    "@docusaurus/core": "^3.10.2",
+    "@docusaurus/preset-classic": "^3.10.2",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@docusaurus/module-type-aliases": "^3.10.2",
+    "@docusaurus/theme-classic": "^3.10.2",
+    "@docusaurus/types": "^3.10.2",
+    "@types/react": "^19.3.0",
+    "typedoc": "^0.28.20",
+    "typedoc-plugin-markdown": "^4.14.1",
+    "typescript": "^6.0.3"
+  }
+}
