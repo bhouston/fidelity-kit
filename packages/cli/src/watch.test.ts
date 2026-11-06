@@ -62,15 +62,16 @@ test('the watcher picks up an overwritten image and survives an invalid intermed
     await writeFile(join(dir, 'a.avif'), await image(160));
     await new Promise<void>((resolve, reject) => {
       const deadline = setTimeout(() => reject(new Error('watch update timed out')), 6000);
-      const poll = setInterval(async () => {
-        if ((await index(root)).metrics['one/beauty/a.vs-ref.metrics.json']?.psnr != null) {
+      // Wait for the callback, not the index: flush() writes the index before it reports the result.
+      const poll = setInterval(() => {
+        if (updates.includes(1)) {
           clearTimeout(deadline);
           clearInterval(poll);
           resolve();
         }
       }, 100);
     });
-    expect(updates).toContain(1);
+    expect((await index(root)).metrics['one/beauty/a.vs-ref.metrics.json']?.psnr).toEqual(expect.any(Number));
   } finally {
     await watcher.close();
   }
