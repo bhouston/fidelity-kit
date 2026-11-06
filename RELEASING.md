@@ -18,8 +18,13 @@ When there are no release-worthy commits since the last `v*` tag, the run is a n
 3. Stops if `main` has moved since the dispatch.
 4. Installs, builds, and runs `pnpm release`, which is semantic-release.
 5. semantic-release computes the next version, creates the `v<version>` tag and GitHub Release, and publishes.
+6. Calls `pages.yml` to deploy the documentation site from the new tag.
 
 Releases run one at a time and never cancel a publish in progress. npm packages publish through npm trusted publishing (GitHub OIDC), so no `NPM_TOKEN` is stored.
+
+## Documentation Site
+
+The site at `https://fidelity-kit.ben3d.ca` deploys from the release tag after each published release, so it documents released behavior. Dry runs and runs that publish nothing do not deploy. Merging to `main` never deploys the site. To redeploy the latest release, run `gh workflow run pages.yml --ref main` (optionally with `-f ref=v<version>`).
 
 ## Versioning
 
