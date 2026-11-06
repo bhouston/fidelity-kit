@@ -22,47 +22,26 @@ fidelity-kit turns a folder of AVIF renders into image quality metrics, visual d
 
 Your renderer writes images; fidelity-kit handles the comparisons and viewer. Run the viewer locally while developing, serve the results from a container, or export a static site.
 
-[Read the Docs to Learn More](https://fidelity-kit.ben3d.ca).
+**[Read the documentation](https://fidelity-kit.ben3d.ca)**.
 
 ## Quick start
 
-If you already have a results folder in the format below:
+Put your renders in a results folder, then run:
 
 ```sh
 npx fidelity-kit dev results
 ```
 
-Open the URL printed by the command (usually <http://localhost:3000>). `dev` processes stale images at startup, then watches for new or changed renders and updates their metrics, deltas, and viewer index. The viewer automatically reloads after result updates settle for five seconds (using server-sent events). Files are served without browser caching. See the [working example](https://github.com/bhouston/fidelity-kit/tree/main/examples/demo) for a complete suite. See also the [suite format](https://fidelity-kit.ben3d.ca/docs/suite-format) and the [CLI reference](https://fidelity-kit.ben3d.ca/docs/cli).
+Open the URL printed by the command (usually <http://localhost:3000>). `dev` processes stale images, watches for new or changed renders, and reloads the viewer. See the [working example](https://github.com/bhouston/fidelity-kit/tree/main/examples/demo) for a complete suite.
 
-## See it in action
-
-[Material Fidelity](https://material-fidelity.ben3d.ca) uses fidelity-kit to compare renderer output side by side, with visual deltas and PSNR metrics. Open the live site to explore the results.
-
-[![Material Fidelity comparison site showing renderer images, visual deltas, and PSNR metrics](https://raw.githubusercontent.com/bhouston/fidelity-kit/main/packages/docs/static/img/material-fidelity-preview.webp)](https://material-fidelity.ben3d.ca)
-
-## Adopt it in your suite
-
-Create a `results` directory with a `fidelity.json` file. Put each scene in its own folder, with one AVIF image per renderer under each output name:
+A suite is a `results` directory with a `fidelity.json` and one image per renderer under each scene and output:
 
 ```text
 results/
   fidelity.json
-  README.md                         optional Markdown preamble above the results
-  materials/
-    brushed-metal/
-      README.md                     optional scene description
-      scene.json                    optional title and tags
-      beauty/
-        reference.avif
-        my-renderer.avif
-      ao/
-        reference.avif
-        my-renderer.avif
+  materials/brushed-metal/beauty/reference.avif
+  materials/brushed-metal/beauty/my-renderer.avif
 ```
-
-Folders can have as many group levels as you need. A scene is any folder containing an image at `<output>/<renderer>.<extension>` for names declared in `fidelity.json`. Supported input extensions are `.avif`, `.webp`, `.png`, and `.jpg`; when several files match a renderer, that order determines which one is used. Formats can be mixed across renderers and outputs. Missing renderer images are allowed; the viewer marks them as missing. Other files, such as scene sources and textures, can live alongside the images.
-
-Start with this configuration:
 
 ```json
 {
@@ -70,192 +49,32 @@ Start with this configuration:
   "renderers": [
     { "id": "reference", "label": "Reference", "reference": true },
     { "id": "my-renderer", "label": "My Renderer" }
-  ],
-  "outputs": [{ "id": "beauty" }, { "id": "ao", "label": "Ambient occlusion" }]
+  ]
 }
 ```
 
-Add `"$schema": "https://unpkg.com/fidelity-kit/schemas/fidelity.schema.json"` to get validation and completion in editors such as VS Code. The same JSON Schemas ship in the npm package (`node_modules/fidelity-kit/schemas/fidelity.schema.json` and `scene.schema.json`, also importable as `fidelity-kit/schemas/*`), and the CLI validates with them, so other tools can check suites against exactly the same rules. Invalid files stop processing with every problem listed; unknown properties are ignored with a warning so typos are visible.
+## See it in action
 
-Mark at least one renderer as a reference. You can declare multiple references; the viewer lets readers choose which one to compare against. Renderer and output IDs must use lowercase letters, numbers, `.`, `_`, or `-`, and start with a letter or number. `outputs` defaults to `beauty` if omitted. Every comparison generates metrics and a delta image. Legacy `delta` settings are ignored.
+[Material Fidelity](https://material-fidelity.ben3d.ca) uses fidelity-kit to compare renderer output side by side, with visual deltas and PSNR metrics.
 
-For searchable scene labels, add a `scene.json` next to a scene's images:
+[![Material Fidelity comparison site showing renderer images, visual deltas, and PSNR metrics](https://raw.githubusercontent.com/bhouston/fidelity-kit/main/packages/docs/static/img/material-fidelity-preview.webp)](https://material-fidelity.ben3d.ca)
 
-```json
-{ "title": "Brushed metal", "tags": ["metal", "roughness"] }
-```
+## Learn more
 
-`process`, `dev`, `serve`, and `build` warn about content that looks like part of the suite but is ignored: images named after a renderer outside a declared output folder, images in output folders whose name is not a renderer ID (with a hint for case mismatches), unsupported formats such as `.jpeg` or `.exr`, lower-priority formats shadowed by another file for the same renderer, output folders at the results root, scenes nested inside other scenes, and unknown `fidelity.json` or `scene.json` properties. Repeated warnings are grouped by message. Textures and other files outside output folders are reported only when they are named after a renderer. `--quiet` suppresses warnings.
-
-### Results preamble
-
-Place an optional `README.md` in the results root beside `fidelity.json`. The viewer renders it below the top navigation and above the results, with Markdown headings, paragraphs, lists, emphasis, code, and links. An empty or missing README hides the introduction. `index.md` is no longer supported; rename existing preambles to `README.md`. Group and scene READMEs are unchanged.
-
-Set `"logo": "branding/logo.svg"` in `fidelity.json` to use the same image as the browser icon and the logo at the top right of the navbar. The path is relative to the results root; AVIF, WebP, PNG, JPG, SVG, and ICO are supported. Local logo files are included in static exports. Omit `logo` to show no custom branding.
-
-PSNR sorting uses the lowest PSNR among the visible compared renderers for the selected output and reference. Hiding renderers immediately changes the ranking. Worst first puts the lowest score first; best first reverses that order. Identical images have infinite PSNR, and scenes without visible comparison metrics appear last.
-
-`dev` and `serve` expose this file, and `build` includes it in the exported site's `data/` directory. No configuration or processing step is needed to add the preamble to an existing results directory. Markdown is static content; renderer lists must be maintained in the file.
-
-## Use it during development
-
-Install the CLI in your suite repository, or use `npx fidelity-kit` for occasional runs:
-
-```sh
-pnpm add -D fidelity-kit
-pnpm exec fidelity-kit dev results
-```
-
-The CLI supports this workflow:
-
-| Command                                  | Use                                                                                                                                                                  |
-| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `fidelity-kit process results`           | Generate comparison metrics, delta images, and the viewer index. Reruns update only stale comparisons; add `--force` to recompute all or `--watch` to keep updating. |
-| `fidelity-kit dev results`               | Process stale comparisons, watch new and changed renders, and open a local viewer with caching disabled. Add `--no-watch` to disable processing new renders.         |
-| `fidelity-kit serve results`             | Process stale comparisons, then serve the viewer with browser and CDN caching.                                                                                       |
-| `fidelity-kit build results --out site/` | Process stale comparisons and export a site for static hosting.                                                                                                      |
-
-`process` computes only PSNR (in dB) for each available comparison. Processing also removes legacy RMSE, MAE, and maximum-error fields from cached metrics JSON and the viewer index without recomputing valid PSNR values. Heatmaps are encoded as lossy WebP at quality 85 and effort 4 (`<renderer>.vs-<reference>.delta.webp`) to reduce file size; source images keep their original formats, and metrics are computed from the source pixels before heatmap compression. Existing cached heatmaps are retained; run `fidelity-kit process results --force` to regenerate them with this setting. Reference and renderer images in a pair must have the same dimensions. Both `dev` and `serve` start at `localhost:3000` and try higher ports if one is occupied; use `--port` to require a specific port and `--host` to change the bind address. The actual viewer URL is printed at startup. Comparisons run in parallel (default: one per CPU); set `--concurrency <n>` on `process`, `dev`, `serve`, or `build` to change it, or `--concurrency 1` for sequential. To serve results already processed during a build, pass `--no-process`.
-
-Metrics and heatmaps retain independent input modification-time and byte-size signatures. Refreshing either artifact preserves the other when it is current. Heatmap signatures are stored in `.delta.webp.json` cache sidecars, excluded from serving and static export. The first run after upgrading generates WebP heatmaps while retaining current metrics.
-
-Static processing starts comparisons as scenes are discovered. Watch mode retains per-scene dependencies and batches changes through the same concurrency limit. It supports adding/removing scenes and reference or renderer images, and editing scene metadata. Renderer IDs, output/pass IDs, and other `fidelity.json` settings remain fixed until restart; the watcher reports configuration changes that require a restart. Generated metrics, delta images, the index, and temporary files are ignored by the processor, so processing cannot trigger a watch loop. A separate dev-only watcher observes published `index.json` and README changes and notifies connected viewers after a five-second debounce. This also picks up results published by another process with `--no-watch`; `serve` and static exports do not open a live channel.
-
-`process`, `dev`, and `hash` show scanning and processing progress on one updating terminal line, including the remaining count and an approximate ETA. Use `--quiet` to suppress progress and summary output; errors are still reported.
-
-Freshness uses each input image's modification time and byte size, recorded in its metrics file after a successful comparison. Replacing an image with an older-dated file is detected. Files whose timestamp and size both remain unchanged are assumed unchanged; use `--force` to bypass that cache. Existing metrics without input signatures are regenerated once. Removed comparisons disappear from the index; their generated files may remain on disk and are validated before any later reuse.
-
-For example, add scripts to your suite's `package.json`:
-
-```json
-{
-  "scripts": {
-    "fidelity:dev": "fidelity-kit dev results",
-    "fidelity:build": "fidelity-kit build results --out site/"
-  }
-}
-```
-
-You can deploy `site/` to any static host. The site includes the viewer and its data, so it does not need a Node server.
-
-## Serve it from Docker
-
-Process and hash the results while building the image, then start the server without repeating that work:
-
-```dockerfile
-FROM node:24-slim
-
-RUN npm install -g fidelity-kit
-COPY results /data
-RUN fidelity-kit process /data && fidelity-kit hash /data
-
-EXPOSE 8080
-CMD ["fidelity-kit", "serve", "/data", "--host", "0.0.0.0", "--port", "8080", "--no-process"]
-```
-
-```sh
-docker build -t my-fidelity-site .
-docker run --rm -p 8080:8080 my-fidelity-site
-```
-
-Open <http://localhost:8080>. `hash` prepares versioned image URLs so repeat visits can reuse cached images from the first request. If your results change at runtime, run `serve` without `--no-process` to refresh comparisons at startup; `hash` is optional in that case.
-
-## Grouped selections
-
-Set an optional `category` on renderers in `fidelity.json` or the unified registry. The renderer menu supports search, scrolling, collapsible groups, and all/none/partial group selection. Define `comparisonPresets` as `{ id, name, renderers, ref? }` entries to offer named comparisons; the chosen renderer IDs and reference remain in the URL.
-
-Scenes can carry a `category` and `tags` in the registry or `scene.json`. Fidelity filters scene families with union semantics, while selected tags must all match. Live and performance selects use the same categories. These fields are optional; existing suites retain their defaults.
-
-Run `node scripts/selection-browser.mjs` after building to verify selector behavior in Chrome. Set `CHROME_EXECUTABLE` when using an installed browser.
-
-## Unified rendering suites
-
-A single `fidelity-kit` package provides fidelity image processing, performance benchmarks, browser reporting, and a unified React/Tailwind/shadcn/TanStack site. `fidelity-kit/registry` validates the renderer/scene registry; `fidelity-kit/browser/host` mounts a project-provided session factory for captures, benchmarks, and live interaction. `fidelity-kit/runner` exposes performance orchestration and processing without changing historical result formats.
-
-```sh
-fidelity-kit render --registry registry.json --root-url http://127.0.0.1:5173/ --out fidelity-results
-fidelity-kit benchmark --registry registry.json --collection default --machine workstation --out performance-results
-fidelity-kit dev fidelity-results --registry registry.json --performance-root performance-results
-fidelity-kit build fidelity-results --registry registry.json --performance-root performance-results --out site
-```
-
-Configure `renderServer.developmentUrl`, `renderServer.deployedUrl`, and `entry`. The root URL is independently overridable for any environment. The static site may embed a render server hosted on another origin; messages are checked against that origin, iframe source, and a fresh session token. A deployed endpoint is required for static builds. The home page shows the results README, configured fidelity hero, and the three section links. Live mode fixes the canvas at 1920 × 1080, publishes local telemetry without recording results, and requires Start Benchmark to apply selection changes.
-
-External renderers use an argv command producer with `{job}` (JSON job) and `{output}` (absolute artifact path) substitutions. Browser renderers are the canonical path for fidelity/performance/live parity; native diagnostic backends can remain project tools. Performance collections explicitly opt in renderer/scene pairs. References remain machine independent; performance and convergence measurements retain the machine dimension.
-
-Automated throughput benchmarks disable vsync and frame-rate limits, warm up for one second, then count GPU-completed frames over the configured sustained window. Bounded batches include the full render pipeline and drain GPU work before publication and teardown. Individual frame timings are retained only when reading historical results; new throughput runs do not collect them. Live UI telemetry remains interactive and unpersisted.
-
-## Temporal fidelity
-
-Static fidelity, temporal fidelity and performance are independent optional sections. Set `staticFidelity: false` to disable still-image comparisons. An explicit `temporalFidelity` section defaults static fidelity to disabled; set `staticFidelity: true` as well for a mixed suite. Performance navigation appears only for configured or captured tests.
-
-Temporal techniques (TAA, temporal upscalers and denoisers, animated sampling noise) are judged on animated sequences, not single frames. Opt scenes in with `scenes[].temporalFidelity` (size, frames, warm-up, fps), make any renderer a reference with `renderers[].supersample` (for example no anti-aliasing at 4 × 4 samples, Lanczos-downsampled in linear light), and name it in a top-level `temporalFidelity` section. Then run:
-
-```sh
-fidelity-kit temporal --registry registry.json --out fidelity-results
-```
-
-Every measured frame is scored against the reference: sequence PSNR, temporal PSNR (the error of the frame-to-frame change, which isolates flicker and lag) and sharpness (gradient energy relative to the reference; below 1 is blurrier). Results land in `dynamic.json`, `<scene>/motion/<renderer>.temporal.json` and a representative frame per renderer, and the viewer adds a dedicated Temporal fidelity page. Representative outputs are tagged `kind: "temporal"` and indexed without being scored as static captures. Legacy `dynamic` configuration and the CLI command remain supported aliases. See [Temporal fidelity](https://fidelity-kit.ben3d.ca/docs/dynamic-fidelity).
-
-Configure still-image cases with `scenes[].staticFidelity` and animated cases with `scenes[].temporalFidelity`; either can be `false` to opt a scene out of that section. Existing registries using `fidelity` or `dynamic` remain compatible.
-
-## Capture a rendering registry
-
-For suites with a rendering registry, start the configured browser render server separately, then capture images:
-
-```sh
-fidelity-kit render --registry registry.json --out results
-fidelity-kit render --registry registry.json --out results --missing-only
-fidelity-kit render --registry registry.json --out results --renderers "gpu-*" --scenes "box-*"
-fidelity-kit render --registry registry.json --out results --missing-only --renderers "gpu-*,native" --scenes "box-*"
-```
-
-All three filters are optional and combine to restrict the renderer/scene pairs. `--renderers` and `--scenes` match registry IDs using quoted globs; comma-separated patterns select their union in registry order. Every pattern must match at least one ID. The singular `--renderer` and `--scene` options still select exact IDs and intersect with the glob filters. By default, rendering selects all scenes and enabled renderers; an explicit renderer selection can include disabled renderers.
-
-`--missing-only` preserves existing `<scene.path or scene.id>/beauty/<renderer.id>.avif` outputs for browser and external renderers. It checks for existence rather than freshness or image validity. When every selected output exists, no browser or external render job starts. Omit it to regenerate selected images.
-
-### Benchmark history
-
-Each `fidelity-kit benchmark` invocation reserves a unique UTC date-time session under
-`performance-results/<machine>/<YYYY-MM-DD-HH-MM>/<renderer>/<scene>/`.
-The timestamp is the UTC start time, with minute precision. All workloads share the session.
-When dated runs already exist, the CLI asks whether to create a new run or add to the latest
-one. Use `--new-run` or `--session latest` (or `--session YYYY-MM-DD-HH-MM`) to bypass the
-prompt; these options are required when restarting without an interactive terminal.
-Adding to a run keeps its original timestamp, adds missing workloads, and replaces only
-workloads measured again. Two new runs cannot share the same machine and start minute;
-resume that run or wait until the next minute. Earlier sessions retain their metrics
-and screenshots. `machine.json` stays directly inside the machine folder.
-
-In the Performance viewer, choose a machine and then a **Benchmark date-times** value.
-**Latest** follows the newest session; selecting a specific date-time pins that session,
-including in shareable detail URLs (`session=<session-id>`). Changing machines defaults
-to the newest session for that machine. Timestamps display in UTC. Older undated folders
-remain readable and appear as **Undated**. Processing and static exports include all sessions.
-
-Low-level `writeRun` and `processResult` callers can pass the session as the final argument;
-omitting it retains the legacy undated layout for compatibility.
-
-### Benchmark filters
-
-`benchmark --renderer 'three-*' --scene 'model-*-w'` matches workload IDs using the
-same glob matcher as `render`. Filters accept exact IDs, `*`, `?`, character classes,
-brace alternatives, comma-separated patterns, and repeated options. Renderer and scene
-filters intersect; matching workloads run once in collection order (or seeded order).
-Unmatched patterns fail before Chrome launches and list available IDs in the collection.
-
-The plural aliases `--renderers` and `--scenes` accept comma-separated globs, as in
-`render`; when combined with singular options, their selections intersect. Filters
-select workloads already defined in the performance collection; they do not generate
-new renderer/scene combinations.
+- [Suite format](https://fidelity-kit.ben3d.ca/docs/suite-format): scenes, outputs, renderers, scene metadata, READMEs and logos.
+- [Local development](https://fidelity-kit.ben3d.ca/docs/local-development): `process`, `dev`, `serve`, how comparisons stay current, and progress output.
+- [Temporal fidelity](https://fidelity-kit.ben3d.ca/docs/dynamic-fidelity): score animated sequences for ghosting, flicker and convergence.
+- [Rendering suites](https://fidelity-kit.ben3d.ca/docs/rendering-suites): capture renders from a registry, benchmarks and history, grouped selections.
+- [Serve from Docker](https://fidelity-kit.ben3d.ca/docs/docker) and [publish a static viewer](https://fidelity-kit.ben3d.ca/docs/static-publishing).
+- [CLI reference](https://fidelity-kit.ben3d.ca/docs/cli) and [API reference](https://fidelity-kit.ben3d.ca/docs/api).
 
 ## Releases
 
-See [RELEASING.md](RELEASING.md) for how releases are published and [GitHub Releases](https://github.com/bhouston/fidelity-kit/releases) for changes.
+See [RELEASING.md](https://github.com/bhouston/fidelity-kit/blob/main/RELEASING.md) for how releases are published and [GitHub Releases](https://github.com/bhouston/fidelity-kit/releases) for changes.
 
 ## Contribution
 
-See [Contributing Guide](CONTRIBUTING.md).
+See the [Contributing Guide](https://github.com/bhouston/fidelity-kit/blob/main/CONTRIBUTING.md).
 
 ## License
 

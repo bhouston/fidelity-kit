@@ -6,7 +6,9 @@ import { Ajv, type AnySchemaObject, type ErrorObject, type ValidateFunction } fr
  * same files from `$schema` for editor validation, or validate in their own tooling.
  */
 export const schemaFiles = {
+  /** `fidelity.schema.json`, describing `fidelity.json`. */
   config: new URL('../../schemas/fidelity.schema.json', import.meta.url),
+  /** `scene.schema.json`, describing `scene.json`. */
   scene: new URL('../../schemas/scene.schema.json', import.meta.url),
 } as const;
 
@@ -32,21 +34,57 @@ export type FidelityConfig = {
     category?: string;
   }[];
   /** Named renderer selections the viewer offers, optionally pinned to a reference. */
-  comparisonPresets?: { id: string; name: string; renderers: string[]; ref?: string }[];
+  comparisonPresets?: {
+    /** Unique preset id. */
+    id: string;
+    /** Display name. */
+    name: string;
+    /** Ids of the renderers the preset shows. */
+    renderers: string[];
+    /** Id of the reference renderer to compare against; it must be marked `reference`. */
+    ref?: string;
+  }[];
   /** The outputs rendered for each scene, such as `beauty` or `ao`. */
-  outputs: { id: string; label?: string; kind?: 'static' | 'temporal' }[];
+  outputs: {
+    /** Output folder name; unique within the suite. */
+    id: string;
+    /** Display name; defaults to the id. */
+    label?: string;
+    /** `temporal` marks representative frames of animated sequences, which are not scored as static captures. */
+    kind?: 'static' | 'temporal';
+  }[];
 };
 
 /** Optional `<scene>/scene.json`. */
-export type SceneMeta = { title?: string; category?: string; tags: string[] };
+export type SceneMeta = {
+  /** Display title; defaults to the folder name. */
+  title?: string;
+  /** Grouping label for scene filters. */
+  category?: string;
+  /** Search tags. */
+  tags: string[];
+};
 
 /** Something in the suite that fidelity-kit ignores; `path` is relative to the suite root. */
-export type SuiteWarning = { path: string; message: string };
+export type SuiteWarning = {
+  /** Path of the ignored content, relative to the suite root. */
+  path: string;
+  /** Why it is ignored. */
+  message: string;
+};
 
 /** Thrown when `fidelity.json` or `scene.json` fails validation; every problem is listed in the message. */
 export class SchemaValidationError extends Error {
+  /**
+   * Creates an error listing every validation problem.
+   *
+   * @param file - Name of the invalid file, used in the message.
+   * @param issues - One description per problem found.
+   */
   constructor(
+    /** Name of the invalid file. */
     readonly file: string,
+    /** One description per problem found. */
     readonly issues: string[],
   ) {
     super(`Invalid ${file}:\n${issues.map((issue) => `  - ${issue}`).join('\n')}`);
