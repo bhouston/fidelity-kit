@@ -14,3 +14,8 @@ packages/docs/build
 packages/docs/docs/cli
 packages/docs/docs/api
 release-artifacts
+
+# Agent tooling
+.claude/
+.codex/
+.cursor/
